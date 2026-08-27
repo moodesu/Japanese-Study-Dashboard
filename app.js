@@ -2,8 +2,8 @@ const SB = window.SUPABASE_CONFIG || {};
 const hasSupabase = !!(SB.url && SB.anonKey && !SB.url.includes('YOUR_') && !SB.anonKey.includes('YOUR_'));
 const db = hasSupabase && window.supabase ? window.supabase.createClient(SB.url, SB.anonKey) : null;
 
-const POMO_DURATIONS = { work: 25*60, short: 5*60, long: 15*60 };
-const POMO_CYCLE_LENGTH = 4; // work sessions before a long break
+const POMO_DURATIONS = { work: 25*60, short: 5*60, long: 15*60 }; // fallback defaults
+const POMO_CYCLE_LENGTH = 4; // fallback default
 
 const state = {
   view: 'dashboard',
@@ -14,6 +14,7 @@ const state = {
   notes: localStorage.getItem('appNotes') || '',
   user: null,
   ready: false,
+  pomodoroSettings: JSON.parse(localStorage.getItem('pomodoroSettings') || 'null') || { work:25, short:5, long:15, cycle:4 },
   pomodoro: JSON.parse(localStorage.getItem('pomodoroState') || 'null') || {
     status: 'idle', mode: 'work', remaining: POMO_DURATIONS.work,
     taskId: null, cycle: 0, endAt: null, startedAt: null
@@ -118,7 +119,25 @@ function lessonStatus(n){
 }
 
 // ---- Pomodoro timer -------------------------------------------------
-function pomodoroDuration(mode){ return POMO_DURATIONS[mode] || POMO_DURATIONS.work; }
+function pomodoroDuration(mode){
+  const s=state.pomodoroSettings;
+  const minutes = mode==='work'?s.work : mode==='long'?s.long : s.short;
+  return Math.max(60,Math.round((minutes||POMO_DURATIONS[mode]/60||25)*60));
+}
+function savePomodoroSettings(){
+  localStorage.setItem('pomodoroSettings', JSON.stringify(state.pomodoroSettings));
+  if(db && state.user){
+    db.from('user_preferences').upsert(
+      {user_id:state.user.id, settings:{pomodoro:state.pomodoroSettings}},
+      {onConflict:'user_id'}
+    ).then(({error})=>{ if(error) toast('Settings saved locally; cloud sync failed.'); });
+  }
+}
+function renderPomodoroSettings(){
+  const s=state.pomodoroSettings;
+  $('#pomoWorkMin').value=s.work; $('#pomoShortMin').value=s.short;
+  $('#pomoLongMin').value=s.long; $('#pomoCycleLen').value=s.cycle;
+}
 function savePomodoro(){ localStorage.setItem('pomodoroState', JSON.stringify(state.pomodoro)); }
 function saveSessions(){ localStorage.setItem('pomodoroSessions', JSON.stringify(state.sessions)); }
 function taskLessonNumber(id){
@@ -235,7 +254,7 @@ function advanceMode(){
   const p=state.pomodoro;
   if(p.mode==='work'){
     p.cycle+=1;
-    p.mode=(p.cycle%POMO_CYCLE_LENGTH===0)?'long':'short';
+    p.mode=(p.cycle%(state.pomodoroSettings.cycle||POMO_CYCLE_LENGTH)===0)?'long':'short';
     playChime(); toast('Focus session complete — take a break'); notify('Pomodoro complete','Time for a break.');
   }else{
     p.mode='work';
@@ -289,6 +308,7 @@ function render(){
   else if(state.view==='plan') renderWeek();
   else renderLesson(state.lesson);
   $('#globalNotes').value=state.notes; $('#startDate').value=state.startDate; renderStatus();
+  renderPomodoroSettings();
   renderPomodoro();
 }
 function renderGate(){
@@ -429,7 +449,13 @@ async function loadCloud(){
   const {data,error}=await db.from('task_state').select('*').eq('user_id',state.user.id);
   if(!error&&data) data.forEach(r=>state.taskState[r.task_id]={completed:r.completed,mastery:r.mastery,confidence:r.confidence,notes:r.notes,completed_at:r.completed_at});
   const {data:n}=await db.from('app_notes').select('notes').eq('user_id',state.user.id).maybeSingle(); if(n)state.notes=n.notes||'';
-  const {data:p}=await db.from('user_preferences').select('start_date').eq('user_id',state.user.id).maybeSingle(); if(p?.start_date)state.startDate=p.start_date;
+  const {data:p}=await db.from('user_preferences').select('start_date,settings').eq('user_id',state.user.id).maybeSingle();
+  if(p?.start_date)state.startDate=p.start_date;
+  if(p?.settings?.pomodoro){
+    state.pomodoroSettings={...state.pomodoroSettings,...p.settings.pomodoro};
+    localStorage.setItem('pomodoroSettings',JSON.stringify(state.pomodoroSettings));
+    if(state.pomodoro.status==='idle') state.pomodoro.remaining=pomodoroDuration(state.pomodoro.mode);
+  }
   const {data:sessions,error:sessErr}=await db.from('pomodoro_sessions').select('*').eq('user_id',state.user.id);
   if(!sessErr && sessions){
     const unsynced=state.sessions.filter(s=>!s.synced);
@@ -447,6 +473,16 @@ function toast(m){const e=$('#toast');e.textContent=m;e.classList.add('show');se
 
 $('#saveGlobalNotes').onclick=async()=>{state.notes=$('#globalNotes').value;saveLocal();if(db&&state.user)await db.from('app_notes').upsert({user_id:state.user.id,notes:state.notes},{onConflict:'user_id'});toast('Notes saved');};
 $('#startDate').onchange=async e=>{state.startDate=e.target.value||'2026-08-31';saveLocal();if(db&&state.user)await db.from('user_preferences').upsert({user_id:state.user.id,start_date:state.startDate},{onConflict:'user_id'});render();};
+function updatePomoSetting(key,val,min){
+  const n=Math.max(min,Math.round(+val)||state.pomodoroSettings[key]);
+  state.pomodoroSettings[key]=n;
+  if(state.pomodoro.status==='idle') state.pomodoro.remaining=pomodoroDuration(state.pomodoro.mode);
+  savePomodoroSettings(); savePomodoro(); renderPomodoro();
+}
+$('#pomoWorkMin').onchange=e=>updatePomoSetting('work',e.target.value,1);
+$('#pomoShortMin').onchange=e=>updatePomoSetting('short',e.target.value,1);
+$('#pomoLongMin').onchange=e=>updatePomoSetting('long',e.target.value,1);
+$('#pomoCycleLen').onchange=e=>updatePomoSetting('cycle',e.target.value,1);
 $('#openLogin').onclick=()=>$('#authDialog').showModal();
 $('#gateLogin').onclick=()=>$('#authDialog').showModal();
 $('#closeLogin').onclick=()=>$('#authDialog').close();
