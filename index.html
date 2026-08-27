@@ -41,7 +41,7 @@ h2,h3{margin:0 0 12px}.muted{color:var(--muted)}.today{font-size:13px;color:var(
 
 /* v2 focused study dashboard */
 .lesson-card{border:1px solid #c9dadd;border-left:4px solid var(--accent);border-radius:12px;padding:14px;margin-top:12px;background:#f5faf9}
-.lesson-meta{font-size:12px;color:var(--muted);margin-bottom:4px}.lesson-title{font-weight:700}.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}.chip{font-size:11px;padding:4px 7px;background:#e9e6dd;color:#445065;border-radius:99px}
+.lesson-meta{font-size:12px;color:var(--muted);margin-bottom:4px}.taskbody .name{letter-spacing:.005em}.lesson-title{font-weight:700}.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}.chip{font-size:11px;padding:4px 7px;background:#e9e6dd;color:#445065;border-radius:99px}
 .section-title{margin-top:22px;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
 .checkgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.checkitem{border:1px solid var(--line);border-radius:9px;padding:9px;background:var(--card)}
 .notes{width:100%;min-height:90px;border:1px solid var(--line);border-radius:9px;padding:10px;font:inherit;resize:vertical}
@@ -241,27 +241,27 @@ const tobiraLessons = [
 ];
 function tobiraTaskFor(lesson,day){
  const l=tobiraLessons[lesson-1], d=day%7;
+ const p=`pp. ${l.pages}`;
  const reading1=l.readings[0], reading2=l.readings[1];
- const readingBlock=l.readings.length>2 ? `${reading1} + ${l.readings[1]}` : reading1;
  const map=[
-  [`Tobira L${l.n} · vocabulary + kanji`, "50–60 min"],
-  [`Tobira L${l.n} · grammar + workbook`, "60 min"],
-  [`Tobira L${l.n} · reading 1 · ${reading1}`, "60 min"],
-  [`Tobira L${l.n} · reading 2 · ${reading2}`, "60 min"],
-  [`Tobira L${l.n} · conversation + listening`, "50–60 min"],
-  [`Tobira L${l.n} · topic + speaking/project`, "45–60 min"],
-  [`Tobira L${l.n} · retrieval + light review`, "20–30 min"]
+  [`Tobira L${l.n} · Vocabulary + kanji · ${p}`, "50–60 min"],
+  [`Tobira L${l.n} · Grammar + workbook/worksheet · ${p}`, "60 min"],
+  [`Tobira L${l.n} · Reading 1 · ${reading1} · ${p}`, "60 min"],
+  [`Tobira L${l.n} · Reading 2 · ${reading2} · ${p}`, "60 min"],
+  [`Tobira L${l.n} · Conversation + listening · ${p}`, "50–60 min"],
+  [`Tobira L${l.n} · Topic + speaking/project · ${p}`, "45–60 min"],
+  [`Tobira L${l.n} · Retrieval + review · ${p}`, "20–30 min"]
  ];
  return map[d];
 }
 const tobiraTaskInfo={
- "vocabulary + kanji":"Learn the lesson vocabulary and kanji actively. Read each item aloud, cover the English/meaning, retrieve it, then make a quick example with the most useful items.",
- "grammar + workbook":"Study the assigned grammar points, say the examples aloud, then complete the matching workbook exercises. Mark errors by type and redo them from memory.",
- "reading 1":"First read for overall meaning. Second pass: investigate only vocabulary/grammar that blocks comprehension or recurs. Finish with a short oral summary.",
- "reading 2":"Repeat the same two-pass method. Compare your understanding with the first reading and collect useful expressions rather than translating every sentence.",
- "conversation + listening":"Listen first without the script, then with it. Practise the target conversation function, shadow useful lines, and produce your own examples using the lesson's language.",
- "topic + speaking/project":"Use the lesson topic for output. Speak for 3–5 minutes, use the target grammar/vocabulary, and complete the relevant Unit Project preparation or activity when assigned.",
- "retrieval + light review":"Close the book and retrieve the lesson vocabulary, grammar and main ideas. Replay difficult audio or reread a difficult passage. Do not start new material."
+ "Vocabulary + kanji":"Learn the lesson vocabulary and kanji actively. Read each item aloud, cover the English/meaning, retrieve it, then make a quick example with the most useful items.",
+ "Grammar + workbook/worksheet":"Study the assigned grammar points, say the examples aloud, then complete the matching workbook exercises. Mark errors by type and redo them from memory.",
+ "Reading 1":"First read for overall meaning. Second pass: investigate only vocabulary/grammar that blocks comprehension or recurs. Finish with a short oral summary.",
+ "Reading 2":"Repeat the same two-pass method. Compare your understanding with the first reading and collect useful expressions rather than translating every sentence.",
+ "Conversation + listening":"Listen first without the script, then with it. Practise the target conversation function, shadow useful lines, and produce your own examples using the lesson's language.",
+ "Topic + speaking/project":"Use the lesson topic for output. Speak for 3–5 minutes, use the target grammar/vocabulary, and complete the relevant Unit Project preparation or activity when assigned.",
+ "Retrieval + review":"Close the book and retrieve the lesson vocabulary, grammar and main ideas. Replay difficult audio or reread a difficult passage. Do not start new material."
 };
 
 function tasksFor(w,d){
@@ -309,11 +309,13 @@ function tasksFor(w,d){
 function openTask(name,duration){
  let info=taskInfo[name];
  let lesson=null;
- const m=name.match(/^Tobira L(\d+) · (.+?) — (.+)$/);
+ const m=name.match(/^Tobira L(\d+) · (.+?) · pp\. (.+)$/);
  if(m) lesson=tobiraLessons[Number(m[1])-1];
  if(!info && lesson){
-   const phase=tobiraTaskInfo[m[3]]||"Complete the assigned lesson work.";
-   info={title:`Lesson ${lesson.n} · ${lesson.title}`,text:`${lesson.unit} · pp. ${lesson.pages}. ${phase}`,steps:["Open the assigned TOBIRA I lesson section.","Use the lesson vocabulary, grammar and examples actively rather than reading passively.","Complete the matching workbook work where assigned.","Record anything that still needs review before the next session."]};
+   const raw=m[2];
+   const phaseKey=Object.keys(tobiraTaskInfo).find(k=>raw.startsWith(k))||raw;
+   const phase=tobiraTaskInfo[phaseKey]||"Complete the assigned lesson work.";
+   info={title:`Lesson ${lesson.n} · ${lesson.title}`,text:`${lesson.unit} · <strong>Textbook pp. ${lesson.pages}</strong>. ${phase}`,steps:["Open the assigned TOBIRA I lesson pages.","Use the lesson vocabulary, grammar and examples actively rather than reading passively.","Complete the matching official worksheet/workbook-style activity where available.","Record anything that still needs review before the next session."]};
  }
  if(!info) info={title:name,text:"Complete this scheduled study activity.",steps:["Follow the week's objective.","Keep notes on anything that needs review."]};
  if(name.startsWith("Tobira Beginning")){
@@ -328,6 +330,7 @@ function openTask(name,duration){
    const links=(lesson.web||[]).map((u,i)=>`<a href="${u}" target="_blank" rel="noopener">${i===0?"TOBIRA audio":"TOBIRA worksheets"}</a>`).join("");
    extra=`<div class="section-title">Can-Do goals</div><div class="checkgrid">${checks}</div>
    <div class="section-title">Lesson components</div><div class="chips">${lesson.components.map(x=>`<span class="chip">${x}</span>`).join("")}</div>
+   <div class="section-title">Textbook reference</div><div class="tip"><strong>TOBIRA I: Intermediate Japanese · pp. ${lesson.pages}</strong><br>Use these pages as the master reference for the lesson. Where the contents page does not specify an individual subsection page, the dashboard deliberately shows the full lesson range rather than inventing a page number.</div>
    <div class="section-title">Lesson map</div><div class="tip"><strong>Readings:</strong> ${lesson.readings.join(" · ")}<br><strong>Conversation:</strong> ${lesson.conversation}<br><strong>Topic:</strong> ${lesson.topic}<br><strong>Project:</strong> ${lesson.project}</div>
    ${links?`<div class="linkrow">${links}</div>`:""}
    <div class="section-title">Your notes</div><textarea class="notes" id="lessonNotes" placeholder="Grammar I struggled with… vocabulary to revisit… speaking ideas…">${state["notes|lesson|"+lesson.n]||""}</textarea>
@@ -385,7 +388,7 @@ function render(){
  const lo=document.getElementById("lessonOverview");
  if(w>=2&&w<=9){
    const l=tobiraLessons[w-2];
-   lo.innerHTML=`<div class="lesson-card"><div class="lesson-meta">${l.unit}</div><div class="lesson-title">Lesson ${l.n} · ${l.title}</div><div class="chips">${l.components.map(x=>`<span class="chip">${x}</span>`).join("")}</div></div>`;
+   lo.innerHTML=`<div class="lesson-card"><div class="lesson-meta">${l.unit} · <strong>Textbook pp. ${l.pages}</strong></div><div class="lesson-title">Lesson ${l.n} · ${l.title}</div><div class="chips">${l.components.map(x=>`<span class="chip">${x}</span>`).join("")}</div></div>`;
  } else lo.innerHTML="";
  updateStats();
 }
