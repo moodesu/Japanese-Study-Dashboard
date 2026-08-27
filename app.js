@@ -276,10 +276,13 @@ $('#loginForm').onsubmit=async e=>{
     state.user=data.user||null;
     if(!state.user){toast('Login succeeded but no user session was returned.');return;}
     $('#authDialog').close();
-    await loadCloud();
+    // Render immediately after authentication. Cloud sync runs in the
+    // background so a slow/blocked database query cannot trap the UI
+    // behind the login gate.
     state.ready=true;
     render();
     toast('Signed in');
+    loadCloud().then(()=>render()).catch(()=>{});
   }catch(err){
     toast(err?.message||'Unable to sign in.');
   }finally{
@@ -292,13 +295,16 @@ async function initAuth(){
   if(!db){state.ready=true;render();return;}
   const {data}=await db.auth.getSession();
   state.user=data.session?.user||null;
-  if(state.user)await loadCloud();
-  state.ready=true;render();
-  db.auth.onAuthStateChange(async(_e,s)=>{
+  // Show the authenticated shell immediately; don't make initial cloud
+  // loading a prerequisite for leaving the login gate.
+  state.ready=true;
+  render();
+  if(state.user) loadCloud().then(()=>render()).catch(()=>{});
+  db.auth.onAuthStateChange((_e,s)=>{
     state.user=s?.user||null;
-    if(state.user)await loadCloud();
     state.ready=true;
     render();
+    if(state.user) loadCloud().then(()=>render()).catch(()=>{});
   });
 }
 
