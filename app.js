@@ -1,47 +1,278 @@
-const SB=window.SUPABASE_CONFIG||{};
-const hasSupabase=!!(SB.url&&SB.anonKey&&!SB.url.includes('YOUR_')&&!SB.anonKey.includes('YOUR_'));
-const db=hasSupabase?window.supabase.createClient(SB.url,SB.anonKey):null;
-const state={week:0,startDate:localStorage.getItem('studyStartDate')||'2026-08-31',taskState:JSON.parse(localStorage.getItem('taskState')||'{}'),notes:localStorage.getItem('appNotes')||'',user:null,syncing:false};
-const $=s=>document.querySelector(s), esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const addDays=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x},fmt=d=>d.toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'}),dateKey=d=>d.toISOString().slice(0,10);
-const lessonForWeek=w=>w<10?CURRICULUM.lessons[w]:null;
-const consolidationLessons=w=>w===10?CURRICULUM.lessons.slice(0,5):CURRICULUM.lessons.slice(5,10);
-function pageFor(l,key){for(const b of ['workbook2','workbook1'])if(l[b]?.[key]!=null)return{book:b==='workbook2'?'Workbook 2':'Workbook 1',page:l[b][key]};return null}
-function defFor(key){return TASK_TYPES.find(x=>x.key===key)}
-function makeTask(l,w,d,key){const def=defFor(key),ref=pageFor(l,key);if(!def||!ref)return null;return{id:`b2-w${w+1}-d${d+1}-${key}`,lesson:l.n,key,title:`${def.label} · p.${ref.page}`,book:def.book,page:ref.page,duration:def.duration,desc:def.desc}}
+const SB = window.SUPABASE_CONFIG || {};
+const hasSupabase = !!(SB.url && SB.anonKey && !SB.url.includes('YOUR_') && !SB.anonKey.includes('YOUR_'));
+const db = hasSupabase && window.supabase ? window.supabase.createClient(SB.url, SB.anonKey) : null;
+
+const state = {
+  view: 'dashboard',
+  week: 0,
+  lesson: 11,
+  startDate: localStorage.getItem('studyStartDate') || '2026-08-31',
+  taskState: JSON.parse(localStorage.getItem('taskState') || '{}'),
+  notes: localStorage.getItem('appNotes') || '',
+  user: null,
+  ready: false
+};
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+const fmt = d => d.toLocaleDateString(undefined, {weekday:'long', month:'short', day:'numeric'});
+const dateKey = d => { const x = new Date(d); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; };
+const lessonForWeek = w => w < 10 ? CURRICULUM.lessons[w] : null;
+const consolidationLessons = w => w === 10 ? CURRICULUM.lessons.slice(0,5) : CURRICULUM.lessons.slice(5,10);
+
+function lessonByNumber(n){ return CURRICULUM.lessons.find(l => l.n === Number(n)); }
+function defFor(key){ return TASK_TYPES.find(x => x.key === key); }
+function pageFor(l, key){
+  for (const b of ['workbook2','workbook1']) {
+    if (l[b]?.[key] != null) return { book: b === 'workbook2' ? 'Workbook 2' : 'Workbook 1', page: l[b][key] };
+  }
+  return null;
+}
+function makeTask(l, key, opts={}){
+  const def = defFor(key), ref = pageFor(l,key);
+  if(!def || !ref) return null;
+  return {
+    id: `b2-l${l.n}-${key}`,
+    lesson: l.n,
+    key,
+    title: def.label,
+    book: def.book,
+    page: ref.page,
+    duration: def.duration,
+    desc: def.desc,
+    ...opts
+  };
+}
+function lessonTasks(l){
+  return TASK_TYPES.map(d => makeTask(l,d.key)).filter(Boolean);
+}
 function weeklyTasks(w,d){
- if(w>=10)return consolidationTasks(w,d);
- const l=lessonForWeek(w), keys=[['vocab','kanji'],['particle','grammar1'],['comp1','reading'],['grammar2','comp2'],['listening','writing'],['review'],[]][d];
- const out=keys.map(k=>makeTask(l,w,d,k)).filter(Boolean);
- if(d===5)out.push({id:`b2-w${w+1}-d6-consolidation`,lesson:l.n,key:'consolidation',title:'Lesson consolidation + catch-up',duration:'30–45 min',book:'Your notes',desc:'Return to anything marked shaky or weak. Re-test it without notes, then update mastery.'});
- if(d===6)out.push({id:`b2-w${w+1}-d7-mastery`,lesson:l.n,key:'mastery',title:`Mastery check · Lesson ${l.n}`,duration:'20–30 min',book:'Dashboard',desc:'Check each lesson area. Can you recognise it, understand it and produce it without looking? Mark each component accordingly.'});
- return out;
+  if(w >= 10) return consolidationTasks(w,d);
+  const l = lessonForWeek(w);
+  const keys = [['vocab','kanji'],['particle','grammar1'],['comp1','reading'],['grammar2','comp2'],['listening','writing'],['review'],[]][d];
+  const out = keys.map(k => makeTask(l,k)).filter(Boolean);
+  if(d === 5) out.push({id:`b2-w${w+1}-d6-consolidation`,lesson:l.n,key:'consolidation',title:'Lesson consolidation + catch-up',duration:'30–45 min',book:'Your notes',desc:'Return to anything marked shaky or weak. Re-test it without notes, then update mastery.'});
+  if(d === 6) out.push({id:`b2-w${w+1}-d7-mastery`,lesson:l.n,key:'mastery',title:`Mastery check · Lesson ${l.n}`,duration:'20–30 min',book:'Dashboard',desc:'Check each lesson area. Can you recognise it, understand it and produce it without looking? Mark each component accordingly.'});
+  return out;
 }
 function consolidationTasks(w,d){
- const ls=consolidationLessons(w),label=w===10?'Lessons 11–15':'Lessons 16–20';
- if(d===6)return[{id:`b2-w${w+1}-d7-mastery`,key:'mastery',title:`Mastery check · ${label}`,duration:'30–45 min',book:'Dashboard',desc:'Review recorded mastery across this block. Re-test every shaky or weak component and update your status.'}];
- const l=ls[d], key=['vocab','particle','grammar1','grammar2','listening','reading','writing'][d];
- if(!l)return[{id:`b2-w${w+1}-d${d+1}-catchup`,key:'catchup',title:`Consolidation · ${label}`,duration:'30–45 min',book:'Your notes',desc:'Use this session for unfinished work and the weakest remaining areas.'}];
- const t=makeTask(l,w,d,key);return t?[{...t,title:`L${l.n} · ${t.title}`,desc:t.desc+' This is a consolidation pass: prioritise anything previously marked shaky or weak.'}]:[{id:`b2-w${w+1}-d${d+1}-targeted`,key:'targeted',title:`L${l.n} · targeted review`,duration:'30–45 min',book:'Your notes',desc:'Review the weakest remaining component from this lesson and update its mastery.'}];
+  const ls = consolidationLessons(w), label = w === 10 ? 'Lessons 11–15' : 'Lessons 16–20';
+  if(d === 6) return [{id:`b2-w${w+1}-d7-mastery`,key:'mastery',title:`Mastery check · ${label}`,duration:'30–45 min',book:'Dashboard',desc:'Review recorded mastery across this block. Re-test every shaky or weak component and update your status.'}];
+  const l = ls[d], key = ['vocab','particle','grammar1','grammar2','listening','reading','writing'][d];
+  if(!l) return [{id:`b2-w${w+1}-d${d+1}-catchup`,key:'catchup',title:`Consolidation · ${label}`,duration:'30–45 min',book:'Your notes',desc:'Use this session for unfinished work and the weakest remaining areas.'}];
+  const t = makeTask(l,key);
+  return t ? [{...t, id:`b2-consolidation-w${w+1}-l${l.n}-${key}`, title:`L${l.n} · ${t.title}`, desc:t.desc+' This is a consolidation pass: prioritise anything previously marked shaky or weak.'}] : [{id:`b2-w${w+1}-d${d+1}-targeted`,key:'targeted',title:`L${l.n} · targeted review`,duration:'30–45 min',book:'Your notes',desc:'Review the weakest remaining component from this lesson and update its mastery.'}];
 }
-function habits(w,d){return OPTIONAL_TASKS.map(x=>({id:`habit-w${w+1}-d${d+1}-${x.key}`,key:x.key,title:x.label,duration:x.duration,book:'Habit',desc:x.desc,habit:true}))}
-function ts(id){return state.taskState[id]||{completed:false,mastery:'not_started',confidence:null,notes:'',completed_at:null}}
-function saveLocal(){localStorage.setItem('taskState',JSON.stringify(state.taskState));localStorage.setItem('appNotes',state.notes);localStorage.setItem('studyStartDate',state.startDate)}
-async function cloudSave(id){if(!db||!state.user)return;const t=ts(id);const{error}=await db.from('task_state').upsert({user_id:state.user.id,task_id:id,completed:t.completed,completed_at:t.completed_at,mastery:t.mastery,confidence:t.confidence,notes:t.notes},{onConflict:'user_id,task_id'});if(error)toast('Cloud save failed; local copy is safe.')}
-function setTask(id,p){state.taskState[id]={...ts(id),...p};saveLocal();render();cloudSave(id)}
-function toggle(id){const t=ts(id);setTask(id,{completed:!t.completed,completed_at:!t.completed?new Date().toISOString():null})}
-function allTasks(w){return Array.from({length:7},(_,d)=>weeklyTasks(w,d)).flat()}
-function progress(w){const a=allTasks(w);return{done:a.filter(t=>ts(t.id).completed).length,total:a.length}}
-function weekDates(w){const s=new Date(state.startDate+'T00:00:00');return Array.from({length:7},(_,i)=>addDays(s,w*7+i))}
-function render(){renderHeader();renderTabs();renderWeek();$('#globalNotes').value=state.notes;renderStatus()}
-function renderHeader(){const l=lessonForWeek(state.week),p=progress(state.week),ds=weekDates(state.week);$('#weekLabel').textContent=`Week ${state.week+1}`;$('#lessonLabel').textContent=l?`Lesson ${l.n}: ${l.title}`:(state.week===10?'Lessons 11–15: consolidation':'Lessons 16–20: consolidation');$('#lessonEnglish').textContent=l?l.english:'Re-test, repair and consolidate the Beginning II course.';$('#dateRange').textContent=`${fmt(ds[0])} – ${fmt(ds[6])}`;$('#progressText').textContent=`${p.done}/${p.total} core tasks complete` ;$('#progressBar').style.width=(p.total?p.done/p.total*100:0)+'%'}
-function renderTabs(){$('#weekTabs').innerHTML=Array.from({length:12},(_,i)=>`<button class="weektab ${i===state.week?'active':''}" data-week="${i}">W${i+1}</button>`).join('');$('#weekTabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{state.week=+b.dataset.week;render();scrollTo({top:0,behavior:'smooth'})})}
-function card(t){const s=ts(t.id);return`<article class="task ${s.completed?'done':''}" data-task="${esc(t.id)}"><input type="checkbox" data-check="${esc(t.id)}" ${s.completed?'checked':''}><div class="taskmain"><div class="tasktitle">${esc(t.title)}</div><div class="taskmeta">${esc(t.book)}${t.page?` · p.${t.page}`:''} · ${esc(t.duration)}</div><div class="taskhint">Tap for instructions, mastery and notes</div></div><span class="status-dot ${s.mastery}"></span></article>`}
-function renderWeek(){const ds=weekDates(state.week);$('#week').innerHTML=ds.map((date,d)=>{const core=weeklyTasks(state.week,d),hs=habits(state.week,d),today=dateKey(date)===dateKey(new Date());return`<section class="day ${today?'today':''}"><div class="dayhead"><div><div class="eyebrow">${today?'TODAY · ':''}${date.toLocaleDateString(undefined,{weekday:'long'})}</div><h2>${fmt(date)}</h2></div><span class="daycount">${core.filter(t=>ts(t.id).completed).length}/${core.length}</span></div>${core.length?`<div class="tasklist">${core.map(card).join('')}</div>`:''}<details class="habits"><summary>Daily habits <span>WaniKani · Migaku · shadowing · reading</span></summary><div class="habitlist">${hs.map(card).join('')}</div></details></section>`}).join('');$('#week').querySelectorAll('[data-task]').forEach(e=>e.onclick=x=>{if(x.target.matches('input'))return;openTask(e.dataset.task)});$('#week').querySelectorAll('[data-check]').forEach(e=>e.onchange=()=>toggle(e.dataset.check))}
-function openTask(id){const t=[...allTasks(state.week),...habits(state.week,0),...habits(state.week,1),...habits(state.week,2),...habits(state.week,3),...habits(state.week,4),...habits(state.week,5),...habits(state.week,6)].find(x=>x.id===id);if(!t)return;const s=ts(id);$('#modalTitle').textContent=t.title;$('#modalSub').textContent=`${t.lesson?`TOBIRA Beginning Japanese II · Lesson ${t.lesson}`:'Daily habit'} · ${t.book}${t.page?` · p.${t.page}`:''}`;$('#modalDesc').innerHTML=`<p>${esc(t.desc)}</p>${t.lesson?'<p><strong>Study rule:</strong> Work through this section fully. If you already know it, do a small representative check and mark the skill mastered instead of grinding repetitive questions.</p>':''}`;$('#modalDone').checked=s.completed;$('#modalDone').onchange=()=>toggle(id);$('#mastery').value=s.mastery;$('#mastery').onchange=e=>setTask(id,{mastery:e.target.value});$('#confidence').value=s.confidence||'';$('#confidence').onchange=e=>setTask(id,{confidence:e.target.value?+e.target.value:null});$('#taskNotes').value=s.notes||'';$('#taskNotes').oninput=e=>{state.taskState[id]={...ts(id),notes:e.target.value};saveLocal();cloudSave(id)};$('#modal').showModal()}
-async function loadCloud(){if(!db||!state.user)return;const{data,error}=await db.from('task_state').select('*').eq('user_id',state.user.id);if(!error)data.forEach(r=>state.taskState[r.task_id]={completed:r.completed,mastery:r.mastery,confidence:r.confidence,notes:r.notes,completed_at:r.completed_at});const{data:n}=await db.from('app_notes').select('notes').eq('user_id',state.user.id).maybeSingle();if(n)state.notes=n.notes||'';const{data:p}=await db.from('user_preferences').select('start_date').eq('user_id',state.user.id).maybeSingle();if(p?.start_date)state.startDate=p.start_date;saveLocal();render()}
-async function initAuth(){if(!db){renderStatus();return}const{data}=await db.auth.getSession();state.user=data.session?.user||null;renderStatus();if(state.user)await loadCloud();db.auth.onAuthStateChange((_e,s)=>{state.user=s?.user||null;renderStatus();if(state.user)loadCloud()})}
-function renderStatus(){$('#syncStatus').textContent=state.syncing?'Syncing…':state.user?'☁ Synced account':hasSupabase?'Configured · sign in':'Local mode';$('#userLabel').textContent=state.user?.email||''}
-function toast(m){const e=$('#toast');e.textContent=m;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),2300)}
-$('#prevWeek').onclick=()=>{state.week=Math.max(0,state.week-1);render()};$('#nextWeek').onclick=()=>{state.week=Math.min(11,state.week+1);render()};$('#saveGlobalNotes').onclick=async()=>{state.notes=$('#globalNotes').value;saveLocal();if(db&&state.user)await db.from('app_notes').upsert({user_id:state.user.id,notes:state.notes},{onConflict:'user_id'});toast('Notes saved')};$('#startDate').value=state.startDate;$('#startDate').onchange=async e=>{state.startDate=e.target.value||'2026-08-31';saveLocal();if(db&&state.user)await db.from('user_preferences').upsert({user_id:state.user.id,start_date:state.startDate},{onConflict:'user_id'});render()};$('#openLogin').onclick=()=>$('#authDialog').showModal();$('#closeLogin').onclick=()=>$('#authDialog').close();$('#loginForm').onsubmit=async e=>{e.preventDefault();if(!db){toast('Add Supabase values to supabase-config.js first.');return}const{error}=await db.auth.signInWithPassword({email:$('#email').value.trim(),password:$('#password').value});if(error)toast(error.message);else{$('#authDialog').close();toast('Signed in')}};$('#logout').onclick=async()=>{if(db)await db.auth.signOut();state.user=null;renderStatus()};
-render();initAuth();
+function habits(w,d){
+  return OPTIONAL_TASKS.map(x => ({id:`habit-w${w+1}-d${d+1}-${x.key}`,key:x.key,title:x.label,duration:x.duration,book:'Habit',desc:x.desc,habit:true}));
+}
+function ts(id){ return state.taskState[id] || {completed:false,mastery:'not_started',confidence:null,notes:'',completed_at:null}; }
+function saveLocal(){
+  localStorage.setItem('taskState',JSON.stringify(state.taskState));
+  localStorage.setItem('appNotes',state.notes);
+  localStorage.setItem('studyStartDate',state.startDate);
+}
+async function cloudSave(id){
+  if(!db || !state.user) return;
+  const t = ts(id);
+  const {error} = await db.from('task_state').upsert({user_id:state.user.id,task_id:id,completed:t.completed,completed_at:t.completed_at,mastery:t.mastery,confidence:t.confidence,notes:t.notes},{onConflict:'user_id,task_id'});
+  if(error) toast('Cloud save failed; your local copy is safe.');
+}
+function setTask(id,p){ state.taskState[id]={...ts(id),...p}; saveLocal(); render(); cloudSave(id); }
+function toggle(id){ const t=ts(id); setTask(id,{completed:!t.completed,completed_at:!t.completed?new Date().toISOString():null,mastery:!t.completed && t.mastery==='not_started'?'studying':t.mastery}); }
+function weekDates(w){ const s=new Date(state.startDate+'T00:00:00'); return Array.from({length:7},(_,i)=>addDays(s,w*7+i)); }
+function allTasks(w){ return Array.from({length:7},(_,d)=>weeklyTasks(w,d)).flat(); }
+function allCoreTasks(){ return Array.from({length:12},(_,w)=>allTasks(w)).flat(); }
+function progress(w){ const a=allTasks(w); return {done:a.filter(t=>ts(t.id).completed).length,total:a.length}; }
+function overallProgress(){ const a=allCoreTasks(); return {done:a.filter(t=>ts(t.id).completed).length,total:a.length}; }
+function lessonProgress(n){
+  const a=lessonTasks(lessonByNumber(n));
+  return {done:a.filter(t=>ts(t.id).completed).length,total:a.length,mastered:a.filter(t=>ts(t.id).mastery==='mastered').length};
+}
+function currentWeekIndex(){
+  const start=new Date(state.startDate+'T00:00:00');
+  const diff=Math.floor((new Date().setHours(0,0,0,0)-start.getTime())/86400000);
+  return Math.max(0,Math.min(11,Math.floor(diff/7)));
+}
+function nextIncomplete(){
+  const w=currentWeekIndex();
+  for(let i=w;i<12;i++) for(const t of allTasks(i)) if(!ts(t.id).completed) return {task:t,week:i};
+  for(let i=0;i<w;i++) for(const t of allTasks(i)) if(!ts(t.id).completed) return {task:t,week:i};
+  return null;
+}
+function lessonStatus(n){
+  const p=lessonProgress(n);
+  if(p.mastered===p.total) return ['mastered','Mastered'];
+  if(p.done===0) return ['not_started','Not started'];
+  const shaky=lessonTasks(lessonByNumber(n)).filter(t=>['shaky','studying','review'].includes(ts(t.id).mastery)).length;
+  return shaky ? ['studying','In progress · attention needed'] : ['studying','In progress'];
+}
+
+function render(){
+  if(!state.ready || !state.user){ renderGate(); return; }
+  $('#appShell').hidden=false; $('#loginGate').hidden=true;
+  renderHeader(); renderNav();
+  if(state.view==='dashboard') renderDashboard();
+  else if(state.view==='plan') renderWeek();
+  else renderLesson(state.lesson);
+  $('#globalNotes').value=state.notes; $('#startDate').value=state.startDate; renderStatus();
+}
+function renderGate(){
+  $('#appShell').hidden=true; $('#loginGate').hidden=false;
+  $('#gateStatus').textContent=hasSupabase?'Private study dashboard':'Supabase is not configured yet';
+  $('#gateHint').textContent=hasSupabase?'Sign in to access your curriculum, progress and notes.':'Add your Supabase URL and publishable/anon key to supabase-config.js, then sign in.';
+  $('#gateLogin').textContent='Login';
+}
+function renderHeader(){
+  const w=state.week,l=lessonForWeek(w),p=progress(w),ds=weekDates(w);
+  $('#weekLabel').textContent=`Week ${w+1}`;
+  $('#lessonLabel').textContent=l?`Lesson ${l.n}: ${l.title}`:(w===10?'Lessons 11–15: consolidation':'Lessons 16–20: consolidation');
+  $('#lessonEnglish').textContent=l?l.english:'Re-test, repair and consolidate the Beginning II course.';
+  $('#dateRange').textContent=`${fmt(ds[0])} – ${fmt(ds[6])}`;
+  $('#progressText').textContent=`${p.done}/${p.total} core tasks complete`;
+  $('#progressBar').style.width=(p.total?p.done/p.total*100:0)+'%';
+}
+function renderNav(){
+  $('#mainNav').innerHTML=`<button class="navbtn ${state.view==='dashboard'?'active':''}" data-view="dashboard">Dashboard</button><button class="navbtn ${state.view==='plan'?'active':''}" data-view="plan">Study plan</button><button class="navbtn ${state.view==='lesson'?'active':''}" data-view="lesson">Lessons</button>`;
+  $('#mainNav').querySelectorAll('.navbtn').forEach(b=>b.onclick=()=>{state.view=b.dataset.view;if(state.view==='lesson'&&!lessonByNumber(state.lesson))state.lesson=11;render();scrollTo({top:0,behavior:'smooth'});});
+}
+function lessonButton(l){
+  const p=lessonProgress(l.n), pct=p.total?p.done/p.total*100:0, [cls,label]=lessonStatus(l.n);
+  return `<button class="lessonrow" data-lesson="${l.n}"><span class="lessonnum">${l.n}</span><span class="lessonrowmain"><strong>${esc(l.title)}</strong><small>${p.done}/${p.total} sections complete · ${p.mastered}/${p.total} mastered · ${label}</small><span class="mini-progress"><i style="width:${pct}%"></i></span></span><span class="lessonpct">${Math.round(pct)}%</span></button>`;
+}
+function renderDashboard(){
+  $('#hero').hidden=true; $('#bottomArea').hidden=true; $('#weekView').hidden=true; $('#mainContent').hidden=false;
+  const overall=overallProgress(),w=currentWeekIndex(),wp=progress(w),next=nextIncomplete();
+  const attention=CURRICULUM.lessons.flatMap(l=>lessonTasks(l).map(t=>({t,s:ts(t.id)}))).filter(x=>['shaky','studying','review'].includes(x.s.mastery)).slice(0,8);
+  const mastered=CURRICULUM.lessons.filter(l=>lessonStatus(l.n)[0]==='mastered').length;
+  $('#mainContent').innerHTML=`
+    <section class="dashgrid">
+      <article class="dashcard primarycard"><div class="eyebrow">Your dashboard</div><h2>Beginning II, properly worked through.</h2><p>Use the books as the backbone. Complete the assigned work, then use mastery checks to skip repetitive practice once the skill is genuinely automatic.</p><div class="bigprogress"><strong>${Math.round(overall.done/overall.total*100)||0}%</strong><span>${overall.done} of ${overall.total} scheduled core tasks complete</span></div><div class="progress"><i style="width:${overall.total?overall.done/overall.total*100:0}%"></i></div><div class="statstrip"><span><strong>${mastered}</strong> lessons mastered</span><span><strong>${attention.length}</strong> items needing attention</span></div></article>
+      <article class="dashcard"><div class="eyebrow">Current week</div><h3>Week ${w+1}</h3><p>${wp.done}/${wp.total} core tasks complete</p><button class="smallbtn primary" id="resumeWeek">Open this week</button></article>
+      <article class="dashcard"><div class="eyebrow">Next up</div><h3>${next?esc(next.task.title):'Course complete'}</h3><p>${next?`Week ${next.week+1} · ${esc(next.task.book)}${next.task.page?` · p.${next.task.page}`:''}`:'You have completed every scheduled core task.'}</p>${next?'<button class="smallbtn primary" id="openNext">Open task</button>':''}</article>
+    </section>
+    <section class="dashboard-columns">
+      <article class="panel"><div class="panelhead"><div><h3>Lesson map</h3><p class="subtitle">Click a lesson for the complete Workbook 1 + Workbook 2 study map.</p></div><button class="smallbtn" id="goPlan">View plan</button></div><div class="lessonprogress">${CURRICULUM.lessons.map(lessonButton).join('')}</div></article>
+      <article class="panel"><div class="panelhead"><div><h3>Needs attention</h3><p class="subtitle">Your own mastery decisions drive this list.</p></div></div>${attention.length?`<div class="attentionlist">${attention.map(x=>`<button class="attention" data-task="${esc(x.t.id)}"><span class="status-dot ${x.s.mastery}"></span><span><strong>${esc(x.t.title)}</strong><small>L${x.t.lesson} · ${esc(x.t.book)} · p.${x.t.page}</small></span></button>`).join('')}</div>`:'<div class="empty">Nothing flagged yet. Use the mastery controls in each lesson.</div>'}</article>
+    </section>`;
+  $('#resumeWeek').onclick=()=>{state.week=w;state.view='plan';render();};
+  $('#goPlan').onclick=()=>{state.view='plan';render();};
+  $('#openNext')?.addEventListener('click',()=>{state.week=next.week;state.view='plan';render();setTimeout(()=>openTask(next.task.id),50);});
+  $('#mainContent').querySelectorAll('.lessonrow').forEach(b=>b.onclick=()=>{state.lesson=+b.dataset.lesson;state.view='lesson';render();scrollTo({top:0,behavior:'smooth'});});
+  $('#mainContent').querySelectorAll('.attention').forEach(b=>b.onclick=()=>openTask(b.dataset.task));
+}
+function card(t){
+  const s=ts(t.id);
+  return `<article class="task ${s.completed?'done':''}" data-task="${esc(t.id)}"><input type="checkbox" data-check="${esc(t.id)}" ${s.completed?'checked':''}><div class="taskmain"><div class="tasktitle">${esc(t.title)}</div><div class="taskmeta">${esc(t.book)}${t.page?` · p.${t.page}`:''} · ${esc(t.duration)}</div><div class="taskhint">Tap for instructions, mastery and notes</div></div><span class="status-dot ${s.mastery}"></span></article>`;
+}
+function renderWeek(){
+  $('#hero').hidden=false; $('#bottomArea').hidden=false; $('#weekView').hidden=false; $('#mainContent').hidden=true;
+  const ds=weekDates(state.week);
+  $('#weekView').innerHTML=`<div class="tabsrow"><button class="smallbtn" id="prevWeek">←</button><div class="weektabs" id="weekTabs"></div><button class="smallbtn" id="nextWeek">→</button></div>${ds.map((date,d)=>{const core=weeklyTasks(state.week,d),hs=habits(state.week,d),isToday=dateKey(date)===dateKey(new Date());return `<section class="day ${isToday?'today':''}"><div class="dayhead"><div><div class="eyebrow">${isToday?'TODAY · ':''}${date.toLocaleDateString(undefined,{weekday:'long'})}</div><h2>${fmt(date)}</h2></div><span class="daycount">${core.filter(t=>ts(t.id).completed).length}/${core.length}</span></div>${core.length?`<div class="tasklist">${core.map(card).join('')}</div>`:''}<details class="habits"><summary>Daily habits <span>WaniKani · Migaku · shadowing · reading</span></summary><div class="habitlist">${hs.map(card).join('')}</div></details></section>`}).join('')}`;
+  $('#weekView').querySelectorAll('[data-task]').forEach(e=>e.onclick=x=>{if(x.target.matches('input'))return;openTask(e.dataset.task);});
+  $('#weekView').querySelectorAll('[data-check]').forEach(e=>e.onchange=()=>toggle(e.dataset.check));
+  $('#prevWeek').onclick=()=>{state.week=Math.max(0,state.week-1);render();};
+  $('#nextWeek').onclick=()=>{state.week=Math.min(11,state.week+1);render();};
+  renderTabs();
+}
+function renderTabs(){
+  $('#weekTabs').innerHTML=Array.from({length:12},(_,i)=>`<button class="weektab ${i===state.week?'active':''}" data-week="${i}">W${i+1}</button>`).join('');
+  $('#weekTabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{state.week=+b.dataset.week;render();scrollTo({top:0,behavior:'smooth'});});
+}
+function componentRow(l,t){
+  const s=ts(t.id), status=s.mastery==='not_started'?'Not started':s.mastery[0].toUpperCase()+s.mastery.slice(1);
+  return `<article class="component ${s.completed?'done':''}" data-task="${esc(t.id)}"><div class="component-top"><div><div class="component-title">${esc(t.title)}</div><div class="component-ref"><span class="booktag">${esc(t.book)}</span> <strong>p.${t.page}</strong> · ${esc(t.duration)}</div></div><span class="status-label ${s.mastery}">${status}</span></div><div class="component-bottom"><span>${s.completed?'✓ Completed':'Open study task'}</span><span>${s.confidence?`Confidence ${s.confidence}/5`:''}</span></div></article>`;
+}
+function renderLesson(n){
+  const l=lessonByNumber(n); if(!l)return;
+  $('#hero').hidden=true; $('#bottomArea').hidden=true; $('#weekView').hidden=true; $('#mainContent').hidden=false;
+  const tasks=lessonTasks(l), w=n-11, p=lessonProgress(n), pct=p.total?p.done/p.total*100:0;
+  const wb2=tasks.filter(t=>t.book==='Workbook 2'), wb1=tasks.filter(t=>t.book==='Workbook 1');
+  const flagged=tasks.filter(t=>['shaky','studying','review'].includes(ts(t.id).mastery));
+  $('#mainContent').innerHTML=`
+    <div class="lesson-toolbar"><button class="smallbtn" id="backDashboard">← Dashboard</button><button class="smallbtn" id="backPlan">Week ${w+1} plan</button><div class="lesson-select"><button class="smallbtn" id="prevLesson" ${n===11?'disabled':''}>← L${n-1}</button><button class="smallbtn" id="nextLesson" ${n===20?'disabled':''}>L${n+1} →</button></div></div>
+    <section class="lessonhero"><div class="eyebrow">TOBIRA Beginning Japanese II · Lesson ${l.n}</div><h1>${esc(l.title)}</h1><p>${esc(l.english)}</p><div class="lessonhero-grid"><div><strong>${p.done}/${p.total}</strong><span>sections complete</span></div><div><strong>${p.mastered}/${p.total}</strong><span>sections mastered</span></div><div><strong>${Math.round(pct)}%</strong><span>lesson progress</span></div></div><div class="progress"><i style="width:${pct}%"></i></div></section>
+    <section class="study-rule panel"><div><h3>How to use this lesson</h3><p>Work through the assigned pages. If you already know a section, do a representative check rather than grinding every repetition. Only mark <strong>Mastered</strong> when you can recognise it, understand it and produce it reliably.</p></div><button class="smallbtn primary" id="lessonMastery">Open mastery check</button></section>
+    <section class="lesson-grid">
+      <div class="lesson-column"><div class="section-heading"><div><div class="eyebrow">Workbook 2</div><h2>Vocabulary · grammar · listening</h2><p class="subtitle">Your Workbook 2 contents mapped directly to the lesson.</p></div></div><div class="component-list">${wb2.map(t=>componentRow(l,t)).join('')}</div></div>
+      <div class="lesson-column"><div class="section-heading"><div><div class="eyebrow">Workbook 1</div><h2>Kanji · reading · writing</h2><p class="subtitle">Use the corresponding Workbook 1 pages to reinforce the same lesson.</p></div></div><div class="component-list">${wb1.map(t=>componentRow(l,t)).join('')}</div></div>
+    </section>
+    <section class="panel lesson-notes-panel"><div class="panelhead"><div><h3>Lesson notes</h3><p class="subtitle">For overall observations. Individual task notes live in each task.</p></div><span class="flag-count">${flagged.length} flagged</span></div><textarea id="lessonNotes" class="notes" placeholder="What was easy? What keeps tripping you up? Useful example sentences..."></textarea></section>
+    <section class="panel page-map"><div class="panelhead"><div><h3>Book cross-reference</h3><p class="subtitle">Exact page numbers from the contents you supplied.</p></div></div><div class="page-map-grid">${tasks.map(t=>`<button class="page-chip" data-task="${esc(t.id)}"><span>${esc(t.title)}</span><strong>${esc(t.book)} · p.${t.page}</strong></button>`).join('')}</div></section>`;
+  $('#backDashboard').onclick=()=>{state.view='dashboard';render();};
+  $('#backPlan').onclick=()=>{state.week=w;state.view='plan';render();};
+  $('#prevLesson').onclick=()=>{if(n>11){state.lesson=n-1;render();}};
+  $('#nextLesson').onclick=()=>{if(n<20){state.lesson=n+1;render();}};
+  $('#lessonMastery').onclick=()=>openLessonMastery(l);
+  $('#mainContent').querySelectorAll('[data-task]').forEach(e=>e.onclick=()=>openTask(e.dataset.task));
+  const lessonNoteKey=`lesson-${n}`;
+  $('#lessonNotes').value=state.taskState[lessonNoteKey]?.notes||'';
+  $('#lessonNotes').oninput=e=>{state.taskState[lessonNoteKey]={...ts(lessonNoteKey),notes:e.target.value};saveLocal();cloudSave(lessonNoteKey);};
+}
+function openLessonMastery(l){
+  const tasks=lessonTasks(l), rows=tasks.map(t=>{const s=ts(t.id);return `<div class="mastery-row"><div><strong>${esc(t.title)}</strong><small>${esc(t.book)} · p.${t.page}</small></div><select data-mastery-task="${esc(t.id)}"><option value="not_started" ${s.mastery==='not_started'?'selected':''}>Not started</option><option value="studying" ${s.mastery==='studying'?'selected':''}>Studying</option><option value="shaky" ${s.mastery==='shaky'?'selected':''}>Shaky</option><option value="mastered" ${s.mastery==='mastered'?'selected':''}>Mastered</option><option value="review" ${s.mastery==='review'?'selected':''}>Review</option></select></div>`}).join('');
+  $('#modalTitle').textContent=`Mastery check · Lesson ${l.n}`;
+  $('#modalSub').textContent='Rate each component based on what you can actually do now.';
+  $('#modalDesc').innerHTML=`<div class="mastery-list">${rows}</div><p class="mastery-tip"><strong>Mastered:</strong> you can recognise it, understand it and produce it without leaning on the book. If one of those is shaky, leave it as Studying/Shaky.</p>`;
+  $('#modalgrid').hidden=true;
+  $('#mastery').closest('label').hidden=true; $('#confidence').closest('label').hidden=true;
+  $('#taskNotes').hidden=true; $('.fieldlabel').hidden=true; $('#modalDone').closest('label').hidden=true;
+  $('#modal').showModal();
+  $('#modalDesc').querySelectorAll('[data-mastery-task]').forEach(sel=>sel.onchange=e=>setTask(e.target.dataset.masteryTask,{mastery:e.target.value}));
+  $('#modal').addEventListener('close',resetTaskModal,{once:true});
+}
+function resetTaskModal(){
+  $('#modalgrid').hidden=false; $('#mastery').closest('label').hidden=false; $('#confidence').closest('label').hidden=false; $('#taskNotes').hidden=false; $('.fieldlabel').hidden=false; $('#modalDone').closest('label').hidden=false;
+}
+function openTask(id){
+  const tasks=[...allCoreTasks(),...Array.from({length:12},(_,w)=>Array.from({length:7},(_,d)=>habits(w,d)).flat())];
+  let t=tasks.find(x=>x.id===id);
+  if(!t && id.startsWith('lesson-')) return;
+  if(!t)return;
+  const s=ts(id);
+  $('#modalTitle').textContent=t.title;
+  $('#modalSub').textContent=`${t.lesson?`TOBIRA Beginning Japanese II · Lesson ${t.lesson}`:'Daily habit'} · ${t.book}${t.page?` · p.${t.page}`:''}`;
+  const pageLink=t.page?`<div class="book-reference"><span>BOOK REFERENCE</span><strong>${esc(t.book)} · page ${t.page}</strong><small>Use this exact page in your physical book/workbook.</small></div>`:'';
+  const lessonLink=t.lesson?`<button type="button" class="smallbtn" id="openRelatedLesson">Open Lesson ${t.lesson} workspace</button>`:'';
+  $('#modalDesc').innerHTML=`${pageLink}<p>${esc(t.desc)}</p>${t.lesson?'<p><strong>Study rule:</strong> Work through this section. If you already know it, do a small representative check and mark the skill mastered instead of grinding repetitive questions.</p>':''}<div class="modal-related">${lessonLink}</div>`;
+  $('#modalDone').checked=s.completed; $('#modalDone').onchange=()=>toggle(id);
+  $('#mastery').value=s.mastery; $('#mastery').onchange=e=>setTask(id,{mastery:e.target.value});
+  $('#confidence').value=s.confidence||''; $('#confidence').onchange=e=>setTask(id,{confidence:e.target.value?+e.target.value:null});
+  $('#taskNotes').value=s.notes||''; $('#taskNotes').oninput=e=>{state.taskState[id]={...ts(id),notes:e.target.value};saveLocal();cloudSave(id);};
+  if($('#openRelatedLesson')) $('#openRelatedLesson').onclick=()=>{state.lesson=t.lesson;state.view='lesson';$('#modal').close();render();};
+  resetTaskModal(); $('#modal').showModal();
+}
+async function loadCloud(){
+  if(!db||!state.user)return;
+  const {data,error}=await db.from('task_state').select('*').eq('user_id',state.user.id);
+  if(!error&&data) data.forEach(r=>state.taskState[r.task_id]={completed:r.completed,mastery:r.mastery,confidence:r.confidence,notes:r.notes,completed_at:r.completed_at});
+  const {data:n}=await db.from('app_notes').select('notes').eq('user_id',state.user.id).maybeSingle(); if(n)state.notes=n.notes||'';
+  const {data:p}=await db.from('user_preferences').select('start_date').eq('user_id',state.user.id).maybeSingle(); if(p?.start_date)state.startDate=p.start_date;
+  saveLocal();
+}
+function renderStatus(){
+  $('#syncStatus').textContent=state.user?'☁ Synced account':'';
+  $('#userLabel').textContent=state.user?.email||'';
+  $('#openLogin').hidden=!!state.user; $('#logout').hidden=!state.user;
+}
+function toast(m){const e=$('#toast');e.textContent=m;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),2300);}
+
+$('#saveGlobalNotes').onclick=async()=>{state.notes=$('#globalNotes').value;saveLocal();if(db&&state.user)await db.from('app_notes').upsert({user_id:state.user.id,notes:state.notes},{onConflict:'user_id'});toast('Notes saved');};
+$('#startDate').onchange=async e=>{state.startDate=e.target.value||'2026-08-31';saveLocal();if(db&&state.user)await db.from('user_preferences').upsert({user_id:state.user.id,start_date:state.startDate},{onConflict:'user_id'});render();};
+$('#openLogin').onclick=()=>$('#authDialog').showModal();
+$('#gateLogin').onclick=()=>$('#authDialog').showModal();
+$('#closeLogin').onclick=()=>$('#authDialog').close();
+$('#loginForm').onsubmit=async e=>{e.preventDefault();if(!db){toast('Add Supabase values to supabase-config.js first.');return;}const{error}=await db.auth.signInWithPassword({email:$('#email').value.trim(),password:$('#password').value});if(error)toast(error.message);else{$('#authDialog').close();toast('Signed in');}};
+$('#logout').onclick=async()=>{if(db)await db.auth.signOut();state.user=null;state.ready=true;render();};
+
+async function initAuth(){
+  if(!db){state.ready=true;render();return;}
+  const {data}=await db.auth.getSession();
+  state.user=data.session?.user||null;
+  if(state.user)await loadCloud();
+  state.ready=true;render();
+  db.auth.onAuthStateChange(async(_e,s)=>{state.user=s?.user||null;if(state.user)await loadCloud();state.ready=true;render();});
+}
+
+$('#appShell').hidden=true; $('#loginGate').hidden=false; initAuth();
