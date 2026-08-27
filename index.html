@@ -13,18 +13,42 @@ main{max-width:1100px;margin:24px auto;padding:0 20px}
 .grid{display:grid;grid-template-columns:2fr 1fr;gap:18px}.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;box-shadow:0 2px 8px #00000008}
 h2,h3{margin:0 0 12px}.muted{color:var(--muted)}.today{font-size:13px;color:var(--muted);margin-bottom:5px}
 .progress{height:10px;background:#e8e8e8;border-radius:99px;overflow:hidden}.bar{height:100%;background:var(--accent);width:0;transition:.2s}
-.task{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--line)}.task:last-child{border-bottom:0}
+.task{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--line)}.task:last-child{border-bottom:0}.taskbody{min-width:0}.taskbtn{border:0;background:none;padding:0;text-align:left;cursor:pointer;font:inherit;color:inherit;width:100%}.taskbtn:hover .name{text-decoration:underline}.taskhint{font-size:12px;color:var(--muted);margin-top:2px}.task input{width:20px;height:20px;accent-color:var(--done);margin:0}.task.done .name{text-decoration:line-through;color:#999}
 .task input{width:19px;height:19px;accent-color:var(--done)}.task.done .name{text-decoration:line-through;color:#999}
 .duration{margin-left:auto;color:var(--muted);font-size:13px;white-space:nowrap}
 .weeknav{display:flex;gap:7px;overflow:auto;padding-bottom:8px}.weekbtn{border:1px solid var(--line);background:#fff;border-radius:9px;padding:8px 12px;cursor:pointer;white-space:nowrap}.weekbtn.active{background:#202020;color:#fff}
 .stat{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line)}.stat:last-child{border:0}
 .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:8px 12px;cursor:pointer}button.primary{background:#202020;color:#fff;border-color:#202020}
 .small{font-size:13px}.pill{display:inline-block;background:#eee;border-radius:99px;padding:3px 8px;font-size:12px;margin-left:5px}
-@media(max-width:760px){.grid{grid-template-columns:1fr}main{margin-top:15px;padding:0 12px}.card{padding:16px}}
+@media(max-width:760px){
+  header{padding:18px 14px}header h1{font-size:21px}
+  main{margin-top:12px;padding:0 10px}
+  .card{padding:14px;border-radius:12px}
+  .grid{grid-template-columns:1fr;gap:12px}
+  .weeknav{margin:0 -2px 0;padding:2px 2px 7px;scroll-snap-type:x proximity}
+  .weekbtn{padding:9px 13px;min-width:48px;scroll-snap-align:start}
+  .task{gap:9px;padding:12px 0}
+  .duration{font-size:12px}
+  .taskhint{font-size:11px}
+  .modal{align-items:flex-end}
+  .modalbox{width:100%;max-height:86vh;border-radius:18px 18px 0 0;padding:20px 16px}
+}
+
+.modal{display:none;position:fixed;inset:0;background:#0008;z-index:20;align-items:center;justify-content:center;padding:16px}
+.modal.show{display:flex}.modalbox{background:#fff;border-radius:16px;max-width:620px;width:100%;max-height:88vh;overflow:auto;padding:22px;box-shadow:0 12px 50px #0005}
+.modalhead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.close{font-size:22px;border:0;background:#eee;border-radius:50%;width:36px;height:36px;padding:0}
+.modalbox h2{margin-bottom:5px}.modalbox h4{margin:18px 0 6px}.modalbox ul{padding-left:20px}.modalbox li{margin:6px 0}.tip{background:#f4f4f4;border-radius:10px;padding:10px 12px;margin-top:14px}
 </style>
 </head>
 <body>
 <header><h1>Japanese Study Dashboard</h1><p>12-week plan · Tobira + N3 + native Japanese</p></header>
+
+<div class="modal" id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="modalbox">
+    <div class="modalhead"><div><div class="today" id="modalWeek"></div><h2 id="modalTitle"></h2><div class="muted" id="modalDuration"></div></div><button class="close" onclick="closeModal()" aria-label="Close">×</button></div>
+    <div id="modalContent"></div>
+  </div>
+</div>
 <main>
   <div class="card" style="margin-bottom:18px">
     <div class="today" id="date"></div>
@@ -102,6 +126,74 @@ function key(date,task){return date.toISOString().slice(0,10)+"|"+task}
 function load(){try{return JSON.parse(localStorage.jpStudy||"{}")}catch{return {}}}
 let state=load(), selected=weekIndex();
 
+
+const taskInfo = {
+ "WaniKani": {
+   title:"WaniKani — kanji & vocabulary",
+   text:"Use WaniKani as your daily SRS system. Reviews come first; lessons come second.",
+   steps:["Clear due reviews without rushing.","During Weeks 1–2, prioritise the ~200-review backlog and avoid adding a large lesson load.","Once caught up, aim for about 25–30 minutes a day.","Do not duplicate every WaniKani word as a separate Migaku card."]
+ },
+ "Tobira": {
+   title:"Tobira — focused textbook study",
+   text:"This is the structured core of your programme. Work actively rather than simply reading the chapter.",
+   steps:["Study the assigned vocabulary and grammar.","Work through the relevant reading/listening material.","Complete the matching workbook exercises.","Mark anything you cannot retrieve confidently and revisit it later.","Shadow selected Tobira audio after you understand it."]
+ },
+ "Tobira Beginning · diagnostic/repair": {
+   title:"Tobira Beginning — diagnostic / repair",
+   text:"Do not work through the beginner books cover-to-cover. Use them to find N4 gaps.",
+   steps:["Mark grammar as green (automatic), yellow (recognise but cannot use), or red (forgotten).","Only spend serious study time on yellow/red items.","Use the workbook for weak areas.","Move on to Intermediate Tobira as soon as the foundation is stable."]
+ },
+ "Tobira review": {
+   title:"Tobira — consolidation",
+   text:"Review Intermediate Lessons 1–8 rather than pushing into new material.",
+   steps:["Review grammar and vocabulary.","Redo difficult workbook exercises without looking at old answers.","Replay difficult listening sections.","Reread selected texts and check whether comprehension is now faster."]
+ },
+ "Shin Kanzen": {
+   title:"Shin Kanzen Master N3",
+   text:"Use Shin Kanzen as your JLPT training layer. It should test and reinforce what Tobira is teaching.",
+   steps:["Work the assigned N3 section under focused conditions.","Mark why errors happened: vocabulary, grammar, comprehension, or time.","Review mistakes rather than simply checking the answer.","Don't spend the whole session memorising isolated answers."]
+ },
+ "Shin Kanzen N4": {
+   title:"Shin Kanzen Master N4 — diagnostic",
+   text:"This is a short diagnostic, not a second N4 course.",
+   steps:["Do the assigned questions without preparing first.","Record weak grammar or reading areas.","Use Tobira Beginning/TRY! only to repair genuine gaps.","Stop once N4 fundamentals are comfortably retrievable."]
+ },
+ "N3 midpoint test": {
+   title:"N3 midpoint assessment",
+   text:"Measure your current N3 ability and identify the bottleneck.",
+   steps:["Do grammar, reading and listening sections with reasonable time limits.","Record your score for each.","For every error, label it vocabulary, grammar, comprehension, or time.","Use the results to decide what gets extra attention in Weeks 8–10."]
+ },
+ "N3 timed practice": {
+   title:"N3 timed practice",
+   text:"Simulate the pressure of the real exam rather than studying new material.",
+   steps:["Use a fresh Shin Kanzen/mock section.","Follow time limits closely.","Record accuracy and time separately.","Review every error afterwards."]
+ },
+ "Yotsuba / reading": {
+   title:"Yotsuba&! / extensive reading",
+   text:"Read for meaning and volume. Yotsuba is not another vocabulary textbook.",
+   steps:["First pass: read without stopping for every unknown word.","Look up words or expressions that block comprehension or recur.","Reread the page after checking important language.","Aim for increasing reading time and speed, not 100% comprehension."]
+ },
+ "Migaku": {
+   title:"Migaku — native Japanese input",
+   text:"Use Migaku to bridge textbook Japanese and real Japanese.",
+   steps:["Choose comprehensible Japanese content you actually enjoy.","First watch/listen without stopping.","Use Migaku to investigate useful expressions.","Save only a small number of genuinely useful sentences.","Replay the material and try to understand it without translating."]
+ },
+ "Shadowing": {
+   title:"Shadowing",
+   text:"Train listening, pronunciation, rhythm and automatic speech production.",
+   steps:["Listen to a short section 2–3 times.","Read the script aloud.","Shadow with the script.","Shadow without looking.","Occasionally record yourself and compare rhythm/intonation.","Keep the session to about 10–15 minutes."]
+ },
+ "TRY! · grammar repair only": {
+   title:"TRY! — targeted grammar repair",
+   text:"Use TRY! when a grammar point from Tobira or Shin Kanzen is unclear. Do not run it as a second full curriculum.",
+   steps:["Find the grammar point you struggled with.","Read the explanation and examples.","Do the relevant practice.","Make 2–3 original sentences.","Return to the original Tobira/Shin Kanzen question."]
+ },
+ "Novel / longer reading": {
+   title:"Novel / longer reading",
+   text:"Use your Japanese novel as a stretch-reading activity, not intensive translation practice.",
+   steps:["Read for 15–20 minutes without trying to decode everything.","Look up only words that repeatedly matter or block the story.","Keep moving even when a sentence is imperfectly understood.","Gradually increase uninterrupted reading time."]
+ }
+};
 function tasksFor(w,d){
  let t=[...baseTasks];
  if(w<2)t[1]=["Tobira Beginning · diagnostic/repair","30–45 min"];
@@ -113,6 +205,17 @@ function tasksFor(w,d){
  if(d%7===5)t.push(["Novel / longer reading","20–30 min"]);
  return t;
 }
+
+function openTask(name,duration){
+ const info=taskInfo[name]||{title:name,text:"Complete this scheduled study activity.",steps:["Follow the week's objective shown on the dashboard.","Keep notes on anything that needs review."]};
+ document.getElementById("modalWeek").textContent=weeks[selected][0];
+ document.getElementById("modalTitle").textContent=info.title;
+ document.getElementById("modalDuration").textContent=duration;
+ document.getElementById("modalContent").innerHTML=`<p>${info.text}</p><h4>What to do</h4><ul>${info.steps.map(x=>`<li>${x}</li>`).join("")}</ul><div class="tip"><strong>Rule:</strong> If this is taking substantially longer than planned, stop at the time limit and continue tomorrow. Consistency beats marathon sessions.</div>`;
+ document.getElementById("modal").classList.add("show");
+}
+function closeModal(){document.getElementById("modal").classList.remove("show")}
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal()});
 function render(){
  const now=new Date(), w=selected;
  document.getElementById("date").textContent=now.toLocaleDateString(undefined,{weekday:"long",year:"numeric",month:"long",day:"numeric"});
@@ -132,7 +235,7 @@ function render(){
  const dateKey=date.toISOString().slice(0,10);
  document.getElementById("tasks").innerHTML=tasks.map((t,i)=>{
    const k=key(date,t[0]), done=!!state[k];
-   return `<label class="task ${done?"done":""}"><input type="checkbox" ${done?"checked":""} onchange="toggle('${k}')"><span class="name">${t[0]}</span><span class="duration">${t[1]}</span></label>`;
+   return `<div class="task ${done?"done":""}"><input type="checkbox" ${done?"checked":""} onchange="toggle('${k}')"><div class="taskbody"><button class="taskbtn" onclick="openTask('${t[0].replace(/'/g,"\\'")}','${t[1]}')"><span class="name">${t[0]}</span><div class="taskhint">Tap for what to do</div></button></div><span class="duration">${t[1]}</span></div>`;
  }).join("");
  updateStats();
 }
