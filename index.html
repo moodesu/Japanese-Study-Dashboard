@@ -5,21 +5,21 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Japanese Study Dashboard</title>
 <style>
-:root{--bg:#f5f5f2;--card:#fff;--text:#242424;--muted:#777;--line:#ddd;--accent:#8b5cf6;--done:#16a34a}
+:root{--bg:#f4f1ea;--card:#fffdf8;--text:#17243a;--muted:#687080;--line:#d9d5ca;--accent:#176b87;--accent2:#c6533d;--done:#3f7d5a;--indigo:#17365d;--gold:#c79a4a}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-header{background:#202020;color:#fff;padding:22px max(20px,calc((100% - 1100px)/2))}
-header h1{margin:0 0 4px;font-size:25px}header p{margin:0;color:#bbb}
+header{background:linear-gradient(135deg,#17365d 0%,#176b87 72%,#2b7b86 100%);color:#fff;padding:22px max(20px,calc((100% - 1100px)/2));box-shadow:0 4px 18px #17365d22}
+header h1{margin:0 0 4px;font-size:25px;letter-spacing:.01em}header p{margin:0;color:#dbe7ea}
 main{max-width:1100px;margin:24px auto;padding:0 20px}
-.grid{display:grid;grid-template-columns:2fr 1fr;gap:18px}.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;box-shadow:0 2px 8px #00000008}
+.grid{display:grid;grid-template-columns:2fr 1fr;gap:18px}.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;box-shadow:0 3px 14px #17365d0c}
 h2,h3{margin:0 0 12px}.muted{color:var(--muted)}.today{font-size:13px;color:var(--muted);margin-bottom:5px}
-.progress{height:10px;background:#e8e8e8;border-radius:99px;overflow:hidden}.bar{height:100%;background:var(--accent);width:0;transition:.2s}
+.progress{height:10px;background:#e4e0d6;border-radius:99px;overflow:hidden}.bar{height:100%;background:linear-gradient(90deg,var(--accent),#2b8790);width:0;transition:.2s}
 .task{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--line)}.task:last-child{border-bottom:0}.taskbody{min-width:0}.taskbtn{border:0;background:none;padding:0;text-align:left;cursor:pointer;font:inherit;color:inherit;width:100%}.taskbtn:hover .name{text-decoration:underline}.taskhint{font-size:12px;color:var(--muted);margin-top:2px}.task input{width:20px;height:20px;accent-color:var(--done);margin:0}.task.done .name{text-decoration:line-through;color:#999}
 .task input{width:19px;height:19px;accent-color:var(--done)}.task.done .name{text-decoration:line-through;color:#999}
 .duration{margin-left:auto;color:var(--muted);font-size:13px;white-space:nowrap}
-.weeknav{display:flex;gap:7px;overflow:auto;padding-bottom:8px}.weekbtn{border:1px solid var(--line);background:#fff;border-radius:9px;padding:8px 12px;cursor:pointer;white-space:nowrap}.weekbtn.active{background:#202020;color:#fff}
+.weeknav{display:flex;gap:7px;overflow:auto;padding-bottom:8px}.weekbtn{border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:9px;padding:8px 12px;cursor:pointer;white-space:nowrap}.weekbtn.active{background:var(--indigo);border-color:var(--indigo);color:#fff}
 .stat{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line)}.stat:last-child{border:0}
-.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:8px 12px;cursor:pointer}button.primary{background:#202020;color:#fff;border-color:#202020}
-.small{font-size:13px}.pill{display:inline-block;background:#eee;border-radius:99px;padding:3px 8px;font-size:12px;margin-left:5px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}button{border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:8px;padding:8px 12px;cursor:pointer}button.primary{background:var(--indigo);color:#fff;border-color:var(--indigo)}
+.small{font-size:13px}.pill{display:inline-block;background:#dcecef;color:#175b70;border-radius:99px;padding:3px 8px;font-size:12px;margin-left:5px}
 @media(max-width:760px){
   header{padding:18px 14px}header h1{font-size:21px}
   main{margin-top:12px;padding:0 10px}
@@ -38,6 +38,19 @@ h2,h3{margin:0 0 12px}.muted{color:var(--muted)}.today{font-size:13px;color:var(
 .modal.show{display:flex}.modalbox{background:#fff;border-radius:16px;max-width:620px;width:100%;max-height:88vh;overflow:auto;padding:22px;box-shadow:0 12px 50px #0005}
 .modalhead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.close{font-size:22px;border:0;background:#eee;border-radius:50%;width:36px;height:36px;padding:0}
 .modalbox h2{margin-bottom:5px}.modalbox h4{margin:18px 0 6px}.modalbox ul{padding-left:20px}.modalbox li{margin:6px 0}.tip{background:#f4f4f4;border-radius:10px;padding:10px 12px;margin-top:14px}
+
+/* v2 focused study dashboard */
+.lesson-card{border:1px solid #c9dadd;border-left:4px solid var(--accent);border-radius:12px;padding:14px;margin-top:12px;background:#f5faf9}
+.lesson-meta{font-size:12px;color:var(--muted);margin-bottom:4px}.lesson-title{font-weight:700}.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}.chip{font-size:11px;padding:4px 7px;background:#e9e6dd;color:#445065;border-radius:99px}
+.section-title{margin-top:22px;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.checkgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.checkitem{border:1px solid var(--line);border-radius:9px;padding:9px;background:var(--card)}
+.notes{width:100%;min-height:90px;border:1px solid var(--line);border-radius:9px;padding:10px;font:inherit;resize:vertical}
+.linkrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.linkrow a{color:inherit;text-decoration:none;border:1px solid var(--line);border-radius:8px;padding:7px 10px;background:#fff;font-size:13px}
+.scoregrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.scoregrid input{width:100%;padding:8px;border:1px solid var(--line);border-radius:8px}
+@media(max-width:760px){.checkgrid{grid-template-columns:1fr}.scoregrid{grid-template-columns:1fr}.lesson-card{padding:12px}}
+
+.taskbody .name{font-weight:600}.task:nth-child(odd){background:linear-gradient(90deg,#fffdf800,#fffdf8)}
+.task:has(.name) {border-left:3px solid transparent;padding-left:9px}
 </style>
 </head>
 <body>
@@ -54,6 +67,8 @@ h2,h3{margin:0 0 12px}.muted{color:var(--muted)}.today{font-size:13px;color:var(
     <div class="today" id="date"></div>
     <h2 id="weekTitle"></h2>
     <p class="muted" id="weekFocus"></p>
+    <div id="foundationOverview"></div>
+    <div id="lessonOverview"></div>
     <div class="progress"><div class="bar" id="overallBar"></div></div>
     <p class="small muted" id="overallText"></p>
   </div>
@@ -135,7 +150,7 @@ const taskInfo = {
  },
  "Tobira": {
    title:"Tobira — focused textbook study",
-   text:"This is the structured core of your programme. Work actively rather than simply reading the chapter.",
+   text:"This is the structured core of your programme. TOBIRA is the only full textbook curriculum in this 12-week cycle. Work actively rather than simply reading the chapter.",
    steps:["Study the assigned vocabulary and grammar.","Work through the relevant reading/listening material.","Complete the matching workbook exercises.","Mark anything you cannot retrieve confidently and revisit it later.","Shadow selected Tobira audio after you understand it."]
  },
  "Tobira Beginning · diagnostic/repair": {
@@ -175,7 +190,7 @@ const taskInfo = {
  },
  "Migaku": {
    title:"Migaku — native Japanese input",
-   text:"Use Migaku to bridge textbook Japanese and real Japanese.",
+   text:"Use Migaku as a controlled bridge from Tobira into natural Japanese. Keep it short enough that input supports the core curriculum rather than replacing it.",
    steps:["Choose comprehensible Japanese content you actually enjoy.","First watch/listen without stopping.","Use Migaku to investigate useful expressions.","Save only a small number of genuinely useful sentences.","Replay the material and try to understand it without translating."]
  },
  "Shadowing": {
@@ -194,25 +209,140 @@ const taskInfo = {
    steps:["Read for 15–20 minutes without trying to decode everything.","Look up only words that repeatedly matter or block the story.","Keep moving even when a sentence is imperfectly understood.","Gradually increase uninterrupted reading time."]
  }
 };
+
+
+const beginningIIWorkbook1 = {
+ title:"TOBIRA II: Beginning Japanese Workbook 1 — 漢字・読む・書く",
+ isbn:"978-4-87424-960-4",
+ lessons:[
+  {n:11,pages:"6–15",kanji:"7",reading:"13",writing:"14",review:"15"},
+  {n:12,pages:"16–25",kanji:"17",reading:"23",writing:"24",review:null},
+  {n:13,pages:"26–35",kanji:"27",reading:"33",writing:"34",review:"35"},
+  {n:14,pages:"36–45",kanji:"37",reading:"43",writing:"44",review:null},
+  {n:15,pages:"46–55",kanji:"47",reading:"53",writing:"55",review:null},
+  {n:16,pages:"56–65",kanji:"57",reading:"63",writing:"64",review:"65"},
+  {n:17,pages:"66–75",kanji:"67",reading:"73",writing:"74",review:null},
+  {n:18,pages:"76–87",kanji:"77",reading:"84",writing:"86",review:null},
+  {n:19,pages:"88–99",kanji:"89",reading:"96",writing:"98",review:"99"},
+  {n:20,pages:"100–109",kanji:"101",reading:"107",writing:"109",review:null}
+ ],
+ note:"Use this as a targeted N4 foundation/repair resource, not as a second full beginner course."
+};
+
+const tobiraLessons = [
+ {n:1,title:"日本の名所や名物をもっと知ろう",unit:"Unit 1 · 日本をもっと知ろう",pages:"23–43",readings:["日本の地理と気候","日本の色々な名所"],conversation:"質問する／聞き返す",topic:"地理、気候、名所と名物、伝統的行事、昔話",project:"地図で広がる日本の世界／4コマで知る！日本語の色々な話し方",canDo:["日本や自分の国・地域について説明する","名所・名物について情報を理解する"],components:["会話","単語","漢字","文法","話しましょう","読みましょう","聞きましょう"]},
+ {n:2,title:"私の日本語は大丈夫？",unit:"Unit 1 · 日本をもっと知ろう",pages:"45–65",readings:["日本語の言葉の使い分け","「話す・書く」のポイントを学ぼう！"],conversation:"謝る",topic:"スピーチスタイルの使い分け、省略・短縮・倒置、書き言葉と話し言葉、電話の会話、メール",project:"Unit 1 project",canDo:["自分の日本語学習について説明する","学習経験や目標について話す"],components:["会話","単語","漢字","文法","話しましょう","読みましょう","聞きましょう"]},
+ {n:3,title:"日本のかわいいAIロボット",unit:"Unit 1 · 日本をもっと知ろう",pages:"67–86",readings:["日本ロボット界のレジェンド達","ペットリジェンド：AIBOからaiboへ"],conversation:"依頼する／感謝する",topic:"ロボット、テクノロジー、AIの発達、外来語とカタカナ語",project:"Unit 1 project",canDo:["身近な技術について説明する","意見・理由を述べる"],components:["会話","単語","漢字","文法","話しましょう","読みましょう","聞きましょう"]},
+ {n:4,title:"武道の心とスポーツ",unit:"Unit 2 · 日本の考えにふれてみよう",pages:"89–108",readings:["武道を通して学ぶ","武道の心"],conversation:"相談する",topic:"日本のスポーツ、日本の武道、「心・技・体」の考え方、クラブ活動、先輩と後輩",project:"Unit 2 project preparation",canDo:["スポーツや武道について説明する","考え方や価値観について意見を述べる"],components:["会話","単語","漢字","文法","話しましょう","読みましょう","聞きましょう"]},
+ {n:5,title:"世界に広がる日本の味",unit:"Unit 2 · 日本の考えにふれてみよう",pages:"109–132",readings:["世界中で愛されるインスタントラーメン","インスタントラーメンの発明・安藤百福の物語","マンガ「カップヌードル誕生物語」"],conversation:"質問に答えて説明する／考えを言う",topic:"日本の食べ物、インスタントラーメン、安藤百福、ファストフード、寿司",project:"Unit 2 project preparation",canDo:["食文化について説明する","日本と自分の国の文化を比較する"],components:["会話","単語","漢字","文法","話しましょう","読みましょう","聞きましょう"]},
+ {n:6,title:"年中行事や習慣から日本を考えよう",unit:"Unit 2 · 日本の考えにふれてみよう",pages:"133–154",readings:["日本には神様がいっぱい","日本の神話「天の岩戸」"],conversation:"データを使って説明する／自分の意見を言う／データを使って発表する",topic:"宗教、宗教的習慣、年中行事、信仰、神話",project:"違って、面白い！〇〇の食文化／神道についてもっと知ろう",canDo:["年中行事・習慣について説明する","文化的な考え方について意見を述べる"],components:["会話","単語","漢字","文法","話しましょう","読みましょう","聞きましょう"]},
+ {n:7,title:"日本のポップカルチャーのルーツは？",unit:"Unit 3 · 日本のアートについて知ろう",pages:"157–180",readings:["「ドキドキする」ってどんな気持ち？","日本のポップカルチャーのルーツは？"],conversation:"困った状況を説明する／解決やアドバイスをもらう",topic:"オノマトペ、日本のポップカルチャー、ストーリー漫画、マンガ家 手塚治虫、性格",project:"Unit 3 project preparation",canDo:["ポップカルチャーについて説明する","文化の背景や変化について話す"],components:["会話","単語","漢字","文法","話しましょう","読みましょう","聞きましょう"]},
+ {n:8,title:"伝統芸能からの贈り物",unit:"Unit 3 · 日本のアートについて知ろう",pages:"181–206",readings:["笑いの効果","狂言と笑い"],conversation:"ストーリーを話す",topic:"伝統芸能、狂言、笑いと健康、笑いと風刺",project:"日本のアニメ、マンガ、アニメ映画が伝えるメッセージ／和楽器とJ-POPのコラボレーション",canDo:["伝統芸能について説明する","文化を受け継ぐことについて意見を述べる"],components:["会話","単語","漢字","文法","話しましょう","読みましょう","聞きましょう"]}
+];
+function tobiraTaskFor(lesson,day){
+ const l=tobiraLessons[lesson-1], d=day%7;
+ const reading1=l.readings[0], reading2=l.readings[1];
+ const readingBlock=l.readings.length>2 ? `${reading1} + ${l.readings[1]}` : reading1;
+ const map=[
+  [`Tobira L${l.n} · vocabulary + kanji`, "50–60 min"],
+  [`Tobira L${l.n} · grammar + workbook`, "60 min"],
+  [`Tobira L${l.n} · reading 1 · ${reading1}`, "60 min"],
+  [`Tobira L${l.n} · reading 2 · ${reading2}`, "60 min"],
+  [`Tobira L${l.n} · conversation + listening`, "50–60 min"],
+  [`Tobira L${l.n} · topic + speaking/project`, "45–60 min"],
+  [`Tobira L${l.n} · retrieval + light review`, "20–30 min"]
+ ];
+ return map[d];
+}
+const tobiraTaskInfo={
+ "vocabulary + kanji":"Learn the lesson vocabulary and kanji actively. Read each item aloud, cover the English/meaning, retrieve it, then make a quick example with the most useful items.",
+ "grammar + workbook":"Study the assigned grammar points, say the examples aloud, then complete the matching workbook exercises. Mark errors by type and redo them from memory.",
+ "reading 1":"First read for overall meaning. Second pass: investigate only vocabulary/grammar that blocks comprehension or recurs. Finish with a short oral summary.",
+ "reading 2":"Repeat the same two-pass method. Compare your understanding with the first reading and collect useful expressions rather than translating every sentence.",
+ "conversation + listening":"Listen first without the script, then with it. Practise the target conversation function, shadow useful lines, and produce your own examples using the lesson's language.",
+ "topic + speaking/project":"Use the lesson topic for output. Speak for 3–5 minutes, use the target grammar/vocabulary, and complete the relevant Unit Project preparation or activity when assigned.",
+ "retrieval + light review":"Close the book and retrieve the lesson vocabulary, grammar and main ideas. Replay difficult audio or reread a difficult passage. Do not start new material."
+};
+
 function tasksFor(w,d){
- let t=[...baseTasks];
- if(w<2)t[1]=["Tobira Beginning · diagnostic/repair","30–45 min"];
- if(w<2)t[2]=["Shin Kanzen N4","30–40 min"];
- if(w===6)t[2]=["N3 midpoint test","45–60 min"];
- if(w>=10)t[1]=["Tobira review","45–60 min"];
- if(w===11)t[2]=["N3 timed practice","45–60 min"];
- if(d%7===2)t.push(["TRY! · grammar repair only","30 min"]);
- if(d%7===5)t.push(["Novel / longer reading","20–30 min"]);
- return t;
+ // 12-week TOBIRA-first curriculum. Weeks 1–8 = one Intermediate lesson/week;
+ // Weeks 9–12 = deliberate consolidation and integration rather than new textbook load.
+ const tasks=[];
+ const lessonForWeek = w>=1 && w<=8 ? w : null;
+ const dayNames=["Vocabulary + Kanji","Grammar + active production","Reading intensive","Reading + listening","Conversation + shadowing","Topic + output","Retrieval / weekly review"];
+ if(lessonForWeek){
+   const [task,dur]=tobiraTaskFor(lessonForWeek,d);
+   tasks.push([task,dur]);
+ } else if(w===0){
+   const prep=[
+    ["TOBIRA orientation + diagnostic","45–60 min"],
+    ["TOBIRA L1 preview: vocabulary + kanji","45–60 min"],
+    ["TOBIRA L1 preview: grammar","45–60 min"],
+    ["TOBIRA L1 audio + reading sample","45–60 min"],
+    ["TOBIRA L1 speaking baseline","30–45 min"],
+    ["TOBIRA setup: study system + notes","30–45 min"],
+    ["Week 1 retrieval + plan","20–30 min"]
+   ]; tasks.push(prep[d]);
+ } else {
+   const reviewWeek=w-8;
+   const ranges={9:"Lessons 1–2",10:"Lessons 3–4",11:"Lessons 5–6",12:"Lessons 7–8"};
+   const range=ranges[w]||"Lessons 1–8";
+   const reviewMap=[
+    [`TOBIRA consolidation · ${range} · vocabulary + kanji`,"45–60 min"],
+    [`TOBIRA consolidation · ${range} · grammar + workbook/worksheets`,"60 min"],
+    [`TOBIRA consolidation · ${range} · reading`,"60 min"],
+    [`TOBIRA consolidation · ${range} · listening`,"45–60 min"],
+    [`TOBIRA consolidation · ${range} · conversation + shadowing`,"45–60 min"],
+    [`TOBIRA consolidation · ${range} · speaking/output`,"45–60 min"],
+    [`TOBIRA retrieval test · ${range}`,"30–45 min"]
+   ]; tasks.push(reviewMap[d]);
+ }
+ // Supporting activities stay deliberately small: TOBIRA remains the centre of gravity.
+ tasks.push(["WaniKani","20–30 min"]);
+ tasks.push(["Migaku","20–30 min"]);
+ tasks.push(["Shadowing","10–15 min"]);
+ tasks.push(["Yotsuba / reading","20–30 min"]);
+ if(d===6) tasks.push(["Weekly reflection + error log","15 min"]);
+ return tasks;
 }
 
 function openTask(name,duration){
- const info=taskInfo[name]||{title:name,text:"Complete this scheduled study activity.",steps:["Follow the week's objective shown on the dashboard.","Keep notes on anything that needs review."]};
+ let info=taskInfo[name];
+ let lesson=null;
+ const m=name.match(/^Tobira L(\d+) · (.+?) — (.+)$/);
+ if(m) lesson=tobiraLessons[Number(m[1])-1];
+ if(!info && lesson){
+   const phase=tobiraTaskInfo[m[3]]||"Complete the assigned lesson work.";
+   info={title:`Lesson ${lesson.n} · ${lesson.title}`,text:`${lesson.unit} · pp. ${lesson.pages}. ${phase}`,steps:["Open the assigned TOBIRA I lesson section.","Use the lesson vocabulary, grammar and examples actively rather than reading passively.","Complete the matching workbook work where assigned.","Record anything that still needs review before the next session."]};
+ }
+ if(!info) info={title:name,text:"Complete this scheduled study activity.",steps:["Follow the week's objective.","Keep notes on anything that needs review."]};
+ if(name.startsWith("Tobira Beginning")){
+   info.text += ` ${beginningIIWorkbook1.note}`;
+   info.steps.push("Use TOBIRA II Workbook 1 only for the exact weak lesson(s): Kanji, Reading, and Writing.");
+   info.steps.push("Workbook page map: Lesson 11–20, pp. 6–109. Choose the lesson that corresponds to the gap rather than working through all ten lessons.");
+ }
+
+ let extra="";
+ if(lesson){
+   const checks=lesson.canDo.map((x,i)=>`<label class="checkitem"><input type="checkbox" data-can="${lesson.n}-${i}" ${state["cando|"+lesson.n+"|"+i]?"checked":""} onchange="toggleCanDo(${lesson.n},${i},this.checked)"> ${x}</label>`).join("");
+   const links=(lesson.web||[]).map((u,i)=>`<a href="${u}" target="_blank" rel="noopener">${i===0?"TOBIRA audio":"TOBIRA worksheets"}</a>`).join("");
+   extra=`<div class="section-title">Can-Do goals</div><div class="checkgrid">${checks}</div>
+   <div class="section-title">Lesson components</div><div class="chips">${lesson.components.map(x=>`<span class="chip">${x}</span>`).join("")}</div>
+   <div class="section-title">Lesson map</div><div class="tip"><strong>Readings:</strong> ${lesson.readings.join(" · ")}<br><strong>Conversation:</strong> ${lesson.conversation}<br><strong>Topic:</strong> ${lesson.topic}<br><strong>Project:</strong> ${lesson.project}</div>
+   ${links?`<div class="linkrow">${links}</div>`:""}
+   <div class="section-title">Your notes</div><textarea class="notes" id="lessonNotes" placeholder="Grammar I struggled with… vocabulary to revisit… speaking ideas…">${state["notes|lesson|"+lesson.n]||""}</textarea>
+   <div class="actions"><button class="primary" onclick="saveLessonNotes(${lesson.n})">Save notes</button></div>`;
+ }
  document.getElementById("modalWeek").textContent=weeks[selected][0];
  document.getElementById("modalTitle").textContent=info.title;
  document.getElementById("modalDuration").textContent=duration;
- document.getElementById("modalContent").innerHTML=`<p>${info.text}</p><h4>What to do</h4><ul>${info.steps.map(x=>`<li>${x}</li>`).join("")}</ul><div class="tip"><strong>Rule:</strong> If this is taking substantially longer than planned, stop at the time limit and continue tomorrow. Consistency beats marathon sessions.</div>`;
+ document.getElementById("modalContent").innerHTML=`<p>${info.text}</p><h4>What to do</h4><ul>${info.steps.map(x=>`<li>${x}</li>`).join("")}</ul>${extra}<div class="tip"><strong>Focus rule:</strong> stop when the planned time is up. The goal is consistent retrieval and comprehension, not exhausting a chapter in one sitting.</div>`;
  document.getElementById("modal").classList.add("show");
+}
+function toggleCanDo(lesson,i,v){state["cando|"+lesson+"|"+i]=v;localStorage.jpStudy=JSON.stringify(state)}
+function saveLessonNotes(lesson){
+ state["notes|lesson|"+lesson]=document.getElementById("lessonNotes").value;
+ localStorage.jpStudy=JSON.stringify(state);
 }
 function closeModal(){document.getElementById("modal").classList.remove("show")}
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal()});
@@ -220,10 +350,16 @@ function render(){
  const now=new Date(), w=selected;
  document.getElementById("date").textContent=now.toLocaleDateString(undefined,{weekday:"long",year:"numeric",month:"long",day:"numeric"});
  document.getElementById("weekTitle").textContent=weeks[w][0];
- document.getElementById("weekFocus").textContent=weeks[w][1];
+ document.getElementById("weekFocus").innerHTML=(w>=2&&w<=9)
+   ? `<strong>Lesson ${w-1}:</strong> ${tobiraLessons[w-2].title} <span class="pill">${tobiraLessons[w-2].unit}</span>`
+   : weeks[w][1];
 
  document.getElementById("weekNav").innerHTML=weeks.map((x,i)=>`<button class="weekbtn ${i===w?"active":""}" onclick="selected=${i};render()">${i+1}</button>`).join("");
- document.getElementById("roadmap").innerHTML=weeks.map((x,i)=>`<div style="padding:8px 0;border-bottom:1px solid var(--line)"><strong>${x[0]}</strong><br><span class="small muted">${x[1]}</span></div>`).join("");
+ document.getElementById("roadmap").innerHTML=weeks.map((x,i)=>{
+   let label=x[1];
+   if(i>=2&&i<=9){const l=tobiraLessons[i-2];label=`${l.unit}<br>Lesson ${l.n} · ${l.title}`;}
+   return `<div style="padding:8px 0;border-bottom:1px solid var(--line)"><strong>${x[0]}</strong><br><span class="small muted">${label}</span></div>`;
+ }).join("");
 
  const monday=new Date(START); monday.setDate(START.getDate()+w*7);
  let day=Math.min(6, Math.max(0, new Date().getDay()===0?6:new Date().getDay()-1));
@@ -237,6 +373,20 @@ function render(){
    const k=key(date,t[0]), done=!!state[k];
    return `<div class="task ${done?"done":""}"><input type="checkbox" ${done?"checked":""} onchange="toggle('${k}')"><div class="taskbody"><button class="taskbtn" onclick="openTask('${t[0].replace(/'/g,"\\'")}','${t[1]}')"><span class="name">${t[0]}</span><div class="taskhint">Tap for what to do</div></button></div><span class="duration">${t[1]}</span></div>`;
  }).join("");
+ const fo=document.getElementById("foundationOverview");
+ if(w<2){
+   fo.innerHTML=`<div class="lesson-card" style="border-left-color:var(--gold);background:#fffaf0">
+     <div class="lesson-meta">FOUNDATION / DIAGNOSTIC</div>
+     <div class="lesson-title">${beginningIIWorkbook1.title}</div>
+     <div class="small muted">Use selectively: Kanji pp. 7–101 · Reading pp. 13–107 · Writing pp. 14–109. Lesson reviews occur at L11–13, L14–16 and L17–19.</div>
+     <div class="tip"><strong>Important:</strong> this is not your Intermediate Tobira workbook. It is the correct Beginning Japanese II workbook you own, and we will use it to repair N4 gaps.</div>
+   </div>`;
+ } else fo.innerHTML="";
+ const lo=document.getElementById("lessonOverview");
+ if(w>=2&&w<=9){
+   const l=tobiraLessons[w-2];
+   lo.innerHTML=`<div class="lesson-card"><div class="lesson-meta">${l.unit}</div><div class="lesson-title">Lesson ${l.n} · ${l.title}</div><div class="chips">${l.components.map(x=>`<span class="chip">${x}</span>`).join("")}</div></div>`;
+ } else lo.innerHTML="";
  updateStats();
 }
 function toggle(k){state[k]=!state[k];localStorage.jpStudy=JSON.stringify(state);render()}
