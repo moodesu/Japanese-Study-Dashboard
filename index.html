@@ -15,6 +15,17 @@
 </div>
 <dialog id="modal" class="modal"><div class="modalbody"><h2 id="modalTitle"></h2><div id="modalSub" class="modalsub"></div><div id="modalDesc" class="modaldesc"></div><div id="modalgrid" class="modalgrid"><label>Mastery<select id="mastery"><option value="not_started">Not started</option><option value="studying">Studying</option><option value="shaky">Shaky</option><option value="mastered">Mastered</option><option value="review">Review</option></select></label><label>Confidence<select id="confidence"><option value="">Not rated</option><option value="1">1 · very low</option><option value="2">2</option><option value="3">3 · okay</option><option value="4">4</option><option value="5">5 · automatic</option></select></label></div><label class="fieldlabel">Task notes</label><textarea id="taskNotes" placeholder="Errors, examples, things to review, questions..."></textarea><div class="modalactions"><label class="checkline"><input id="modalDone" type="checkbox"> Completed</label><button onclick="document.getElementById('modal').close()" class="smallbtn primary">Done</button></div></div></dialog>
 <dialog id="authDialog" class="modal"><form id="loginForm" class="authbox"><h2>Private study login</h2><p class="subtitle">Sign in with your single Supabase account.</p><p class="config-note">Your study data is only shown after authentication.</p><label>Email<input id="email" type="email" autocomplete="username" required></label><label>Password<input id="password" type="password" autocomplete="current-password" required></label><div class="modalactions"><button type="button" id="closeLogin" class="smallbtn">Cancel</button><button type="submit" class="smallbtn primary">Sign in</button></div></form></dialog>
+<div id="pomodoroWidget" class="pomo-widget" hidden>
+  <div class="pomo-head"><span id="pomoMode" class="pomo-mode">Focus</span><span id="pomoCycle" class="pomo-cycle"></span></div>
+  <div id="pomoTime" class="pomo-time">25:00</div>
+  <div id="pomoTask" class="pomo-task">No task linked</div>
+  <div class="pomo-bar"><i id="pomoBar"></i></div>
+  <div class="pomo-controls">
+    <button id="pomoToggle" type="button" class="smallbtn primary">Start</button>
+    <button id="pomoSkip" type="button" class="smallbtn">Skip</button>
+    <button id="pomoReset" type="button" class="smallbtn">Reset</button>
+  </div>
+</div>
 <div id="toast" class="toast"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="supabase-config.js"></script><script src="curriculum.js"></script><script src="app.js"></script>
 </body></html>

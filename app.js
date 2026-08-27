@@ -2,6 +2,9 @@ const SB = window.SUPABASE_CONFIG || {};
 const hasSupabase = !!(SB.url && SB.anonKey && !SB.url.includes('YOUR_') && !SB.anonKey.includes('YOUR_'));
 const db = hasSupabase && window.supabase ? window.supabase.createClient(SB.url, SB.anonKey) : null;
 
+const POMO_DURATIONS = { work: 25*60, short: 5*60, long: 15*60 };
+const POMO_CYCLE_LENGTH = 4; // work sessions before a long break
+
 const state = {
   view: 'dashboard',
   week: 0,
@@ -10,7 +13,12 @@ const state = {
   taskState: JSON.parse(localStorage.getItem('taskState') || '{}'),
   notes: localStorage.getItem('appNotes') || '',
   user: null,
-  ready: false
+  ready: false,
+  pomodoro: JSON.parse(localStorage.getItem('pomodoroState') || 'null') || {
+    status: 'idle', mode: 'work', remaining: POMO_DURATIONS.work,
+    taskId: null, cycle: 0, endAt: null, startedAt: null
+  },
+  sessions: JSON.parse(localStorage.getItem('pomodoroSessions') || '[]')
 };
 
 const $ = s => document.querySelector(s);
@@ -109,6 +117,150 @@ function lessonStatus(n){
   return shaky ? ['studying','In progress · attention needed'] : ['studying','In progress'];
 }
 
+// ---- Pomodoro timer -------------------------------------------------
+function pomodoroDuration(mode){ return POMO_DURATIONS[mode] || POMO_DURATIONS.work; }
+function savePomodoro(){ localStorage.setItem('pomodoroState', JSON.stringify(state.pomodoro)); }
+function saveSessions(){ localStorage.setItem('pomodoroSessions', JSON.stringify(state.sessions)); }
+function taskLessonNumber(id){
+  const m = /^b2-l(\d+)-/.exec(id||'') || /^b2-consolidation-w\d+-l(\d+)-/.exec(id||'');
+  return m ? +m[1] : null;
+}
+function findTaskById(id){
+  if(!id) return null;
+  const core = allCoreTasks();
+  const hab = Array.from({length:12},(_,w)=>Array.from({length:7},(_,d)=>habits(w,d)).flat()).flat();
+  return [...core,...hab].find(t=>t.id===id) || null;
+}
+function taskSeconds(id){ return state.sessions.filter(s=>s.task_id===id).reduce((a,s)=>a+s.duration_seconds,0); }
+function lessonSeconds(n){ return state.sessions.filter(s=>s.lesson===n).reduce((a,s)=>a+s.duration_seconds,0); }
+function totalSeconds(){ return state.sessions.reduce((a,s)=>a+s.duration_seconds,0); }
+function weekSeconds(days=7){
+  const cutoff = Date.now()-days*86400000;
+  return state.sessions.filter(s=>new Date(s.completed_at).getTime()>=cutoff).reduce((a,s)=>a+s.duration_seconds,0);
+}
+function fmtDuration(totalSec){
+  if(!totalSec || totalSec<30) return '0m';
+  const totalMin=Math.round(totalSec/60), h=Math.floor(totalMin/60), m=totalMin%60;
+  return h ? `${h}h ${m}m` : `${m}m`;
+}
+function playChime(){
+  try{
+    const ctx=new (window.AudioContext||window.webkitAudioContext)();
+    const o=ctx.createOscillator(), g=ctx.createGain();
+    o.type='sine'; o.frequency.value=880; o.connect(g); g.connect(ctx.destination);
+    g.gain.setValueAtTime(0.0001,ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.2,ctx.currentTime+0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001,ctx.currentTime+0.5);
+    o.start(); o.stop(ctx.currentTime+0.55);
+  }catch(e){}
+}
+function ensureNotifyPermission(){
+  if('Notification' in window && Notification.permission==='default') Notification.requestPermission();
+}
+function notify(title,body){
+  if('Notification' in window && Notification.permission==='granted') new Notification(title,{body});
+}
+function syncRemaining(){
+  const p=state.pomodoro;
+  if(p.status==='running') p.remaining=Math.max(0,Math.round((p.endAt-Date.now())/1000));
+}
+function startPomodoro(taskId){
+  ensureNotifyPermission();
+  const p=state.pomodoro;
+  if(taskId!==undefined) p.taskId=taskId;
+  if(p.status!=='running'){
+    p.status='running';
+    if(!p.remaining) p.remaining=pomodoroDuration(p.mode);
+    p.endAt=Date.now()+p.remaining*1000;
+    p.startedAt=p.startedAt||new Date().toISOString();
+  }
+  savePomodoro(); renderPomodoro();
+}
+function pausePomodoro(){
+  const p=state.pomodoro;
+  syncRemaining();
+  p.status='paused';
+  savePomodoro(); renderPomodoro();
+}
+function resetSession(){
+  const p=state.pomodoro;
+  p.status='idle'; p.remaining=pomodoroDuration(p.mode); p.endAt=null; p.startedAt=null;
+  savePomodoro(); renderPomodoro();
+}
+function logSession(taskId,durationSeconds,startedAt,completedAt){
+  if(!durationSeconds || durationSeconds<5) return;
+  const session={
+    id:'p-'+Date.now()+'-'+Math.random().toString(36).slice(2,8),
+    task_id:taskId||null,
+    lesson:taskId?taskLessonNumber(taskId):null,
+    duration_seconds:Math.round(durationSeconds),
+    started_at:startedAt||new Date(Date.now()-durationSeconds*1000).toISOString(),
+    completed_at:completedAt||new Date().toISOString(),
+    synced:false
+  };
+  state.sessions.push(session);
+  saveSessions();
+  cloudLogSession(session);
+}
+async function cloudLogSession(session){
+  if(!db||!state.user) return;
+  const {error}=await db.from('pomodoro_sessions').insert({
+    user_id:state.user.id, task_id:session.task_id, lesson:session.lesson,
+    duration_seconds:session.duration_seconds, started_at:session.started_at, completed_at:session.completed_at
+  });
+  if(error){ toast('Study time saved locally; cloud sync failed.'); return; }
+  session.synced=true; saveSessions();
+}
+function advanceMode(){
+  const p=state.pomodoro;
+  if(p.mode==='work'){
+    p.cycle+=1;
+    p.mode=(p.cycle%POMO_CYCLE_LENGTH===0)?'long':'short';
+    playChime(); toast('Focus session complete — take a break'); notify('Pomodoro complete','Time for a break.');
+  }else{
+    p.mode='work';
+    playChime(); toast('Break over — back to it'); notify('Break over','Ready for another focus session?');
+  }
+  p.remaining=pomodoroDuration(p.mode); p.status='idle'; p.endAt=null; p.startedAt=null;
+  savePomodoro(); renderPomodoro(); render();
+}
+function completeSession(){
+  const p=state.pomodoro;
+  syncRemaining();
+  if(p.mode==='work') logSession(p.taskId,pomodoroDuration('work'),p.startedAt,new Date().toISOString());
+  advanceMode();
+}
+function skipSession(){
+  const p=state.pomodoro;
+  if(p.status==='idle'){ advanceMode(); return; }
+  syncRemaining();
+  const elapsed=pomodoroDuration(p.mode)-p.remaining;
+  if(p.mode==='work' && elapsed>0) logSession(p.taskId,elapsed,p.startedAt,new Date().toISOString());
+  advanceMode();
+}
+function renderPomodoro(){
+  const w=$('#pomodoroWidget'); if(!w) return;
+  w.hidden = !(state.ready && state.user);
+  const p=state.pomodoro;
+  syncRemaining();
+  const dur=pomodoroDuration(p.mode);
+  const mm=String(Math.floor(p.remaining/60)).padStart(2,'0'), ss=String(p.remaining%60).padStart(2,'0');
+  $('#pomoTime').textContent=`${mm}:${ss}`;
+  $('#pomoMode').textContent = p.mode==='work'?'Focus':(p.mode==='long'?'Long break':'Short break');
+  $('#pomoCycle').textContent = p.cycle ? `#${p.cycle+1}` : '';
+  $('#pomoBar').style.width = dur ? `${Math.min(100,(1-p.remaining/dur)*100)}%` : '0%';
+  const task=findTaskById(p.taskId);
+  $('#pomoTask').textContent = task ? task.title : 'No task linked';
+  $('#pomoToggle').textContent = p.status==='running' ? 'Pause' : 'Start';
+}
+setInterval(()=>{
+  const p=state.pomodoro;
+  if(p.status!=='running') return;
+  const remaining=Math.max(0,Math.round((p.endAt-Date.now())/1000));
+  p.remaining=remaining;
+  if(remaining<=0) completeSession(); else renderPomodoro();
+},1000);
+
 function render(){
   if(!state.ready || !state.user){ renderGate(); return; }
   $('#appShell').hidden=false; $('#loginGate').hidden=true;
@@ -117,9 +269,11 @@ function render(){
   else if(state.view==='plan') renderWeek();
   else renderLesson(state.lesson);
   $('#globalNotes').value=state.notes; $('#startDate').value=state.startDate; renderStatus();
+  renderPomodoro();
 }
 function renderGate(){
   $('#appShell').hidden=true; $('#loginGate').hidden=false;
+  const w=$('#pomodoroWidget'); if(w) w.hidden=true;
   $('#gateStatus').textContent=hasSupabase?'Private study dashboard':'Supabase is not configured yet';
   $('#gateHint').textContent=hasSupabase?'Sign in to access your curriculum, progress and notes.':'Add your Supabase URL and publishable/anon key to supabase-config.js, then sign in.';
   $('#gateLogin').textContent='Login';
@@ -139,7 +293,8 @@ function renderNav(){
 }
 function lessonButton(l){
   const p=lessonProgress(l.n), pct=p.total?p.done/p.total*100:0, [cls,label]=lessonStatus(l.n);
-  return `<button class="lessonrow" data-lesson="${l.n}"><span class="lessonnum">${l.n}</span><span class="lessonrowmain"><strong>${esc(l.title)}</strong><small>${p.done}/${p.total} sections complete · ${p.mastered}/${p.total} mastered · ${label}</small><span class="mini-progress"><i style="width:${pct}%"></i></span></span><span class="lessonpct">${Math.round(pct)}%</span></button>`;
+  const secs=lessonSeconds(l.n), timeBit=secs?` · ${fmtDuration(secs)} studied`:'';
+  return `<button class="lessonrow" data-lesson="${l.n}"><span class="lessonnum">${l.n}</span><span class="lessonrowmain"><strong>${esc(l.title)}</strong><small>${p.done}/${p.total} sections complete · ${p.mastered}/${p.total} mastered · ${label}${timeBit}</small><span class="mini-progress"><i style="width:${pct}%"></i></span></span><span class="lessonpct">${Math.round(pct)}%</span></button>`;
 }
 function renderDashboard(){
   $('#hero').hidden=true; $('#bottomArea').hidden=true; $('#weekView').hidden=true; $('#mainContent').hidden=false;
@@ -148,8 +303,8 @@ function renderDashboard(){
   const mastered=CURRICULUM.lessons.filter(l=>lessonStatus(l.n)[0]==='mastered').length;
   $('#mainContent').innerHTML=`
     <section class="dashgrid">
-      <article class="dashcard primarycard"><div class="eyebrow">Your dashboard</div><h2>Beginning II, properly worked through.</h2><p>Use the books as the backbone. Complete the assigned work, then use mastery checks to skip repetitive practice once the skill is genuinely automatic.</p><div class="bigprogress"><strong>${Math.round(overall.done/overall.total*100)||0}%</strong><span>${overall.done} of ${overall.total} scheduled core tasks complete</span></div><div class="progress"><i style="width:${overall.total?overall.done/overall.total*100:0}%"></i></div><div class="statstrip"><span><strong>${mastered}</strong> lessons mastered</span><span><strong>${attention.length}</strong> items needing attention</span></div></article>
-      <article class="dashcard"><div class="eyebrow">Current week</div><h3>Week ${w+1}</h3><p>${wp.done}/${wp.total} core tasks complete</p><button class="smallbtn primary" id="resumeWeek">Open this week</button></article>
+      <article class="dashcard primarycard"><div class="eyebrow">Your dashboard</div><h2>Beginning II, properly worked through.</h2><p>Use the books as the backbone. Complete the assigned work, then use mastery checks to skip repetitive practice once the skill is genuinely automatic.</p><div class="bigprogress"><strong>${Math.round(overall.done/overall.total*100)||0}%</strong><span>${overall.done} of ${overall.total} scheduled core tasks complete</span></div><div class="progress"><i style="width:${overall.total?overall.done/overall.total*100:0}%"></i></div><div class="statstrip"><span><strong>${mastered}</strong> lessons mastered</span><span><strong>${attention.length}</strong> items needing attention</span><span><strong>${fmtDuration(totalSeconds())}</strong> total study time</span></div></article>
+      <article class="dashcard"><div class="eyebrow">Current week</div><h3>Week ${w+1}</h3><p>${wp.done}/${wp.total} core tasks complete</p><p class="subtitle">${fmtDuration(weekSeconds(7))} studied in the last 7 days</p><button class="smallbtn primary" id="resumeWeek">Open this week</button></article>
       <article class="dashcard"><div class="eyebrow">Next up</div><h3>${next?esc(next.task.title):'Course complete'}</h3><p>${next?`Week ${next.week+1} · ${esc(next.task.book)}${next.task.page?` · p.${next.task.page}`:''}`:'You have completed every scheduled core task.'}</p>${next?'<button class="smallbtn primary" id="openNext">Open task</button>':''}</article>
     </section>
     <section class="dashboard-columns">
@@ -182,7 +337,8 @@ function renderTabs(){
 }
 function componentRow(l,t){
   const s=ts(t.id), status=s.mastery==='not_started'?'Not started':s.mastery[0].toUpperCase()+s.mastery.slice(1);
-  return `<article class="component ${s.completed?'done':''}" data-task="${esc(t.id)}"><div class="component-top"><div><div class="component-title">${esc(t.title)}</div><div class="component-ref"><span class="booktag">${esc(t.book)}</span> <strong>p.${t.page}</strong> · ${esc(t.duration)}</div></div><span class="status-label ${s.mastery}">${status}</span></div><div class="component-bottom"><span>${s.completed?'✓ Completed':'Open study task'}</span><span>${s.confidence?`Confidence ${s.confidence}/5`:''}</span></div></article>`;
+  const secs=taskSeconds(t.id);
+  return `<article class="component ${s.completed?'done':''}" data-task="${esc(t.id)}"><div class="component-top"><div><div class="component-title">${esc(t.title)}</div><div class="component-ref"><span class="booktag">${esc(t.book)}</span> <strong>p.${t.page}</strong> · ${esc(t.duration)}</div></div><span class="status-label ${s.mastery}">${status}</span></div><div class="component-bottom"><span>${s.completed?'✓ Completed':'Open study task'}</span><span>${secs?`<span class="time-badge">⏱ ${fmtDuration(secs)}</span>`:(s.confidence?`Confidence ${s.confidence}/5`:'')}</span></div></article>`;
 }
 function renderLesson(n){
   const l=lessonByNumber(n); if(!l)return;
@@ -235,12 +391,17 @@ function openTask(id){
   $('#modalSub').textContent=`${t.lesson?`TOBIRA Beginning Japanese II · Lesson ${t.lesson}`:'Daily habit'} · ${t.book}${t.page?` · p.${t.page}`:''}`;
   const pageLink=t.page?`<div class="book-reference"><span>BOOK REFERENCE</span><strong>${esc(t.book)} · page ${t.page}</strong><small>Use this exact page in your physical book/workbook.</small></div>`:'';
   const lessonLink=t.lesson?`<button type="button" class="smallbtn" id="openRelatedLesson">Open Lesson ${t.lesson} workspace</button>`:'';
-  $('#modalDesc').innerHTML=`${pageLink}<p>${esc(t.desc)}</p>${t.lesson?'<p><strong>Study rule:</strong> Work through this section. If you already know it, do a small representative check and mark the skill mastered instead of grinding repetitive questions.</p>':''}<div class="modal-related">${lessonLink}</div>`;
+  const secs=taskSeconds(id);
+  const timeLine=secs?`<div class="time-stat">⏱ ${fmtDuration(secs)} studied on this task</div>`:'';
+  const isActive=state.pomodoro.taskId===id && state.pomodoro.status==='running';
+  const pomoBtn=`<button type="button" class="smallbtn primary" id="startTaskPomo">${isActive?'Timer running for this task':'Start pomodoro for this task'}</button>`;
+  $('#modalDesc').innerHTML=`${pageLink}${timeLine}<p>${esc(t.desc)}</p>${t.lesson?'<p><strong>Study rule:</strong> Work through this section. If you already know it, do a small representative check and mark the skill mastered instead of grinding repetitive questions.</p>':''}<div class="modal-related">${lessonLink}${pomoBtn}</div>`;
   $('#modalDone').checked=s.completed; $('#modalDone').onchange=()=>toggle(id);
   $('#mastery').value=s.mastery; $('#mastery').onchange=e=>setTask(id,{mastery:e.target.value});
   $('#confidence').value=s.confidence||''; $('#confidence').onchange=e=>setTask(id,{confidence:e.target.value?+e.target.value:null});
   $('#taskNotes').value=s.notes||''; $('#taskNotes').oninput=e=>{state.taskState[id]={...ts(id),notes:e.target.value};saveLocal();cloudSave(id);};
   if($('#openRelatedLesson')) $('#openRelatedLesson').onclick=()=>{state.lesson=t.lesson;state.view='lesson';$('#modal').close();render();};
+  $('#startTaskPomo').onclick=()=>{startPomodoro(id);toast('Pomodoro started for this task');$('#startTaskPomo').textContent='Timer running for this task';};
   resetTaskModal(); $('#modal').showModal();
 }
 async function loadCloud(){
@@ -249,6 +410,12 @@ async function loadCloud(){
   if(!error&&data) data.forEach(r=>state.taskState[r.task_id]={completed:r.completed,mastery:r.mastery,confidence:r.confidence,notes:r.notes,completed_at:r.completed_at});
   const {data:n}=await db.from('app_notes').select('notes').eq('user_id',state.user.id).maybeSingle(); if(n)state.notes=n.notes||'';
   const {data:p}=await db.from('user_preferences').select('start_date').eq('user_id',state.user.id).maybeSingle(); if(p?.start_date)state.startDate=p.start_date;
+  const {data:sessions,error:sessErr}=await db.from('pomodoro_sessions').select('*').eq('user_id',state.user.id);
+  if(!sessErr && sessions){
+    const unsynced=state.sessions.filter(s=>!s.synced);
+    state.sessions=[...sessions.map(s=>({...s,synced:true})),...unsynced];
+    saveSessions();
+  }
   saveLocal();
 }
 function renderStatus(){
@@ -290,6 +457,9 @@ $('#loginForm').onsubmit=async e=>{
   }
 };
 $('#logout').onclick=async()=>{if(db)await db.auth.signOut();state.user=null;state.ready=true;render();};
+$('#pomoToggle').onclick=()=>{state.pomodoro.status==='running'?pausePomodoro():startPomodoro();};
+$('#pomoSkip').onclick=()=>skipSession();
+$('#pomoReset').onclick=()=>resetSession();
 
 async function initAuth(){
   if(!db){state.ready=true;render();return;}
