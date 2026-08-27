@@ -263,7 +263,29 @@ $('#startDate').onchange=async e=>{state.startDate=e.target.value||'2026-08-31';
 $('#openLogin').onclick=()=>$('#authDialog').showModal();
 $('#gateLogin').onclick=()=>$('#authDialog').showModal();
 $('#closeLogin').onclick=()=>$('#authDialog').close();
-$('#loginForm').onsubmit=async e=>{e.preventDefault();if(!db){toast('Add Supabase values to supabase-config.js first.');return;}const{error}=await db.auth.signInWithPassword({email:$('#email').value.trim(),password:$('#password').value});if(error)toast(error.message);else{$('#authDialog').close();toast('Signed in');}};
+$('#loginForm').onsubmit=async e=>{
+  e.preventDefault();
+  if(!db){toast('Add Supabase values to supabase-config.js first.');return;}
+  const submit=e.submitter;
+  if(submit)submit.disabled=true;
+  try{
+    const {data,error}=await db.auth.signInWithPassword({email:$('#email').value.trim(),password:$('#password').value});
+    if(error){toast(error.message);return;}
+    // Do not wait for the auth event alone. Immediately establish the
+    // authenticated UI state so the login gate cannot remain visible.
+    state.user=data.user||null;
+    if(!state.user){toast('Login succeeded but no user session was returned.');return;}
+    $('#authDialog').close();
+    await loadCloud();
+    state.ready=true;
+    render();
+    toast('Signed in');
+  }catch(err){
+    toast(err?.message||'Unable to sign in.');
+  }finally{
+    if(submit)submit.disabled=false;
+  }
+};
 $('#logout').onclick=async()=>{if(db)await db.auth.signOut();state.user=null;state.ready=true;render();};
 
 async function initAuth(){
@@ -272,7 +294,12 @@ async function initAuth(){
   state.user=data.session?.user||null;
   if(state.user)await loadCloud();
   state.ready=true;render();
-  db.auth.onAuthStateChange(async(_e,s)=>{state.user=s?.user||null;if(state.user)await loadCloud();state.ready=true;render();});
+  db.auth.onAuthStateChange(async(_e,s)=>{
+    state.user=s?.user||null;
+    if(state.user)await loadCloud();
+    state.ready=true;
+    render();
+  });
 }
 
 $('#appShell').hidden=true; $('#loginGate').hidden=false; initAuth();
