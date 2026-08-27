@@ -146,12 +146,32 @@ function fmtDuration(totalSec){
 function playChime(){
   try{
     const ctx=new (window.AudioContext||window.webkitAudioContext)();
-    const o=ctx.createOscillator(), g=ctx.createGain();
-    o.type='sine'; o.frequency.value=880; o.connect(g); g.connect(ctx.destination);
-    g.gain.setValueAtTime(0.0001,ctx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.2,ctx.currentTime+0.01);
-    g.gain.exponentialRampToValueAtTime(0.0001,ctx.currentTime+0.5);
-    o.start(); o.stop(ctx.currentTime+0.55);
+    const now=ctx.currentTime;
+    const master=ctx.createGain(); master.gain.value=0.5; master.connect(ctx.destination);
+    const partials=[
+      {ratio:1.00,gain:1.00,decay:3.2},
+      {ratio:2.42,gain:0.55,decay:2.6},
+      {ratio:3.86,gain:0.32,decay:2.0},
+      {ratio:5.43,gain:0.18,decay:1.5},
+      {ratio:7.10,gain:0.10,decay:1.0}
+    ];
+    const fundamental=220;
+    partials.forEach(p=>{
+      const osc=ctx.createOscillator(), gain=ctx.createGain();
+      osc.type='sine'; osc.frequency.value=fundamental*p.ratio;
+      osc.detune.value=(Math.random()*6-3);
+      gain.gain.setValueAtTime(0.0001,now);
+      gain.gain.exponentialRampToValueAtTime(p.gain,now+0.012);
+      gain.gain.exponentialRampToValueAtTime(0.0001,now+p.decay);
+      osc.connect(gain); gain.connect(master);
+      osc.start(now); osc.stop(now+p.decay+0.1);
+    });
+    const click=ctx.createOscillator(), clickGain=ctx.createGain();
+    click.type='triangle'; click.frequency.value=fundamental*4;
+    clickGain.gain.setValueAtTime(0.15,now);
+    clickGain.gain.exponentialRampToValueAtTime(0.0001,now+0.05);
+    click.connect(clickGain); clickGain.connect(master);
+    click.start(now); click.stop(now+0.06);
   }catch(e){}
 }
 function ensureNotifyPermission(){
