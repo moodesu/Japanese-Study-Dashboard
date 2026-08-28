@@ -8,6 +8,7 @@ const POMO_CYCLE_LENGTH = 4; // fallback default
 const state = {
   view: 'dashboard',
   week: 0,
+  libraryItem: null,
   lesson: 11,
   startDate: localStorage.getItem('studyStartDate') || '2026-08-31',
   taskState: JSON.parse(localStorage.getItem('taskState') || '{}'),
@@ -29,6 +30,7 @@ const fmt = d => d.toLocaleDateString(undefined, {weekday:'long', month:'short',
 const dateKey = d => { const x = new Date(d); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; };
 const lessonForWeek = w => w < 10 ? CURRICULUM.lessons[w] : null;
 const consolidationLessons = w => w === 10 ? CURRICULUM.lessons.slice(0,5) : CURRICULUM.lessons.slice(5,10);
+const activeBook = () => (window.BOOKS||[]).find(b=>b.id===(CURRICULUM.bookId||'')) || {title:CURRICULUM.book||'Active curriculum',level:'',series:''};
 
 function lessonByNumber(n){ return CURRICULUM.lessons.find(l => l.n === Number(n)); }
 function defFor(key){ return TASK_TYPES.find(x => x.key === key); }
@@ -320,7 +322,8 @@ function render(){
   renderHeader(); renderNav();
   if(state.view==='dashboard') renderDashboard();
   else if(state.view==='plan') renderWeek();
-  else renderLesson(state.lesson);
+  else if(state.view==='lesson') renderLesson(state.lesson);
+  else renderLibrary();
   $('#globalNotes').value=state.notes; $('#startDate').value=state.startDate; renderStatus();
   renderPomodoroSettings();
   renderPomodoro();
@@ -333,17 +336,34 @@ function renderGate(){
   $('#gateLogin').textContent='Login';
 }
 function renderHeader(){
-  const w=state.week,l=lessonForWeek(w),p=progress(w),ds=weekDates(w);
+  const w=state.week,l=lessonForWeek(w),p=progress(w),ds=weekDates(w),book=activeBook();
   $('#weekLabel').textContent=`Week ${w+1}`;
   $('#lessonLabel').textContent=l?`Lesson ${l.n}: ${l.title}`:(w===10?'Lessons 11–15: consolidation':'Lessons 16–20: consolidation');
-  $('#lessonEnglish').textContent=l?l.english:'Re-test, repair and consolidate the Beginning II course.';
+  $('#lessonEnglish').textContent=l?l.english:`Re-test, repair and consolidate ${book.title}.`;
   $('#dateRange').textContent=`${fmt(ds[0])} – ${fmt(ds[6])}`;
   $('#progressText').textContent=`${p.done}/${p.total} core tasks complete`;
   $('#progressBar').style.width=(p.total?p.done/p.total*100:0)+'%';
 }
 function renderNav(){
-  $('#mainNav').innerHTML=`<button class="navbtn ${state.view==='dashboard'?'active':''}" data-view="dashboard">Dashboard</button><button class="navbtn ${state.view==='plan'?'active':''}" data-view="plan">Study plan</button><button class="navbtn ${state.view==='lesson'?'active':''}" data-view="lesson">Lessons</button>`;
+  $('#mainNav').innerHTML=`<button class="navbtn ${state.view==='dashboard'?'active':''}" data-view="dashboard">Dashboard</button><button class="navbtn ${state.view==='plan'?'active':''}" data-view="plan">Study plan</button><button class="navbtn ${state.view==='lesson'?'active':''}" data-view="lesson">Lessons</button><button class="navbtn ${state.view==='library'?'active':''}" data-view="library">Learning hub</button>`;
   $('#mainNav').querySelectorAll('.navbtn').forEach(b=>b.onclick=()=>{state.view=b.dataset.view;if(state.view==='lesson'&&!lessonByNumber(state.lesson))state.lesson=11;render();scrollTo({top:0,behavior:'smooth'});});
+}
+
+function renderLibrary(){
+  $('#hero').hidden=true; $('#bottomArea').hidden=true; $('#weekView').hidden=true; $('#mainContent').hidden=false;
+  const activeId=(window.CURRICULUM.bookId||'tobira-beginning-ii');
+  const books=(window.BOOKS||[]); const resources=(window.STUDY_RESOURCES||[]);
+  const active=books.find(b=>b.id===activeId);
+  $('#mainContent').innerHTML=`
+    <section class="library-hero">
+      <div class="eyebrow">Japanese learning hub</div>
+      <h1>Your books, curriculum and study tools</h1>
+      <p>TOBIRA Beginning Japanese II is the current active curriculum, but the dashboard is now structured around a reusable learning-hub model. Future books can be added without changing the progress system.</p>
+    </section>
+    <section class="library-section"><div class="panelhead"><div><h2>Textbooks & courses</h2><p class="subtitle">Your study library. Active books drive scheduled curriculum; available books are ready for a future mapping pass.</p></div></div><div class="book-grid">${books.map(b=>{const activeClass=b.id===activeId?' active-book':''; const status=b.status==='active'?'Active':b.status==='available'?'Available':'Planned'; return `<article class="book-card${activeClass}"><div class="book-card-top"><span class="book-status ${b.status}">${status}</span><span class="book-level">${esc(b.level)}</span></div><div class="eyebrow">${esc(b.series)}</div><h3>${esc(b.title)}</h3><p>${esc(b.description)}</p>${b.curriculum?`<button class="smallbtn primary" data-open-current-book="${esc(b.id)}">Open curriculum</button>`:`<div class="book-placeholder">Add contents/pages when you are ready to map this book.</div>`}</article>`}).join('')}</div></section>
+    <section class="library-section"><div class="panelhead"><div><h2>Study tools & input</h2><p class="subtitle">These support the curriculum; they are not competing courses.</p></div></div><div class="resource-grid">${resources.map(r=>`<article class="resource-card"><div class="book-card-top"><span class="resource-type">${esc(r.type)}</span><span class="book-status ${r.status}">${r.status==='active'?'Active':'Available'}</span></div><h3>${esc(r.title)}</h3><p>${esc(r.description)}</p></article>`).join('')}</div></section>
+    <section class="library-section architecture-note"><div class="eyebrow">How this scales</div><h2>One dashboard, many books</h2><p>Each book will eventually have its own lesson map, page references, practice tasks and mastery checks. Your Supabase progress remains tied to stable task IDs, so adding a new book does not require replacing your existing study history.</p><div class="hub-flow"><span>Book</span><b>→</b><span>Lessons</span><b>→</b><span>Tasks</span><b>→</b><span>Mastery</span><b>→</b><span>Review queue</span></div></section>`;
+  $('#mainContent').querySelectorAll('[data-open-current-book]').forEach(b=>b.onclick=()=>{state.view='lesson';state.lesson=11;render();});
 }
 function lessonButton(l){
   const p=lessonProgress(l.n), pct=p.total?p.done/p.total*100:0, [cls,label]=lessonStatus(l.n);
@@ -372,12 +392,12 @@ function renderDashboard(){
   const topTasks=topTaskSessions(6);
   $('#mainContent').innerHTML=`
     <section class="dashgrid">
-      <article class="dashcard primarycard"><div class="eyebrow">Your dashboard</div><h2>Beginning II, properly worked through.</h2><p>Use the books as the backbone. Complete the assigned work, then use mastery checks to skip repetitive practice once the skill is genuinely automatic.</p><div class="bigprogress"><strong>${Math.round(overall.done/overall.total*100)||0}%</strong><span>${overall.done} of ${overall.total} scheduled core tasks complete</span></div><div class="progress"><i style="width:${overall.total?overall.done/overall.total*100:0}%"></i></div><div class="statstrip"><span><strong>${mastered}</strong> lessons mastered</span><span><strong>${attention.length}</strong> items needing attention</span><span><strong>${fmtDuration(totalSeconds())}</strong> total study time</span></div></article>
+      <article class="dashcard primarycard"><div class="eyebrow">Your dashboard</div><h2>Japanese learning hub.</h2><p><strong>${esc(activeBook().title)}</strong> is your active curriculum. Complete the assigned work, then use mastery checks to skip repetitive practice once the skill is genuinely automatic.</p><div class="bigprogress"><strong>${Math.round(overall.done/overall.total*100)||0}%</strong><span>${overall.done} of ${overall.total} scheduled core tasks complete</span></div><div class="progress"><i style="width:${overall.total?overall.done/overall.total*100:0}%"></i></div><div class="statstrip"><span><strong>${mastered}</strong> lessons mastered</span><span><strong>${attention.length}</strong> items needing attention</span><span><strong>${fmtDuration(totalSeconds())}</strong> total study time</span></div></article>
       <article class="dashcard"><div class="eyebrow">Current week</div><h3>Week ${w+1}</h3><p>${wp.done}/${wp.total} core tasks complete</p><p class="subtitle">${fmtDuration(weekSeconds(7))} studied in the last 7 days</p><button class="smallbtn primary" id="resumeWeek">Open this week</button></article>
       <article class="dashcard"><div class="eyebrow">Next up</div><h3>${next?esc(next.task.title):'Course complete'}</h3><p>${next?`Week ${next.week+1} · ${esc(next.task.book)}${next.task.page?` · p.${next.task.page}`:''}`:'You have completed every scheduled core task.'}</p>${next?'<button class="smallbtn primary" id="openNext">Open task</button>':''}</article>
     </section>
     <section class="dashboard-columns">
-      <article class="panel"><div class="panelhead"><div><h3>Lesson map</h3><p class="subtitle">Click a lesson for the complete Workbook 1 + Workbook 2 study map.</p></div><button class="smallbtn" id="goPlan">View plan</button></div><div class="lessonprogress">${CURRICULUM.lessons.map(lessonButton).join('')}</div></article>
+      <article class="panel"><div class="panelhead"><div><h3>Active curriculum</h3><p class="subtitle">Click a lesson for its complete mapped study workspace. Add future books from the Learning hub.</p></div><button class="smallbtn" id="goPlan">View plan</button></div><div class="lessonprogress">${CURRICULUM.lessons.map(lessonButton).join('')}</div></article>
       <article class="panel"><div class="panelhead"><div><h3>Needs attention</h3><p class="subtitle">Your own mastery decisions drive this list.</p></div></div>${attention.length?`<div class="attentionlist">${attention.map(x=>`<button class="attention" data-task="${esc(x.t.id)}"><span class="status-dot ${x.s.mastery}"></span><span><strong>${esc(x.t.title)}</strong><small>L${x.t.lesson} · ${esc(x.t.book)} · p.${x.t.page}</small></span></button>`).join('')}</div>`:'<div class="empty">Nothing flagged yet. Use the mastery controls in each lesson.</div>'}</article>
     </section>
     <section class="dashboard-columns">
@@ -423,7 +443,7 @@ function renderLesson(n){
   const cando=l.textbook.cando.map(x=>`<li>${esc(x)}</li>`).join('');
   $('#mainContent').innerHTML=`
     <div class="lesson-toolbar"><button class="smallbtn" id="backDashboard">← Dashboard</button><button class="smallbtn" id="backPlan">Week ${w+1} plan</button><div class="lesson-select"><button class="smallbtn" id="prevLesson" ${n===11?'disabled':''}>← L${n-1}</button><button class="smallbtn" id="nextLesson" ${n===20?'disabled':''}>L${n+1} →</button></div></div>
-    <section class="lessonhero"><div class="eyebrow">TOBIRA Beginning Japanese II · Lesson ${l.n}</div><h1>${esc(l.title)}</h1><p>${esc(l.english)}</p><div class="lessonhero-grid"><div><strong>${p.done}/${p.total}</strong><span>sections complete</span></div><div><strong>${p.mastered}/${p.total}</strong><span>sections mastered</span></div><div><strong>${Math.round(pct)}%</strong><span>lesson progress</span></div></div><div class="progress"><i style="width:${pct}%"></i></div></section>
+    <section class="lessonhero"><div class="eyebrow">${esc(CURRICULUM.book)} · Lesson ${l.n}</div><h1>${esc(l.title)}</h1><p>${esc(l.english)}</p><div class="lessonhero-grid"><div><strong>${p.done}/${p.total}</strong><span>sections complete</span></div><div><strong>${p.mastered}/${p.total}</strong><span>sections mastered</span></div><div><strong>${Math.round(pct)}%</strong><span>lesson progress</span></div></div><div class="progress"><i style="width:${pct}%"></i></div></section>
     <section class="study-rule panel"><div><h3>Textbook first</h3><p>This lesson runs from <strong>pp.${l.textbook.start}–${l.textbook.end}</strong>. Work through the actual textbook before using the workbooks as reinforcement. If you already know a section, do a representative mastery check rather than grinding every repetition.</p></div><button class="smallbtn primary" id="lessonMastery">Open mastery check</button></section>
     <section class="panel lesson-overview"><div class="overview-grid"><div><div class="eyebrow">Can-do goals</div><ul>${cando}</ul></div><div><div class="eyebrow">Target grammar</div><ul>${grammar}</ul></div></div>${l.textbook.note?`<p class="subtitle"><strong>Language/Culture note:</strong> ${esc(l.textbook.note)}</p>`:''}</section>
     <section class="lesson-grid">
@@ -465,7 +485,7 @@ function openTask(id){
   if(!t)return;
   const s=ts(id);
   $('#modalTitle').textContent=t.title;
-  $('#modalSub').textContent=`${t.lesson?`TOBIRA Beginning Japanese II · Lesson ${t.lesson}`:'Daily habit'} · ${t.book}${t.page?` · p.${t.page}`:''}`;
+  $('#modalSub').textContent=`${t.lesson?`${esc(CURRICULUM.book)} · Lesson ${t.lesson}`:'Daily habit'} · ${t.book}${t.page?` · p.${t.page}`:''}`;
   const pageLink=t.page?`<div class="book-reference"><span>BOOK REFERENCE</span><strong>${esc(t.book)} · page ${t.page}</strong><small>Use this exact page in your physical book/workbook.</small></div>`:'';
   const lessonLink=t.lesson?`<button type="button" class="smallbtn" id="openRelatedLesson">Open Lesson ${t.lesson} workspace</button>`:'';
   const secs=taskSeconds(id);

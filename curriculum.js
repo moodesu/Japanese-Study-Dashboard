@@ -1,4 +1,5 @@
 window.CURRICULUM = {
+  bookId: "tobira-beginning-ii",
   book: "TOBIRA Beginning Japanese II",
   lessons: [
     {
@@ -82,4 +83,27 @@ window.OPTIONAL_TASKS = [
   {key:"yotsuba",label:"Yotsuba / easy reading",duration:"20–30 min",desc:"Read for enjoyment and volume. Avoid turning every unknown word into a vocabulary research project."},
   {key:"youtube",label:"YouTube immersion",duration:"20–40 min",desc:"Watch Japanese YouTube content matched to your level. Prioritise following overall meaning over catching every word."},
   {key:"manga",label:"Manga reading",duration:"20–40 min",desc:"Read manga in Japanese for volume and enjoyment. Look up only what genuinely blocks comprehension."}
+];
+
+
+// ---- Learning hub registry ------------------------------------------------
+// The app is intentionally book-agnostic. Add future textbooks here and
+// provide their lesson/page data in the same shape as CURRICULUM when ready.
+window.BOOKS = [
+  {id:"tobira-beginning-i", title:"TOBIRA Beginning Japanese I", series:"TOBIRA", level:"Beginning Japanese", status:"available", description:"Foundation course. Use for targeted review or a future full pass when needed.", curriculum:false},
+  {id:"tobira-beginning-ii", title:"TOBIRA Beginning Japanese II", series:"TOBIRA", level:"Beginning Japanese", status:"active", description:"Current core curriculum: Lessons 11–20, with textbook + Workbook 1 + Workbook 2 mapped to exact pages.", curriculum:true},
+  {id:"tobira-gateway", title:"TOBIRA Gateway to Advanced Japanese", series:"TOBIRA", level:"Advanced", status:"available", description:"Advanced follow-on course. Keep as the next major textbook layer after Beginning II is secure.", curriculum:false},
+  {id:"shinkanzen-n4", title:"新完全マスター N4", series:"Shin Kanzen Master", level:"JLPT N4", status:"planned", description:"Reserve for diagnostic work and targeted foundation repair rather than parallel full-course study.", curriculum:false},
+  {id:"shinkanzen-n3", title:"新完全マスター N3", series:"Shin Kanzen Master", level:"JLPT N3", status:"planned", description:"Future JLPT preparation layer once the current textbook cycle is established.", curriculum:false},
+  {id:"try-n4", title:"TRY! N4", series:"TRY!", level:"JLPT N4", status:"planned", description:"Targeted grammar/reference layer for foundation gaps.", curriculum:false},
+  {id:"try-n3", title:"TRY! N3", series:"TRY!", level:"JLPT N3", status:"planned", description:"Targeted grammar/reference layer for N3 preparation.", curriculum:false}
+];
+
+window.STUDY_RESOURCES = [
+  {id:"wanikani", title:"WaniKani", type:"SRS", status:"active", description:"Daily kanji/vocabulary SRS. The dashboard complements WaniKani rather than duplicating it."},
+  {id:"migaku", title:"Migaku", type:"Native input", status:"active", description:"Controlled native Japanese input and sentence mining. Keep it subordinate to the core curriculum."},
+  {id:"shadowing", title:"Shadowing", type:"Output / listening", status:"active", description:"Short, regular shadowing using TOBIRA audio or comprehensible native material."},
+  {id:"yotsuba", title:"よつばと！ / Manga", type:"Reading", status:"active", description:"Extensive Japanese reading for volume, speed and natural expressions."},
+  {id:"novels", title:"Japanese novels", type:"Reading", status:"available", description:"Long-form reading for increasing endurance and comprehension."},
+  {id:"youtube", title:"Japanese YouTube", type:"Listening / input", status:"available", description:"Level-appropriate native input. Prioritise understanding the overall message over exhaustive lookup."}
 ];
