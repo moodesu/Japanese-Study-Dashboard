@@ -251,6 +251,42 @@ window.BOOKS = [
   {id:"try-n3", title:"TRY! N3", series:"TRY!", level:"JLPT N3", status:"planned", description:"Targeted grammar/reference layer for N3 preparation.", curriculum:false}
 ];
 
+
+// Structured book metadata / contents. This is intentionally separate from
+// the executable curriculum so books can be catalogued before they become
+// active programmes.
+window.BOOK_CONTENTS = {
+  "tobira-beginning-ii": {
+    publisher: "Kurosio Publishers",
+    description: "TOBIRA Beginning Japanese II is the current core textbook. Lessons 11–20 are fully mapped to textbook sections and both workbooks.",
+    contentsStatus: "fully mapped",
+    lessons: (window.CURRICULUM?.lessons || []).map(l => ({n:l.n,title:l.title,english:l.english,start:l.textbook.start,end:l.textbook.end,unit:l.textbook.unit}))
+  },
+  "tobira-intermediate-i": {
+    publisher: "Kurosio Publishers",
+    description: "TOBIRA: Intermediate Japanese I. The supplied textbook contains the first half of the revised Intermediate Japanese course, reorganized as TOBIRA I and TOBIRA II.",
+    contentsStatus: "contents mapped · programme not yet built",
+    sourceNote: "Contents/page structure extracted from the textbook supplied for analysis. The book is not yet part of the active study schedule.",
+    units: [
+      {unit:1,title:"日本をもっと知ろう",lessons:[
+        {n:1,title:"日本の名所や名物をもっと知ろう",start:23,end:44,topics:["日本の地理と気候","日本の色々な名所","質問する／聞き返す"]},
+        {n:2,title:"私の日本語は大丈夫？",start:45,end:66,topics:["日本語の言葉の使い分け","「話す・書く」のポイントを学ぼう！","謝る"]},
+        {n:3,title:"日本のかわいいAIロボット",start:67,end:88,topics:["日本ロボット界のレジェンド達","ペットロボット：AIBOからaiboへ","依頼する／感謝する"]}
+      ],project:"地図で広がる日本の世界／4コマで知る！日本語の色々な話し方",projectPage:87},
+      {unit:2,title:"日本の考えにふれてみよう",lessons:[
+        {n:4,title:"武道の心とスポーツ",start:89,end:108,topics:["武道を通して学ぶ","武道の心","相談する"]},
+        {n:5,title:"世界に広がる日本の味",start:109,end:132,topics:["世界中で愛されるインスタントラーメン","インスタントラーメンの父：安藤百福の物語","マンガ「カップヌードル誕生物語」","質問に答えて説明する／考えを言う"]},
+        {n:6,title:"年中行事や習慣から日本を考えよう",start:133,end:154,topics:["日本には神様がいっぱい","日本の神話「天の岩戸」","グラフを使って説明する／自分の意見を言う／データを使って発表する"]}
+      ],project:"違って、面白い！〇〇の食文化／神道についてもっと知ろう",projectPage:155},
+      {unit:3,title:"日本のアートについて知ろう",lessons:[
+        {n:7,title:"日本のポップカルチャーのルーツは？",start:157,end:180,topics:["「ドキドキする」ってどんな気持ち？","日本のポップカルチャーのルーツは？","困った状況を説明する／解決やアドバイスをもらう"]},
+        {n:8,title:"伝統芸能からの贈り物",start:181,end:206,topics:["笑いの効果","狂言と笑い","ストーリーを話す"]}
+      ],project:"日本のアニメ、マンガ、アニメ映画が伝えるメッセージ／和楽器とJ-POPのコラボレーション",projectPage:207}
+    ],
+    backMatter:["単語索引 · p.209","文法・表現リスト · p.228","言語ノート · pp.43–205","文化ノート · pp.130–204"]
+  }
+};
+
 window.STUDY_RESOURCES = [
   {id:"wanikani", title:"WaniKani", type:"SRS", status:"active", description:"Daily kanji/vocabulary SRS. The dashboard complements WaniKani rather than duplicating it."},
   {id:"migaku", title:"Migaku", type:"Native input", status:"active", description:"Controlled native Japanese input and sentence mining. Keep it subordinate to the core curriculum."},
