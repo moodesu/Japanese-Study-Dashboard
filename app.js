@@ -33,6 +33,8 @@ const consolidationLessons = w => w === 10 ? CURRICULUM.lessons.slice(0,5) : CUR
 function lessonByNumber(n){ return CURRICULUM.lessons.find(l => l.n === Number(n)); }
 function defFor(key){ return TASK_TYPES.find(x => x.key === key); }
 function pageFor(l, key){
+  const def = defFor(key);
+  if(def?.book === 'Textbook') return { book:'Textbook', page:`${l.textbook.start}–${l.textbook.end}` };
   for (const b of ['workbook2','workbook1']) {
     if (l[b]?.[key] != null) return { book: b === 'workbook2' ? 'Workbook 2' : 'Workbook 1', page: l[b][key] };
   }
@@ -41,38 +43,36 @@ function pageFor(l, key){
 function makeTask(l, key, opts={}){
   const def = defFor(key), ref = pageFor(l,key);
   if(!def || !ref) return null;
-  return {
-    id: `b2-l${l.n}-${key}`,
-    lesson: l.n,
-    key,
-    title: def.label,
-    book: def.book,
-    page: ref.page,
-    duration: def.duration,
-    desc: def.desc,
-    ...opts
-  };
+  return { id:`b2-l${l.n}-${key}`, lesson:l.n, key, title:def.label, book:ref.book, page:ref.page, duration:def.duration, desc:def.desc, ...opts };
 }
-function lessonTasks(l){
-  return TASK_TYPES.map(d => makeTask(l,d.key)).filter(Boolean);
-}
+function lessonTasks(l){ return TASK_TYPES.map(d=>makeTask(l,d.key)).filter(Boolean); }
 function weeklyTasks(w,d){
-  if(w >= 10) return consolidationTasks(w,d);
-  const l = lessonForWeek(w);
-  const keys = [['vocab','kanji'],['particle','grammar1'],['comp1','reading'],['grammar2','comp2'],['listening','writing'],['review'],[]][d];
-  const out = keys.map(k => makeTask(l,k)).filter(Boolean);
-  if(d === 5) out.push({id:`b2-w${w+1}-d6-consolidation`,lesson:l.n,key:'consolidation',title:'Lesson consolidation + catch-up',duration:'30–45 min',book:'Your notes',desc:'Return to anything marked shaky or weak. Re-test it without notes, then update mastery.'});
-  if(d === 6) out.push({id:`b2-w${w+1}-d7-mastery`,lesson:l.n,key:'mastery',title:`Mastery check · Lesson ${l.n}`,duration:'20–30 min',book:'Dashboard',desc:'Check each lesson area. Can you recognise it, understand it and produce it without looking? Mark each component accordingly.'});
+  if(w>=10) return consolidationTasks(w,d);
+  const l=lessonForWeek(w);
+  const schedule=[
+    ['textbook_conversation','textbook_vocab','vocab'],
+    ['textbook_kanji','kanji'],
+    ['textbook_grammar','particle','grammar1'],
+    ['textbook_talk','textbook_reading','reading'],
+    ['textbook_listening','listening','writing'],
+    ['comp1','grammar2','comp2'],
+    ['review'],
+  ][d];
+  const out=schedule.map(k=>makeTask(l,k)).filter(Boolean);
+  if(d===5) out.push({id:`b2-w${w+1}-d6-consolidation`,lesson:l.n,key:'consolidation',title:`Lesson ${l.n} · consolidation + catch-up`,duration:'30–45 min',book:'Your notes',desc:'Return to anything marked shaky or weak. Re-test it without notes, then update mastery. If the textbook work is complete, use this block for rereading, re-listening or additional speaking.'});
+  if(d===6) out.push({id:`b2-w${w+1}-d7-mastery`,lesson:l.n,key:'mastery',title:`Mastery check · Lesson ${l.n}`,duration:'30–45 min',book:'Dashboard',desc:'Check the textbook, both workbooks and the lesson can-do goals. Mark Mastered only when you can recognise, understand and produce the material reliably.'});
   return out;
 }
 function consolidationTasks(w,d){
-  const ls = consolidationLessons(w), label = w === 10 ? 'Lessons 11–15' : 'Lessons 16–20';
-  if(d === 6) return [{id:`b2-w${w+1}-d7-mastery`,key:'mastery',title:`Mastery check · ${label}`,duration:'30–45 min',book:'Dashboard',desc:'Review recorded mastery across this block. Re-test every shaky or weak component and update your status.'}];
-  const l = ls[d], key = ['vocab','particle','grammar1','grammar2','listening','reading','writing'][d];
-  if(!l) return [{id:`b2-w${w+1}-d${d+1}-catchup`,key:'catchup',title:`Consolidation · ${label}`,duration:'30–45 min',book:'Your notes',desc:'Use this session for unfinished work and the weakest remaining areas.'}];
-  const t = makeTask(l,key);
-  return t ? [{...t, id:`b2-consolidation-w${w+1}-l${l.n}-${key}`, title:`L${l.n} · ${t.title}`, desc:t.desc+' This is a consolidation pass: prioritise anything previously marked shaky or weak.'}] : [{id:`b2-w${w+1}-d${d+1}-targeted`,key:'targeted',title:`L${l.n} · targeted review`,duration:'30–45 min',book:'Your notes',desc:'Review the weakest remaining component from this lesson and update its mastery.'}];
+  const ls=consolidationLessons(w), label=w===10?'Lessons 11–15':'Lessons 16–20';
+  if(d===6) return [{id:`b2-w${w+1}-d7-mastery`,key:'mastery',title:`Mastery check · ${label}`,duration:'45–60 min',book:'Dashboard',desc:'Re-test every lesson area marked shaky, studying or review. Include textbook grammar production, reading/listening and workbook errors.'}];
+  const l=ls[d];
+  if(!l) return [{id:`b2-w${w+1}-d${d+1}-catchup`,key:'catchup',title:`Consolidation · ${label}`,duration:'45–60 min',book:'Your notes',desc:'Use this session for unfinished work and the weakest remaining areas.'}];
+  const key=['textbook_grammar','textbook_reading','textbook_listening','grammar1','reading','writing','comp1'][d];
+  const t=makeTask(l,key);
+  return t?[{...t,id:`b2-consolidation-w${w+1}-l${l.n}-${key}`,title:`L${l.n} · ${t.title}`,desc:t.desc+' This is a consolidation pass: prioritise anything previously marked shaky or weak.'}]:[{id:`b2-w${w+1}-d${d+1}-targeted`,key:'targeted',title:`L${l.n} · targeted review`,duration:'45–60 min',book:'Your notes',desc:'Review the weakest remaining component from this lesson and update its mastery.'}];
 }
+
 function habits(w,d){
   return OPTIONAL_TASKS.map(x => ({id:`habit-w${w+1}-d${d+1}-${x.key}`,key:x.key,title:x.label,duration:x.duration,book:'Habit',desc:x.desc,habit:true}));
 }
@@ -417,18 +417,22 @@ function renderLesson(n){
   const l=lessonByNumber(n); if(!l)return;
   $('#hero').hidden=true; $('#bottomArea').hidden=true; $('#weekView').hidden=true; $('#mainContent').hidden=false;
   const tasks=lessonTasks(l), w=n-11, p=lessonProgress(n), pct=p.total?p.done/p.total*100:0;
-  const wb2=tasks.filter(t=>t.book==='Workbook 2'), wb1=tasks.filter(t=>t.book==='Workbook 1');
+  const tb=tasks.filter(t=>t.book==='Textbook'), wb2=tasks.filter(t=>t.book==='Workbook 2'), wb1=tasks.filter(t=>t.book==='Workbook 1');
   const flagged=tasks.filter(t=>['shaky','studying','review'].includes(ts(t.id).mastery));
+  const grammar=l.textbook.grammar.map(x=>`<li>${esc(x)}</li>`).join('');
+  const cando=l.textbook.cando.map(x=>`<li>${esc(x)}</li>`).join('');
   $('#mainContent').innerHTML=`
     <div class="lesson-toolbar"><button class="smallbtn" id="backDashboard">← Dashboard</button><button class="smallbtn" id="backPlan">Week ${w+1} plan</button><div class="lesson-select"><button class="smallbtn" id="prevLesson" ${n===11?'disabled':''}>← L${n-1}</button><button class="smallbtn" id="nextLesson" ${n===20?'disabled':''}>L${n+1} →</button></div></div>
     <section class="lessonhero"><div class="eyebrow">TOBIRA Beginning Japanese II · Lesson ${l.n}</div><h1>${esc(l.title)}</h1><p>${esc(l.english)}</p><div class="lessonhero-grid"><div><strong>${p.done}/${p.total}</strong><span>sections complete</span></div><div><strong>${p.mastered}/${p.total}</strong><span>sections mastered</span></div><div><strong>${Math.round(pct)}%</strong><span>lesson progress</span></div></div><div class="progress"><i style="width:${pct}%"></i></div></section>
-    <section class="study-rule panel"><div><h3>How to use this lesson</h3><p>Work through the assigned pages. If you already know a section, do a representative check rather than grinding every repetition. Only mark <strong>Mastered</strong> when you can recognise it, understand it and produce it reliably.</p></div><button class="smallbtn primary" id="lessonMastery">Open mastery check</button></section>
+    <section class="study-rule panel"><div><h3>Textbook first</h3><p>This lesson runs from <strong>pp.${l.textbook.start}–${l.textbook.end}</strong>. Work through the actual textbook before using the workbooks as reinforcement. If you already know a section, do a representative mastery check rather than grinding every repetition.</p></div><button class="smallbtn primary" id="lessonMastery">Open mastery check</button></section>
+    <section class="panel lesson-overview"><div class="overview-grid"><div><div class="eyebrow">Can-do goals</div><ul>${cando}</ul></div><div><div class="eyebrow">Target grammar</div><ul>${grammar}</ul></div></div>${l.textbook.note?`<p class="subtitle"><strong>Language/Culture note:</strong> ${esc(l.textbook.note)}</p>`:''}</section>
     <section class="lesson-grid">
-      <div class="lesson-column"><div class="section-heading"><div><div class="eyebrow">Workbook 2</div><h2>Vocabulary · grammar · listening</h2><p class="subtitle">Your Workbook 2 contents mapped directly to the lesson.</p></div></div><div class="component-list">${wb2.map(t=>componentRow(l,t)).join('')}</div></div>
-      <div class="lesson-column"><div class="section-heading"><div><div class="eyebrow">Workbook 1</div><h2>Kanji · reading · writing</h2><p class="subtitle">Use the corresponding Workbook 1 pages to reinforce the same lesson.</p></div></div><div class="component-list">${wb1.map(t=>componentRow(l,t)).join('')}</div></div>
+      <div class="lesson-column"><div class="section-heading"><div><div class="eyebrow">Textbook · pp.${l.textbook.start}–${l.textbook.end}</div><h2>Core lesson</h2><p class="subtitle">Conversation → vocabulary → kanji → grammar → speaking → reading → listening.</p></div></div><div class="component-list">${tb.map(t=>componentRow(l,t)).join('')}</div></div>
+      <div class="lesson-column"><div class="section-heading"><div><div class="eyebrow">Workbook 2</div><h2>Vocabulary · grammar · listening</h2><p class="subtitle">Complete after the corresponding textbook material.</p></div></div><div class="component-list">${wb2.map(t=>componentRow(l,t)).join('')}</div></div>
     </section>
+    <section class="panel"><div class="section-heading"><div><div class="eyebrow">Workbook 1</div><h2>Kanji · reading · writing</h2><p class="subtitle">Use the corresponding Workbook 1 pages to reinforce the same lesson.</p></div></div><div class="component-list">${wb1.map(t=>componentRow(l,t)).join('')}</div></section>
     <section class="panel lesson-notes-panel"><div class="panelhead"><div><h3>Lesson notes</h3><p class="subtitle">For overall observations. Individual task notes live in each task.</p></div><span class="flag-count">${flagged.length} flagged</span></div><textarea id="lessonNotes" class="notes" placeholder="What was easy? What keeps tripping you up? Useful example sentences..."></textarea></section>
-    <section class="panel page-map"><div class="panelhead"><div><h3>Book cross-reference</h3><p class="subtitle">Exact page numbers from the contents you supplied.</p></div></div><div class="page-map-grid">${tasks.map(t=>`<button class="page-chip" data-task="${esc(t.id)}"><span>${esc(t.title)}</span><strong>${esc(t.book)} · p.${t.page}</strong></button>`).join('')}</div></section>`;
+    <section class="panel page-map"><div class="panelhead"><div><h3>Book cross-reference</h3><p class="subtitle">Textbook lesson range plus exact workbook pages.</p></div></div><div class="page-map-grid">${tasks.map(t=>`<button class="page-chip" data-task="${esc(t.id)}"><span>${esc(t.title)}</span><strong>${esc(t.book)} · p.${t.page}</strong></button>`).join('')}</div></section>`;
   $('#backDashboard').onclick=()=>{state.view='dashboard';render();};
   $('#backPlan').onclick=()=>{state.week=w;state.view='plan';render();};
   $('#prevLesson').onclick=()=>{if(n>11){state.lesson=n-1;render();}};
