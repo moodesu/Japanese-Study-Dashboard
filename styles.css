@@ -43,3 +43,26 @@ html,body{max-width:100%;overflow-x:hidden}
   .mainnav{gap:3px}
   .navbtn{padding:7px 9px;font-size:11px}
 }
+
+/* Pomodoro launcher + contained responsive timer */
+.mainnav .pomo-nav-btn{flex:0 0 auto;min-width:40px;width:40px;padding:8px 0;text-align:center;font-size:17px;line-height:1}
+.mainnav .pomo-nav-btn.is-open{background:var(--soft);border-color:var(--line)}
+.mainnav .pomo-nav-btn.is-running{box-shadow:0 0 0 2px rgba(22,117,141,.16)}
+.pomo-widget{width:min(320px,calc(100vw - 24px));max-width:calc(100vw - 24px);min-width:0;overflow:hidden}
+.pomo-widget *{min-width:0;max-width:100%}
+.pomo-head{min-width:0}
+.pomo-task{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pomo-quicklink{display:block;max-width:100%;min-width:0;box-sizing:border-box}
+.pomo-controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));width:100%;min-width:0}
+.pomo-controls .smallbtn{min-width:0;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:760px){
+  .pomo-widget{right:10px;left:auto;bottom:10px;width:min(300px,calc(100vw - 20px));max-width:calc(100vw - 20px);padding:12px}
+  .pomo-time{font-size:28px}
+  .pomo-controls{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+  .pomo-controls .smallbtn{padding:7px 5px;font-size:11px}
+}
+@media(max-width:420px){
+  .pomo-widget{right:8px;bottom:8px;width:calc(100vw - 16px);max-width:calc(100vw - 16px)}
+  .pomo-controls{grid-template-columns:1fr 1fr 1fr}
+  .pomo-controls .smallbtn{font-size:10px;padding-left:3px;padding-right:3px}
+}

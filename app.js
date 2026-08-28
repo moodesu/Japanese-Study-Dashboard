@@ -20,7 +20,8 @@ const state = {
     status: 'idle', mode: 'work', remaining: POMO_DURATIONS.work,
     taskId: null, cycle: 0, endAt: null, startedAt: null
   },
-  sessions: JSON.parse(localStorage.getItem('pomodoroSessions') || '[]')
+  sessions: JSON.parse(localStorage.getItem('pomodoroSessions') || '[]'),
+  pomoOpen: localStorage.getItem('pomodoroOpen') === 'true'
 };
 
 const $ = s => document.querySelector(s);
@@ -216,7 +217,8 @@ function startPomodoro(taskId){
     p.endAt=Date.now()+p.remaining*1000;
     p.startedAt=p.startedAt||new Date().toISOString();
   }
-  savePomodoro(); renderPomodoro();
+  state.pomoOpen=true; localStorage.setItem('pomodoroOpen','true');
+  savePomodoro(); renderPomodoro(); renderNav();
 }
 function pausePomodoro(){
   const p=state.pomodoro;
@@ -295,7 +297,7 @@ function renderPomodoroQuickLink(){
 }
 function renderPomodoro(){
   const w=$('#pomodoroWidget'); if(!w) return;
-  w.hidden = !(state.ready && state.user);
+  w.hidden = !(state.ready && state.user && state.pomoOpen);
   const p=state.pomodoro;
   syncRemaining();
   const dur=pomodoroDuration(p.mode);
@@ -346,8 +348,14 @@ function renderHeader(){
   $('#progressBar').style.width=(p.total?p.done/p.total*100:0)+'%';
 }
 function renderNav(){
-  $('#mainNav').innerHTML=`<button class="navbtn ${state.view==='dashboard'?'active':''}" data-view="dashboard">Dashboard</button><button class="navbtn ${state.view==='plan'?'active':''}" data-view="plan">Study plan</button><button class="navbtn ${state.view==='lesson'?'active':''}" data-view="lesson">Lessons</button><button class="navbtn ${state.view==='library'?'active':''}" data-view="library">Learning hub</button>`;
-  $('#mainNav').querySelectorAll('.navbtn').forEach(b=>b.onclick=()=>{state.view=b.dataset.view;if(state.view==='lesson'&&!lessonByNumber(state.lesson))state.lesson=11;render();scrollTo({top:0,behavior:'smooth'});});
+  $('#mainNav').innerHTML=`<button class="navbtn ${state.view==='dashboard'?'active':''}" data-view="dashboard">Dashboard</button><button class="navbtn ${state.view==='plan'?'active':''}" data-view="plan">Study plan</button><button class="navbtn ${state.view==='lesson'?'active':''}" data-view="lesson">Lessons</button><button class="navbtn ${state.view==='library'?'active':''}" data-view="library">Learning hub</button><button class="navbtn pomo-nav-btn" id="pomoNavBtn" type="button" title="Pomodoro" aria-label="Open Pomodoro">🍅</button>`;
+  $('#mainNav').querySelectorAll('.navbtn[data-view]').forEach(b=>b.onclick=()=>{state.view=b.dataset.view;if(state.view==='lesson'&&!lessonByNumber(state.lesson))state.lesson=11;render();scrollTo({top:0,behavior:'smooth'});});
+  const pomoNav=$('#pomoNavBtn');
+  if(pomoNav){
+    pomoNav.classList.toggle('is-open',state.pomoOpen);
+    pomoNav.classList.toggle('is-running',state.pomodoro.status==='running');
+    pomoNav.onclick=()=>{state.pomoOpen=!state.pomoOpen;localStorage.setItem('pomodoroOpen',String(state.pomoOpen));renderPomodoro();renderNav();};
+  }
 }
 
 function renderLibrary(){
