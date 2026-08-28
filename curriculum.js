@@ -32,5 +32,7 @@ window.OPTIONAL_TASKS = [
   {key:"wanikani",label:"WaniKani",duration:"15–25 min",desc:"Clear a manageable portion of your reviews. Stop before this becomes the main study block; TOBIRA remains the priority."},
   {key:"migaku",label:"Migaku input",duration:"20–30 min",desc:"Watch/listen to Japanese you can mostly follow. Save only a small number of genuinely useful items."},
   {key:"shadowing",label:"Shadowing",duration:"15–20 min",desc:"Use TOBIRA audio or another comprehensible source. Listen once, then shadow short chunks for rhythm, pronunciation and automaticity."},
-  {key:"yotsuba",label:"Yotsuba / easy reading",duration:"20–30 min",desc:"Read for enjoyment and volume. Avoid turning every unknown word into a vocabulary research project."}
+  {key:"yotsuba",label:"Yotsuba / easy reading",duration:"20–30 min",desc:"Read for enjoyment and volume. Avoid turning every unknown word into a vocabulary research project."},
+  {key:"youtube",label:"YouTube immersion",duration:"20–40 min",desc:"Watch Japanese YouTube content matched to your level. Prioritise following overall meaning over catching every word."},
+  {key:"manga",label:"Manga reading",duration:"20–40 min",desc:"Read manga in Japanese for volume and enjoyment. Look up only what genuinely blocks comprehension."}
 ];

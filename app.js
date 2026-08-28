@@ -277,6 +277,19 @@ function skipSession(){
   if(p.mode==='work' && elapsed>0) logSession(p.taskId,elapsed,p.startedAt,new Date().toISOString());
   advanceMode();
 }
+function currentWeekDay(){
+  const start=new Date(state.startDate+'T00:00:00'); const today=new Date(); today.setHours(0,0,0,0);
+  const diffDays=Math.floor((today-start)/86400000);
+  if(diffDays<0) return {w:0,d:0};
+  return {w:Math.min(11,Math.floor(diffDays/7)), d:((diffDays%7)+7)%7};
+}
+function renderPomodoroQuickLink(){
+  const sel=$('#pomoQuickLink'); if(!sel) return;
+  const {w,d}=currentWeekDay();
+  const opts=habits(w,d).map(t=>`<option value="${esc(t.id)}">${esc(t.title)}</option>`).join('');
+  sel.innerHTML=`<option value="">Quick-link a habit…</option>${opts}`;
+  sel.value = state.pomodoro.taskId && habits(w,d).some(t=>t.id===state.pomodoro.taskId) ? state.pomodoro.taskId : '';
+}
 function renderPomodoro(){
   const w=$('#pomodoroWidget'); if(!w) return;
   w.hidden = !(state.ready && state.user);
@@ -291,6 +304,7 @@ function renderPomodoro(){
   const task=findTaskById(p.taskId);
   $('#pomoTask').textContent = task ? task.title : 'No task linked';
   $('#pomoToggle').textContent = p.status==='running' ? 'Pause' : 'Start';
+  renderPomodoroQuickLink();
 }
 setInterval(()=>{
   const p=state.pomodoro;
@@ -516,6 +530,11 @@ $('#logout').onclick=async()=>{if(db)await db.auth.signOut();state.user=null;sta
 $('#pomoToggle').onclick=()=>{state.pomodoro.status==='running'?pausePomodoro():startPomodoro();};
 $('#pomoSkip').onclick=()=>skipSession();
 $('#pomoReset').onclick=()=>resetSession();
+$('#pomoQuickLink').onchange=e=>{
+  if(!e.target.value) return;
+  startPomodoro(e.target.value);
+  toast('Pomodoro linked to '+(findTaskById(e.target.value)?.title||'task'));
+};
 
 async function initAuth(){
   if(!db){state.ready=true;render();return;}
