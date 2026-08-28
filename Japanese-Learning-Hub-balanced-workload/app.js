@@ -27,6 +27,7 @@ const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
 const fmt = d => d.toLocaleDateString(undefined, {weekday:'long', month:'short', day:'numeric'});
+const fmtMinutes = m => `${Math.floor(m/60)}h${m%60?` ${m%60}m`:''}`;
 const dateKey = d => { const x = new Date(d); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; };
 const lessonForWeek = w => w < 10 ? CURRICULUM.lessons[w] : null;
 const consolidationLessons = w => w === 10 ? CURRICULUM.lessons.slice(0,5) : CURRICULUM.lessons.slice(5,10);
@@ -56,17 +57,14 @@ function weeklyTasks(w,d){
   const l=lessonForWeek(w);
   const schedule=[
     ['textbook_conversation','textbook_vocab','vocab'],
-    ['textbook_kanji','kanji'],
+    ['textbook_kanji','kanji','writing'],
     ['textbook_grammar','particle','grammar1'],
     ['textbook_talk','textbook_reading','reading'],
     ['textbook_listening','listening','writing'],
     ['comp1','grammar2','comp2'],
-    ['review'],
+    ['review']
   ][d];
-  const out=schedule.map(k=>makeTask(l,k)).filter(Boolean);
-  if(d===5) out.push({id:`b2-w${w+1}-d6-consolidation`,lesson:l.n,key:'consolidation',title:`Lesson ${l.n} · consolidation + catch-up`,duration:'30–45 min',book:'Your notes',desc:'Return to anything marked shaky or weak. Re-test it without notes, then update mastery. If the textbook work is complete, use this block for rereading, re-listening or additional speaking.'});
-  if(d===6) out.push({id:`b2-w${w+1}-d7-mastery`,lesson:l.n,key:'mastery',title:`Mastery check · Lesson ${l.n}`,duration:'30–45 min',book:'Dashboard',desc:'Check the textbook, both workbooks and the lesson can-do goals. Mark Mastered only when you can recognise, understand and produce the material reliably.'});
-  return out;
+  return schedule.map(k=>makeTask(l,k)).filter(Boolean);
 }
 function consolidationTasks(w,d){
   const ls=consolidationLessons(w), label=w===10?'Lessons 11–15':'Lessons 16–20';
@@ -420,7 +418,7 @@ function card(t){
 function renderWeek(){
   $('#hero').hidden=false; $('#bottomArea').hidden=false; $('#weekView').hidden=false; $('#mainContent').hidden=true;
   const ds=weekDates(state.week);
-  $('#weekView').innerHTML=`<div class="tabsrow"><button class="smallbtn" id="prevWeek">←</button><div class="weektabs" id="weekTabs"></div><button class="smallbtn" id="nextWeek">→</button></div>${ds.map((date,d)=>{const core=weeklyTasks(state.week,d),hs=habits(state.week,d),isToday=dateKey(date)===dateKey(new Date());return `<section class="day ${isToday?'today':''}"><div class="dayhead"><div><div class="eyebrow">${isToday?'TODAY · ':''}${date.toLocaleDateString(undefined,{weekday:'long'})}</div><h2>${fmt(date)}</h2></div><span class="daycount">${core.filter(t=>ts(t.id).completed).length}/${core.length}</span></div>${core.length?`<div class="tasklist">${core.map(card).join('')}</div>`:''}<details class="habits"><summary>Daily habits <span>WaniKani · Migaku · shadowing · reading</span></summary><div class="habitlist">${hs.map(card).join('')}</div></details></section>`}).join('')}`;
+  $('#weekView').innerHTML=`<div class="tabsrow"><button class="smallbtn" id="prevWeek">←</button><div class="weektabs" id="weekTabs"></div><button class="smallbtn" id="nextWeek">→</button></div><div class="week-overview"><div><div class="eyebrow">WEEK ${state.week+1}</div><h2>${esc(weekPlan(state.week).focus)}</h2><p class="subtitle">Core target: ${fmtMinutes(weekPlan(state.week).days.reduce((a,x)=>a+x.target,0))} this week, with optional input bringing the overall plan toward 15–20 hours.</p></div></div>${ds.map((date,d)=>{const core=weeklyTasks(state.week,d),hs=habits(state.week,d),plan=weekPlan(state.week).days[d]||{focus:'Core study',target:120,extra:'30 min Japanese input'},isToday=dateKey(date)===dateKey(new Date());return `<section class="day ${isToday?'today':''}"><div class="dayhead"><div><div class="eyebrow">${isToday?'TODAY · ':''}${date.toLocaleDateString(undefined,{weekday:'long'})}</div><h2>${fmt(date)}</h2><p class="dayfocus"><strong>${esc(plan.focus)}</strong> · target ${fmtMinutes(plan.target)} · ${esc(plan.extra)}</p></div><span class="daycount">${core.filter(t=>ts(t.id).completed).length}/${core.length}</span></div>${core.length?`<div class="tasklist">${core.map(card).join('')}</div>`:''}<details class="habits"><summary>Optional input <span>WaniKani · Migaku · shadowing · reading</span></summary><p class="habit-target">Recommended: ${esc(plan.extra)}</p><div class="habitlist">${hs.map(card).join('')}</div></details></section>`}).join('')}`;
   $('#weekView').querySelectorAll('[data-task]').forEach(e=>e.onclick=x=>{if(x.target.matches('input'))return;openTask(e.dataset.task);});
   $('#weekView').querySelectorAll('[data-check]').forEach(e=>e.onchange=()=>toggle(e.dataset.check));
   $('#prevWeek').onclick=()=>{state.week=Math.max(0,state.week-1);render();};

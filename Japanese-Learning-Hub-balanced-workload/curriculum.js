@@ -76,6 +76,120 @@ window.TASK_TYPES = [
   {key:"review",label:"Workbook 1 · Kanji review",book:"Workbook 1",field:"review",duration:"15–25 min",desc:"Use the review section as a retrieval check. Skip only if the underlying kanji are genuinely automatic."}
 ];
 
+
+window.WEEK_PLANS = [
+  {week:1, focus:'Lesson 11 · foundations', target:135, days:[
+    {focus:'Conversation + vocabulary', target:120, extra:'15 min shadowing'},
+    {focus:'Kanji + writing', target:110, extra:'20 min WaniKani'},
+    {focus:'Grammar deep work', target:135, extra:'20 min Migaku'},
+    {focus:'Speaking + reading', target:130, extra:'20 min Yotsuba'},
+    {focus:'Listening + writing', target:115, extra:'20 min shadowing'},
+    {focus:'Comprehensive practice', target:120, extra:'30 min easy reading'},
+    {focus:'Catch-up + weekly review', target:90, extra:'30 min relaxed Japanese'}
+  ]},
+  {week:2, focus:'Lesson 12 · travel and preparation', target:135, days:[
+    {focus:'Conversation + vocabulary', target:120, extra:'15 min shadowing'},
+    {focus:'Kanji + writing', target:110, extra:'20 min WaniKani'},
+    {focus:'Grammar + particles', target:135, extra:'20 min Migaku'},
+    {focus:'Speaking + reading', target:130, extra:'20 min Yotsuba'},
+    {focus:'Listening + writing', target:115, extra:'20 min shadowing'},
+    {focus:'Comprehensive practice', target:120, extra:'30 min easy reading'},
+    {focus:'Catch-up + weekly review', target:90, extra:'30 min relaxed Japanese'}
+  ]},
+  {week:3, focus:'Lesson 13 · plans and obligations', target:140, days:[
+    {focus:'Conversation + vocabulary', target:120, extra:'15 min shadowing'},
+    {focus:'Kanji + writing', target:110, extra:'20 min WaniKani'},
+    {focus:'Grammar deep work', target:140, extra:'20 min Migaku'},
+    {focus:'Speaking + reading', target:130, extra:'20 min Yotsuba'},
+    {focus:'Listening + writing', target:120, extra:'20 min shadowing'},
+    {focus:'Comprehensive practice', target:125, extra:'30 min easy reading'},
+    {focus:'Catch-up + weekly review', target:90, extra:'30 min relaxed Japanese'}
+  ]},
+  {week:4, focus:'Lesson 14 · describing states and giving advice', target:140, days:[
+    {focus:'Conversation + vocabulary', target:125, extra:'15 min shadowing'},
+    {focus:'Kanji + writing', target:115, extra:'20 min WaniKani'},
+    {focus:'Grammar deep work', target:145, extra:'20 min Migaku'},
+    {focus:'Speaking + reading', target:130, extra:'20 min Yotsuba'},
+    {focus:'Listening + writing', target:120, extra:'20 min shadowing'},
+    {focus:'Comprehensive practice', target:125, extra:'30 min easy reading'},
+    {focus:'Catch-up + weekly review', target:90, extra:'30 min relaxed Japanese'}
+  ]},
+  {week:5, focus:'Lesson 15 · offering help and advice', target:140, days:[
+    {focus:'Conversation + vocabulary', target:125, extra:'15 min shadowing'},
+    {focus:'Kanji + writing', target:115, extra:'20 min WaniKani'},
+    {focus:'Grammar deep work', target:145, extra:'20 min Migaku'},
+    {focus:'Speaking + reading', target:130, extra:'20 min Yotsuba'},
+    {focus:'Listening + writing', target:120, extra:'20 min shadowing'},
+    {focus:'Comprehensive practice', target:125, extra:'30 min easy reading'},
+    {focus:'Catch-up + weekly review', target:90, extra:'30 min relaxed Japanese'}
+  ]},
+  {week:6, focus:'Lesson 16 · experiences and regrets', target:140, days:[
+    {focus:'Conversation + vocabulary', target:125, extra:'15 min shadowing'},
+    {focus:'Kanji + writing', target:115, extra:'20 min WaniKani'},
+    {focus:'Grammar deep work', target:145, extra:'20 min Migaku'},
+    {focus:'Speaking + reading', target:130, extra:'20 min Yotsuba'},
+    {focus:'Listening + writing', target:120, extra:'20 min shadowing'},
+    {focus:'Comprehensive practice', target:125, extra:'30 min easy reading'},
+    {focus:'Catch-up + weekly review', target:90, extra:'30 min relaxed Japanese'}
+  ]},
+  {week:7, focus:'Lesson 17 · permission, goals and polite requests', target:145, days:[
+    {focus:'Conversation + vocabulary', target:125, extra:'15 min shadowing'},
+    {focus:'Kanji + writing', target:120, extra:'20 min WaniKani'},
+    {focus:'Grammar deep work', target:150, extra:'20 min Migaku'},
+    {focus:'Speaking + reading', target:135, extra:'20 min Yotsuba'},
+    {focus:'Listening + writing', target:120, extra:'20 min shadowing'},
+    {focus:'Comprehensive practice', target:130, extra:'30 min easy reading'},
+    {focus:'Catch-up + weekly review', target:90, extra:'30 min relaxed Japanese'}
+  ]},
+  {week:8, focus:'Lesson 18 · change, encouragement and essays', target:140, days:[
+    {focus:'Conversation + vocabulary', target:125, extra:'15 min shadowing'},
+    {focus:'Kanji + writing', target:115, extra:'20 min WaniKani'},
+    {focus:'Grammar deep work', target:145, extra:'20 min Migaku'},
+    {focus:'Speaking + reading', target:130, extra:'20 min Yotsuba'},
+    {focus:'Listening + writing', target:120, extra:'20 min shadowing'},
+    {focus:'Comprehensive practice', target:125, extra:'30 min easy reading'},
+    {focus:'Catch-up + weekly review', target:90, extra:'30 min relaxed Japanese'}
+  ]},
+  {week:9, focus:'Lesson 19 · keigo and formal Japanese', target:150, days:[
+    {focus:'Conversation + vocabulary', target:130, extra:'15 min shadowing'},
+    {focus:'Kanji + writing', target:120, extra:'20 min WaniKani'},
+    {focus:'Keigo grammar deep work', target:155, extra:'20 min Migaku'},
+    {focus:'Speaking + rakugo reading', target:140, extra:'20 min Yotsuba'},
+    {focus:'Listening + writing', target:125, extra:'20 min shadowing'},
+    {focus:'Comprehensive practice', target:135, extra:'30 min easy reading'},
+    {focus:'Catch-up + weekly review', target:95, extra:'30 min relaxed Japanese'}
+  ]},
+  {week:10, focus:'Lesson 20 · future, society and poetry', target:145, days:[
+    {focus:'Conversation + vocabulary', target:125, extra:'15 min shadowing'},
+    {focus:'Kanji + writing', target:115, extra:'20 min WaniKani'},
+    {focus:'Grammar deep work', target:150, extra:'20 min Migaku'},
+    {focus:'Speaking + reading', target:135, extra:'20 min Yotsuba'},
+    {focus:'Listening + writing', target:120, extra:'20 min shadowing'},
+    {focus:'Comprehensive practice', target:130, extra:'30 min easy reading'},
+    {focus:'Catch-up + weekly review', target:90, extra:'30 min relaxed Japanese'}
+  ]},
+  {week:11, focus:'Consolidation · Lessons 11–15', target:140, days:[
+    {focus:'L11–12 grammar + vocabulary', target:130, extra:'30 min reading'},
+    {focus:'L11–12 listening + shadowing', target:120, extra:'20 min WaniKani'},
+    {focus:'L13–14 grammar + speaking', target:145, extra:'20 min Migaku'},
+    {focus:'L13–14 reading + writing', target:130, extra:'30 min Yotsuba'},
+    {focus:'L15 + weak areas', target:130, extra:'20 min shadowing'},
+    {focus:'Mixed workbook practice', target:140, extra:'30 min native input'},
+    {focus:'Catch-up + transition review', target:90, extra:'30 min relaxed Japanese'}
+  ]},
+  {week:12, focus:'Consolidation · Lessons 16–20 + transition', target:145, days:[
+    {focus:'L16–17 grammar + vocabulary', target:135, extra:'30 min reading'},
+    {focus:'L16–17 listening + shadowing', target:125, extra:'20 min WaniKani'},
+    {focus:'L18–19 grammar + speaking', target:150, extra:'20 min Migaku'},
+    {focus:'L18–19 reading + writing', target:135, extra:'30 min Yotsuba'},
+    {focus:'L20 + weak areas', target:135, extra:'20 min shadowing'},
+    {focus:'Mixed review + next-book preview', target:145, extra:'30 min native input'},
+    {focus:'12-week review + plan next programme', target:90, extra:'30 min enjoyable Japanese'}
+  ]}
+];
+
+function weekPlan(w){ return window.WEEK_PLANS[w] || {week:w+1,focus:'Study week',target:120,days:Array.from({length:7},()=>({focus:'Core study',target:120,extra:'30 min Japanese input'}))}; }
+
 window.OPTIONAL_TASKS = [
   {key:"wanikani",label:"WaniKani",duration:"15–25 min",desc:"Clear a manageable portion of your reviews. Stop before this becomes the main study block; TOBIRA remains the priority."},
   {key:"migaku",label:"Migaku input",duration:"20–30 min",desc:"Watch/listen to Japanese you can mostly follow. Save only a small number of genuinely useful items."},
