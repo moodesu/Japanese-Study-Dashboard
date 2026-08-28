@@ -420,20 +420,49 @@ function todayPlan(){
   const w=Math.floor(clamped/7), d=clamped%7;
   return {week:w,day:d,beforeStart:offset<0,afterEnd:offset>=programDuration()*7,tasks:weeklyTasks(w,d)};
 }
+function masteryInterval(mastery){
+  return {studying:1,shaky:1,review:5}[mastery] || 0;
+}
+function reviewInfo(t){
+  const s=ts(t.id), mastery=s.mastery;
+  if(!['studying','shaky','review'].includes(mastery)) return {due:false,days:null,label:''};
+  if(!s.completed_at) return {due:true,days:0,label:'Due now'};
+  const interval=masteryInterval(mastery), dueAt=new Date(s.completed_at).getTime()+interval*86400000;
+  const days=Math.ceil((dueAt-Date.now())/86400000);
+  return {due:Date.now()>=dueAt,days, label:days<=0?'Due now':`Due in ${days}d`};
+}
 function reviewQueue(limit=10){
-  const now=Date.now();
-  const intervals={shaky:0,studying:1,review:3};
-  return allCoreTasks().map(t=>({t,s:ts(t.id)})).filter(x=>{
-    const m=x.s.mastery;
-    if(!['shaky','studying','review'].includes(m)) return false;
-    if(!x.s.completed) return true;
-    if(!x.s.completed_at) return true;
-    const due=(intervals[m]||0)*86400000;
-    return now-new Date(x.s.completed_at).getTime()>=due;
+  return allCoreTasks().map(t=>({t,s:ts(t.id),r:reviewInfo(t)})).filter(x=>{
+    if(!['studying','shaky','review'].includes(x.s.mastery)) return false;
+    return x.r.due;
   }).sort((a,b)=>{
     const rank={shaky:0,review:1,studying:2};
     return (rank[a.s.mastery]-rank[b.s.mastery]) || ((a.s.completed_at||'').localeCompare(b.s.completed_at||''));
   }).slice(0,limit);
+}
+function scheduledToday(){
+  const current=todayPlan();
+  return current.tasks.filter(t=>!ts(t.id).completed);
+}
+function adaptiveToday(limit=8){
+  const scheduled=scheduledToday();
+  const reviews=reviewQueue(20).map(x=>({...x,priority:'review'}));
+  const scheduledIds=new Set(scheduled.map(t=>t.id));
+  const dueReviews=reviews.filter(x=>!scheduledIds.has(x.t.id));
+  const result=[];
+  scheduled.forEach(t=>result.push({t,kind:'scheduled',reason:'Scheduled for today'}));
+  dueReviews.forEach(x=>result.push({t:x.t,kind:'review',reason:`${x.s.mastery==='shaky'?'Weak area · ':''}${x.r.label}`}));
+  return result.slice(0,limit);
+}
+function programmeHealth(){
+  const tasks=allCoreTasks(), states=tasks.map(t=>ts(t.id));
+  return {
+    total:tasks.length,
+    completed:states.filter(s=>s.completed).length,
+    mastered:states.filter(s=>s.mastery==='mastered').length,
+    attention:states.filter(s=>['shaky','studying','review'].includes(s.mastery)).length,
+    due:reviewQueue(999).length
+  };
 }
 function lessonWeaknesses(){
   return programLessons().map(l=>{
@@ -444,39 +473,43 @@ function lessonWeaknesses(){
 }
 function renderDashboard(){
   $('#hero').hidden=true; $('#bottomArea').hidden=true; $('#weekView').hidden=true; $('#mainContent').hidden=false;
-  const overall=overallProgress(), current=todayPlan(), next=nextIncomplete(), reviews=reviewQueue(8), weaknesses=lessonWeaknesses();
-  const currentTasks=current.tasks.filter(t=>!ts(t.id).completed).slice(0,4);
+  const overall=overallProgress(), current=todayPlan(), adaptive=adaptiveToday(8), next=nextIncomplete(), reviews=reviewQueue(8), weaknesses=lessonWeaknesses();
+  const health=programmeHealth();
   const mastered=programLessons().filter(l=>lessonStatus(l.n)[0]==='mastered').length;
   const activityRows=OPTIONAL_TASKS.map(x=>({label:x.label,secs:activitySeconds(x.key)})).sort((a,b)=>b.secs-a.secs);
   const maxActivity=Math.max(...activityRows.map(a=>a.secs),1);
   const topTasks=topTaskSessions(6);
   const overallPct=overall.total?Math.round(overall.done/overall.total*100):0;
-  const dayLabel=current.beforeStart?'Before programme start':current.afterEnd?'Programme complete':`Week ${current.week+1} · ${new Date(addDays(new Date(state.startDate+'T00:00:00'),current.week*7+current.day)).toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'})}`;
+  const currentDate=current.beforeStart?'Before programme start':current.afterEnd?'Programme complete':new Date(addDays(new Date(state.startDate+'T00:00:00'),current.week*7+current.day));
+  const dateLabel=currentDate instanceof Date?currentDate.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'}):currentDate;
+  const focus=adaptive.length?adaptive.map(x=>`<button class="focusitem ${x.kind==='review'?'review-focus':''}" data-task="${esc(x.t.id)}"><span class="status-dot ${ts(x.t.id).mastery}"></span><span><strong>${esc(x.t.title)}</strong><small>${esc(x.reason)} · ${esc(x.t.book)}${x.t.page?` · p.${x.t.page}`:''} · ${esc(x.t.duration)}</small></span></button>`).join(''):`<div class="empty">Nothing urgent is waiting. Use this time for reading, Migaku, shadowing or extra review.</div>`;
+  const dueCount=health.due;
   $('#mainContent').innerHTML=`
     <section class="dashgrid">
-      <article class="dashcard primarycard"><div class="eyebrow">Japanese learning hub</div><h2>Today's study, not just a calendar.</h2><p><strong>${esc(activeBook().title)}</strong> is your active programme. The dashboard prioritises scheduled work, then surfaces weak areas and review items.</p><div class="bigprogress"><strong>${overallPct}%</strong><span>${overall.done} of ${overall.total} scheduled core tasks complete</span></div><div class="progress"><i style="width:${overallPct}%"></i></div><div class="statstrip"><span><strong>${mastered}</strong> lessons mastered</span><span><strong>${reviews.length}</strong> review items</span><span><strong>${fmtDuration(totalSeconds())}</strong> total focus time</span></div></article>
-      <article class="dashcard"><div class="eyebrow">Today's focus</div><h3>${esc(dayLabel)}</h3>${currentTasks.length?`<div class="focuslist">${currentTasks.map(t=>`<button class="focusitem" data-task="${esc(t.id)}"><span class="status-dot ${ts(t.id).mastery}"></span><span><strong>${esc(t.title)}</strong><small>${esc(t.book)}${t.page?` · p.${t.page}`:''} · ${esc(t.duration)}</small></span></button>`).join('')}</div><button class="smallbtn primary" id="openToday">Open today's plan</button>`:'<p class="subtitle">No unfinished scheduled tasks for this day.</p><button class="smallbtn primary" id="openToday">Open plan</button>'}</article>
+      <article class="dashcard primarycard"><div class="eyebrow">Japanese learning hub</div><h2>Today's study</h2><p><strong>${esc(activeBook().title)}</strong> · ${esc(dateLabel)}. Your dashboard combines scheduled work with due reviews and weak areas.</p><div class="bigprogress"><strong>${overallPct}%</strong><span>${overall.done} of ${overall.total} scheduled core tasks complete</span></div><div class="progress"><i style="width:${overallPct}%"></i></div><div class="statstrip"><span><strong>${mastered}</strong> lessons mastered</span><span><strong>${dueCount}</strong> due reviews</span><span><strong>${health.attention}</strong> areas needing attention</span></div></article>
+      <article class="dashcard today-card"><div class="eyebrow">Start here</div><h3>${adaptive.length?`${adaptive.length} priority items`:'All clear'}</h3><div class="focuslist">${focus}</div>${adaptive.length?`<button class="smallbtn primary" id="startToday">Start first task</button>`:`<button class="smallbtn" id="goPlan">Open study plan</button>`}</article>
       <article class="dashcard"><div class="eyebrow">Next</div><h3>${next?esc(next.task.title):'Programme complete'}</h3><p>${next?`Week ${next.week+1} · ${esc(next.task.book)}${next.task.page?` · p.${next.task.page}`:''}`:'You have completed every scheduled core task.'}</p>${next?'<button class="smallbtn primary" id="openNext">Open task</button>':''}</article>
     </section>
     <section class="dashboard-columns">
-      <article class="panel"><div class="panelhead"><div><h3>Review queue</h3><p class="subtitle">Shaky and review items are promoted here automatically. Mastery determines what comes back.</p></div></div>${reviews.length?`<div class="attentionlist">${reviews.map(x=>`<button class="attention" data-task="${esc(x.t.id)}"><span class="status-dot ${x.s.mastery}"></span><span><strong>${esc(x.t.title)}</strong><small>L${x.t.lesson} · ${esc(x.t.book)} · p.${x.t.page} · ${esc(x.s.mastery)}</small></span></button>`).join('')}</div>`:'<div class="empty">Nothing is currently due for review. Keep testing yourself honestly.</div>'}</article>
-      <article class="panel"><div class="panelhead"><div><h3>Weakest areas</h3><p class="subtitle">Lessons with the most flagged components get attention first.</p></div></div>${weaknesses.length?`<div class="attentionlist">${weaknesses.slice(0,6).map(l=>`<button class="attention" data-lesson="${l.n}"><span class="status-dot shaky"></span><span><strong>Lesson ${l.n} · ${esc(l.title)}</strong><small>${l.flagged} flagged components · ${l.percent}% completed</small></span></button>`).join('')}</div>`:'<div class="empty">No weak areas flagged yet.</div>'}</article>
+      <article class="panel"><div class="panelhead"><div><h3>Review queue</h3><p class="subtitle">Review is generated from mastery. Studying/Shaky returns quickly; Review returns after a longer interval.</p></div><span class="flag-count">${dueCount} due</span></div>${reviews.length?`<div class="attentionlist">${reviews.map(x=>`<button class="attention" data-task="${esc(x.t.id)}"><span class="status-dot ${x.s.mastery}"></span><span><strong>${esc(x.t.title)}</strong><small>L${x.t.lesson} · ${esc(x.t.book)} · p.${x.t.page} · ${esc(x.r.label)}</small></span></button>`).join('')}</div>`:'<div class="empty">Nothing is currently due. Keep testing yourself honestly.</div>'}</article>
+      <article class="panel"><div class="panelhead"><div><h3>Weakest areas</h3><p class="subtitle">Flagged lesson components take priority over simply moving forward.</p></div></div>${weaknesses.length?`<div class="attentionlist">${weaknesses.slice(0,6).map(l=>`<button class="attention" data-lesson="${l.n}"><span class="status-dot shaky"></span><span><strong>Lesson ${l.n} · ${esc(l.title)}</strong><small>${l.flagged} flagged components · ${l.percent}% completed</small></span></button>`).join('')}</div>`:'<div class="empty">No weak areas flagged yet.</div>'}</article>
     </section>
     <section class="dashboard-columns">
-      <article class="panel"><div class="panelhead"><div><h3>Active curriculum</h3><p class="subtitle">Click a lesson for its complete mapped study workspace.</p></div><button class="smallbtn" id="goPlan">View plan</button></div><div class="lessonprogress">${programLessons().map(lessonButton).join('')}</div></article>
-      <article class="panel"><div class="panelhead"><div><h3>Study time by activity</h3><p class="subtitle">Immersion and habit time logged through Pomodoro.</p></div></div><div class="timebars">${activityRows.map(a=>`<div class="timebar-row"><span>${esc(a.label)}</span><div class="timebar-track"><i style="width:${a.secs?Math.min(100,a.secs/maxActivity*100):0}%"></i></div><strong>${fmtDuration(a.secs)}</strong></div>`).join('')}</div></article>
+      <article class="panel"><div class="panelhead"><div><h3>Active curriculum</h3><p class="subtitle">Open a lesson for its complete textbook → workbook → mastery workspace.</p></div><button class="smallbtn" id="goPlan">View plan</button></div><div class="lessonprogress">${programLessons().map(lessonButton).join('')}</div></article>
+      <article class="panel"><div class="panelhead"><div><h3>Study time by activity</h3><p class="subtitle">Logged focus time from your Pomodoro sessions.</p></div></div><div class="timebars">${activityRows.map(a=>`<div class="timebar-row"><span>${esc(a.label)}</span><div class="timebar-track"><i style="width:${a.secs?Math.min(100,a.secs/maxActivity*100):0}%"></i></div><strong>${fmtDuration(a.secs)}</strong></div>`).join('')}</div></article>
     </section>
     <section class="dashboard-columns">
       <article class="panel"><div class="panelhead"><div><h3>Top tasks by time</h3><p class="subtitle">Where your logged focus time has actually gone.</p></div></div>${topTasks.length?`<div class="attentionlist">${topTasks.map(x=>`<button class="attention" data-task="${esc(x.id)}"><span class="status-dot ${x.task?ts(x.id).mastery:'not_started'}"></span><span><strong>${x.task?esc(x.task.title):'Unknown task'}</strong><small>${fmtDuration(x.secs)} logged${x.task?.lesson?` · L${x.task.lesson}`:''}</small></span></button>`).join('')}</div>`:'<div class="empty">No Pomodoro sessions logged yet.</div>'}</article>
-      <article class="panel"><div class="panelhead"><div><h3>Progression rule</h3><p class="subtitle">The hub adapts around your mastery decisions.</p></div></div><div class="empty"><strong>Complete → assess → review → progress.</strong><br><br>Mark a task Mastered only when you can recognise, understand and produce the material reliably. Shaky areas return to the review queue instead of being buried under the calendar.</div></article>
+      <article class="panel"><div class="panelhead"><div><h3>How progression works</h3><p class="subtitle">Completion is not the same thing as mastery.</p></div></div><div class="empty"><strong>Study → complete → assess → review → progress.</strong><br><br>Mark a component <strong>Mastered</strong> only when you can recognise, understand and produce it reliably. <strong>Shaky</strong> and <strong>Studying</strong> items return to the review queue automatically.</div></article>
     </section>`;
-  $('#openToday').onclick=()=>{state.week=current.week;state.view='plan';render();};
-  $('#goPlan').onclick=()=>{state.week=current.week;state.view='plan';render();};
+  $('#startToday')?.addEventListener('click',()=>{const x=adaptive[0]; if(x)openTask(x.t.id);});
+  $('#goPlan')?.addEventListener('click',()=>{state.week=current.week;state.view='plan';render();});
   $('#openNext')?.addEventListener('click',()=>{state.week=next.week;state.view='plan';render();setTimeout(()=>openTask(next.task.id),50);});
   $('#mainContent').querySelectorAll('.lessonrow').forEach(b=>b.onclick=()=>{state.lesson=+b.dataset.lesson;state.view='lesson';render();scrollTo({top:0,behavior:'smooth'});});
   $('#mainContent').querySelectorAll('[data-task]').forEach(b=>b.onclick=()=>openTask(b.dataset.task));
   $('#mainContent').querySelectorAll('[data-lesson]').forEach(b=>b.onclick=()=>{state.lesson=+b.dataset.lesson;state.view='lesson';render();});
 }
+
 function card(t){
   const s=ts(t.id);
   return `<article class="task ${s.completed?'done':''}" data-task="${esc(t.id)}"><input type="checkbox" data-check="${esc(t.id)}" ${s.completed?'checked':''}><div class="taskmain"><div class="tasktitle">${esc(t.title)}</div><div class="taskmeta">${esc(t.book)}${t.page?` · p.${t.page}`:''} · ${esc(t.duration)}</div><div class="taskhint">Tap for instructions, mastery and notes</div></div><span class="status-dot ${s.mastery}"></span></article>`;

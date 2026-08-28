@@ -18,3 +18,8 @@
 .program-meta span{background:var(--soft);border-radius:999px;padding:5px 8px}
 @media(max-width:900px){.program-grid{grid-template-columns:1fr}}
 @media(max-width:760px){.program-card{padding:15px}.program-card.active-program{padding:14px}}
+
+/* Adaptive study dashboard */
+.today-card .focuslist{margin-top:12px}
+.focusitem.review-focus{border-left:3px solid var(--accent,#d08b3e)}
+.flag-count{font-size:.78rem;font-weight:700;padding:6px 9px;border-radius:999px;background:rgba(208,139,62,.12);white-space:nowrap}
