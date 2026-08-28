@@ -543,20 +543,7 @@ setInterval(()=>{
   if(remaining<=0) completeSession(); else renderPomodoro();
 },1000);
 
-\1
-  if (typeof currentView !== 'undefined' && currentView === 'wanikani') {
-    const root = document.getElementById('mainContent');
-    if (root) {
-      root.innerHTML = renderWaniKaniDashboardView();
-      const hero = document.getElementById('hero');
-      const weekView = document.getElementById('weekView');
-      const bottomArea = document.getElementById('bottomArea');
-      if (hero) hero.hidden = true;
-      if (weekView) weekView.hidden = true;
-      if (bottomArea) bottomArea.hidden = true;
-      return;
-    }
-  }
+function render(){
   if(!state.ready || !state.user){ renderGate(); return; }
   $('#appShell').hidden=false; $('#loginGate').hidden=true;
   renderHeader(); renderNav();
