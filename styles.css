@@ -89,3 +89,7 @@ html,body{max-width:100%;overflow-x:hidden}
 @media(max-width:900px){.wk-overview-grid{grid-template-columns:1fr 1fr}.wk-level-card{grid-column:1/-1}.wk-grid{grid-template-columns:1fr}}
 @media(max-width:760px){.wk-page{margin-top:12px}.wk-page-head{display:block}.wk-page-head h1{font-size:27px}.wk-page-actions{margin-top:12px}.wk-overview-grid{grid-template-columns:1fr 1fr}.wk-level-card{grid-column:1/-1}.wk-mini-stats{grid-template-columns:repeat(3,minmax(0,1fr))}.wk-mini-stats strong{font-size:15px}.wk-srs-row{grid-template-columns:72px minmax(0,1fr) 32px}.wk-tool{align-items:flex-start;flex-direction:column;gap:4px}.wk-tool span{text-align:left}}
 @media(max-width:420px){.wk-overview-grid{grid-template-columns:1fr}.wk-level-card{grid-column:auto}.wk-mini-stats{gap:5px}.wk-mini-stats>div{padding:8px}.wk-mini-stats strong{font-size:14px}.wk-mini-stats span{font-size:9px}}
+
+/* Compact WaniKani navbar icon */
+.mainnav .wk-nav-btn{flex:0 0 40px;min-width:40px;width:40px;padding:8px 0;text-align:center;font-size:18px;line-height:1;font-weight:800}
+@media(max-width:760px){.mainnav .wk-nav-btn{flex-basis:38px;min-width:38px;width:38px;font-size:17px}}
