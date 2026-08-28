@@ -83,7 +83,7 @@ function renderWaniKani(){
     el.innerHTML=`<div class="panelhead"><div><div class="eyebrow">Supporting resource</div><h3>WaniKani</h3><p class="subtitle">${esc(waniKaniState.error)}</p></div><button class="smallbtn" id="wkRetry">Retry</button></div>`;
     $('#wkRetry').onclick=()=>loadWaniKani(true); return;
   }
-  const d=waniKaniState.data, u=d.user, s=d.summary;
+  const d=waniKaniState.data || {}, u=d.user || {}, s=d.summary || {};
   const reviews=countAvailableReviews(s), lessons=countLessons(s), next=nextReview(s);
   const fetched=waniKaniState.fetchedAt?new Date(waniKaniState.fetchedAt).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}):'';
   el.innerHTML=`<div class="panelhead"><div><div class="eyebrow">Supporting resource</div><h3>WaniKani</h3><p class="subtitle">${esc(u?.username||'')} · Level ${esc(u?.level??'—')}</p></div><div class="wk-actions"><button class="smallbtn" id="wkRefresh" title="Refresh WaniKani data">↻ Refresh</button><a class="smallbtn" href="https://www.wanikani.com" target="_blank" rel="noopener">Open WaniKani ↗</a></div></div><div class="wk-stats"><div><strong>${reviews}</strong><span>Reviews due</span></div><div><strong>${lessons}</strong><span>Lessons available</span></div><div><strong>${esc(formatWkNextReview(next))}</strong><span>Next review</span></div></div><div class="wk-footer"><span>Updated ${esc(fetched||'—')} · cached for 1 hour</span></div>`;
