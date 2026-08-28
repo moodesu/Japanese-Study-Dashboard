@@ -99,6 +99,22 @@ window.BOOKS = [
   {id:"try-n3", title:"TRY! N3", series:"TRY!", level:"JLPT N3", status:"planned", description:"Targeted grammar/reference layer for N3 preparation.", curriculum:false}
 ];
 
+window.STUDY_PROGRAMS = [
+  {
+    id: "tobira-beginning-ii-12w",
+    bookId: "tobira-beginning-ii",
+    title: "TOBIRA Beginning Japanese II · Foundation cycle",
+    type: "Textbook programme",
+    description: "A 12-week focused cycle through Lessons 11–20, combining textbook input, both workbooks, mastery checks and consolidation.",
+    durationWeeks: 12,
+    lessonWeeks: 10,
+    taskPrefix: "b2",
+    scheduleLabel: "10 lesson weeks + 2 consolidation weeks",
+    curriculum: window.CURRICULUM,
+    active: true
+  }
+];
+
 window.STUDY_RESOURCES = [
   {id:"wanikani", title:"WaniKani", type:"SRS", status:"active", description:"Daily kanji/vocabulary SRS. The dashboard complements WaniKani rather than duplicating it."},
   {id:"migaku", title:"Migaku", type:"Native input", status:"active", description:"Controlled native Japanese input and sentence mining. Keep it subordinate to the core curriculum."},
