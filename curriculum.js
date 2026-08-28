@@ -55,6 +55,43 @@ window.CURRICULUM = {
   ]
 };
 
+// ---- Programme registry ---------------------------------------------------
+// Programmes are independent of the book registry. A programme chooses a
+// book, a curriculum dataset and a scheduling model. Future books can be
+// added without changing the application UI or persistence layer.
+window.PROGRAMMES = [
+  {
+    id:"tobira-beginning-ii-12w",
+    bookId:"tobira-beginning-ii",
+    title:"TOBIRA Beginning Japanese II · 12-week foundation",
+    shortTitle:"Beginning Japanese II · 12 weeks",
+    status:"active",
+    curriculumKey:"CURRICULUM",
+    weeks:12,
+    targetHours:[15,20],
+    description:"A complete, page-mapped pass through Beginning Japanese II Lessons 11–20, with textbook work, both workbooks, consolidation and optional Japanese input.",
+    scheduleKey:"WEEK_PLANS"
+  },
+  {
+    id:"tobira-intermediate-future", bookId:"tobira-intermediate-i",
+    title:"TOBIRA Intermediate Japanese I · future programme", shortTitle:"Intermediate Japanese I",
+    status:"planned", weeks:null, targetHours:[12,18],
+    description:"Add the contents and workbook mappings when you are ready; the same programme engine will schedule it."
+  },
+  {
+    id:"tobira-gateway-future", bookId:"tobira-gateway",
+    title:"TOBIRA Gateway to Advanced Japanese · future programme", shortTitle:"Gateway to Advanced",
+    status:"planned", weeks:null, targetHours:[10,16],
+    description:"Future advanced programme. It can use a different duration and task structure from Beginning II."
+  }
+];
+
+window.PROGRAMME_SETTINGS = {
+  activeId:"tobira-beginning-ii-12w",
+  defaultStudyHours:[15,20],
+  note:"The active programme is the only programme that currently contributes scheduled tasks. Future programmes become selectable once their book contents are mapped."
+};
+
 window.TASK_TYPES = [
   {key:"textbook_conversation",label:"Textbook · Conversation",book:"Textbook",field:"conversation",duration:"30–40 min",desc:"Work through the lesson's conversation in the textbook. First understand the situation and meaning, then read/listen repeatedly. Finish by reading aloud without relying on the English."},
   {key:"textbook_vocab",label:"Textbook · Vocabulary",book:"Textbook",field:"vocab",duration:"25–35 min",desc:"Study the lesson vocabulary from the textbook. Learn readings and meanings in context, then retrieve them without looking. Add only genuinely useful items to Migaku/WaniKani."},
@@ -204,8 +241,9 @@ window.OPTIONAL_TASKS = [
 // The app is intentionally book-agnostic. Add future textbooks here and
 // provide their lesson/page data in the same shape as CURRICULUM when ready.
 window.BOOKS = [
-  {id:"tobira-beginning-i", title:"TOBIRA Beginning Japanese I", series:"TOBIRA", level:"Beginning Japanese", status:"available", description:"Foundation course. Use for targeted review or a future full pass when needed.", curriculum:false},
-  {id:"tobira-beginning-ii", title:"TOBIRA Beginning Japanese II", series:"TOBIRA", level:"Beginning Japanese", status:"active", description:"Current core curriculum: Lessons 11–20, with textbook + Workbook 1 + Workbook 2 mapped to exact pages.", curriculum:true},
+  {id:"tobira-beginning-i", title:"TOBIRA Beginning Japanese I", series:"TOBIRA", level:"Beginning Japanese", status:"available", description:"Foundation course. Use for targeted review or a future full pass when needed.", curriculum:false, resources:[]},
+  {id:"tobira-beginning-ii", title:"TOBIRA Beginning Japanese II", series:"TOBIRA", level:"Beginning Japanese", status:"active", description:"Current core curriculum: Lessons 11–20, with textbook + Workbook 1 + Workbook 2 mapped to exact pages.", curriculum:true, workbooks:["Workbook 1","Workbook 2"]},
+  {id:"tobira-intermediate-i", title:"TOBIRA Intermediate Japanese I", series:"TOBIRA", level:"Intermediate Japanese", status:"planned", description:"Future intermediate textbook. Map its contents and workbook structure when ready.", curriculum:false},
   {id:"tobira-gateway", title:"TOBIRA Gateway to Advanced Japanese", series:"TOBIRA", level:"Advanced", status:"available", description:"Advanced follow-on course. Keep as the next major textbook layer after Beginning II is secure.", curriculum:false},
   {id:"shinkanzen-n4", title:"新完全マスター N4", series:"Shin Kanzen Master", level:"JLPT N4", status:"planned", description:"Reserve for diagnostic work and targeted foundation repair rather than parallel full-course study.", curriculum:false},
   {id:"shinkanzen-n3", title:"新完全マスター N3", series:"Shin Kanzen Master", level:"JLPT N3", status:"planned", description:"Future JLPT preparation layer once the current textbook cycle is established.", curriculum:false},

@@ -66,3 +66,9 @@ html,body{max-width:100%;overflow-x:hidden}
   .pomo-controls{grid-template-columns:1fr 1fr 1fr}
   .pomo-controls .smallbtn{font-size:10px;padding-left:3px;padding-right:3px}
 }
+
+/* Learning Hub / programme architecture */
+.hub-current{margin-top:18px;display:flex;align-items:center;justify-content:space-between;gap:18px;padding:18px;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.45)}
+.hub-current h2{margin:4px 0 5px;font-size:22px}.hub-current p{margin:0;color:var(--muted);max-width:760px}
+.programme-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:12px}.programme-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:var(--shadow);display:flex;flex-direction:column;min-width:0}.programme-card.active-programme{border:2px solid var(--accent);padding:17px;background:linear-gradient(145deg,#fffdf8,#f1f7f6)}.programme-card h3{margin:5px 0 7px;font-size:18px}.programme-card p{color:var(--muted);line-height:1.5;margin:0 0 14px}.programme-meta,.book-meta{display:flex;gap:7px;flex-wrap:wrap;margin-top:auto;padding-top:12px;border-top:1px solid var(--line);font-size:11px;color:var(--muted)}.programme-meta span,.book-meta span{background:var(--soft);padding:5px 7px;border-radius:8px}.current-badge{margin-top:12px;font-size:12px;font-weight:800;color:var(--accent)}
+@media(max-width:900px){.programme-grid{grid-template-columns:1fr 1fr}}@media(max-width:700px){.programme-grid{grid-template-columns:1fr}.hub-current{align-items:flex-start;flex-direction:column}.hub-current .book-status{align-self:flex-start}}
