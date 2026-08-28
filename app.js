@@ -21,7 +21,8 @@ const state = {
     status: 'idle', mode: 'work', remaining: POMO_DURATIONS.work,
     taskId: null, cycle: 0, endAt: null, startedAt: null
   },
-  sessions: JSON.parse(localStorage.getItem('pomodoroSessions') || '[]')
+  sessions: JSON.parse(localStorage.getItem('pomodoroSessions') || '[]'),
+  studySession: JSON.parse(localStorage.getItem('studySession') || 'null') || {active:false, startedAt:null, queue:[], index:0}
 };
 
 const $ = s => document.querySelector(s);
@@ -92,7 +93,17 @@ function consolidationTasks(w,d){
 function habits(w,d){
   return OPTIONAL_TASKS.map(x => ({id:`habit-w${w+1}-d${d+1}-${x.key}`,key:x.key,title:x.label,duration:x.duration,book:'Habit',desc:x.desc,habit:true}));
 }
-function ts(id){ return state.taskState[id] || {completed:false,mastery:'not_started',confidence:null,notes:'',completed_at:null}; }
+function ts(id){ return state.taskState[id] || {completed:false,mastery:'not_started',confidence:null,notes:'',completed_at:null,review_due_at:null,review_stage:0}; }
+function reviewDays(master, stage){
+  const ladders={studying:[1,2,4],shaky:[1,3,7],review:[3,7,14,30]};
+  const a=ladders[master]||[]; return a[Math.min(Number(stage)||0,a.length-1)]||0;
+}
+function scheduleReview(id, mastery, completedAt=new Date().toISOString(), stage=null){
+  if(!['studying','shaky','review'].includes(mastery)) return {review_due_at:null,review_stage:0};
+  const prev=ts(id), nextStage=stage==null ? ((prev.mastery===mastery)?(Number(prev.review_stage)||0)+1:0) : stage;
+  const days=reviewDays(mastery,nextStage);
+  return {review_due_at:new Date(new Date(completedAt).getTime()+days*86400000).toISOString(),review_stage:nextStage};
+}
 function saveLocal(){
   localStorage.setItem('taskState',JSON.stringify(state.taskState));
   localStorage.setItem('appNotes',state.notes);
@@ -101,10 +112,18 @@ function saveLocal(){
 async function cloudSave(id){
   if(!db || !state.user) return;
   const t = ts(id);
-  const {error} = await db.from('task_state').upsert({user_id:state.user.id,task_id:id,completed:t.completed,completed_at:t.completed_at,mastery:t.mastery,confidence:t.confidence,notes:t.notes},{onConflict:'user_id,task_id'});
+  const {error} = await db.from('task_state').upsert({user_id:state.user.id,task_id:id,completed:t.completed,completed_at:t.completed_at,mastery:t.mastery,confidence:t.confidence,notes:t.notes,review_due_at:t.review_due_at||null,review_stage:t.review_stage||0},{onConflict:'user_id,task_id'});
   if(error) toast('Cloud save failed; your local copy is safe.');
 }
-function setTask(id,p){ state.taskState[id]={...ts(id),...p}; saveLocal(); render(); cloudSave(id); }
+function setTask(id,p){
+  const before=ts(id), next={...before,...p};
+  if(Object.prototype.hasOwnProperty.call(p,'mastery') && p.mastery!==before.mastery){
+    if(['studying','shaky','review'].includes(p.mastery)) Object.assign(next,scheduleReview(id,p.mastery,next.completed_at||new Date().toISOString(),0));
+    else {next.review_due_at=null; next.review_stage=0;}
+  }
+  if(p.completed===true && !next.completed_at) next.completed_at=new Date().toISOString();
+  state.taskState[id]=next; saveLocal(); render(); cloudSave(id);
+}
 function toggle(id){ const t=ts(id); setTask(id,{completed:!t.completed,completed_at:!t.completed?new Date().toISOString():null,mastery:!t.completed && t.mastery==='not_started'?'studying':t.mastery}); }
 function weekDates(w){ const s=new Date(state.startDate+'T00:00:00'); return Array.from({length:7},(_,i)=>addDays(s,w*7+i)); }
 function allTasks(w){ return Array.from({length:7},(_,d)=>weeklyTasks(w,d)).flat(); }
@@ -330,11 +349,65 @@ setInterval(()=>{
   if(remaining<=0) completeSession(); else renderPomodoro();
 },1000);
 
+function saveStudySession(){ localStorage.setItem('studySession',JSON.stringify(state.studySession)); }
+function sessionCandidates(){
+  const current=adaptiveToday(12);
+  const seen=new Set();
+  const out=[];
+  current.forEach(x=>{ if(x.t && !seen.has(x.t.id)){seen.add(x.t.id);out.push(x.t);} });
+  const next=nextIncomplete();
+  if(next?.task && !seen.has(next.task.id)) out.push(next.task);
+  return out.slice(0,8);
+}
+function startStudySession(){
+  const queue=sessionCandidates();
+  if(!queue.length){ toast('Nothing urgent is queued. Use the plan or review your input activities.'); return; }
+  state.studySession={active:true,startedAt:new Date().toISOString(),queue:queue.map(t=>t.id),index:0};
+  saveStudySession(); state.view='session'; render(); scrollTo({top:0,behavior:'smooth'});
+}
+function endStudySession(){
+  state.studySession={active:false,startedAt:null,queue:[],index:0};
+  saveStudySession(); state.view='dashboard'; render();
+}
+function currentSessionTask(){
+  const id=state.studySession.queue[state.studySession.index];
+  return id ? findTaskById(id) : null;
+}
+function advanceStudySession(){
+  if(state.studySession.index >= state.studySession.queue.length-1){ endStudySession(); toast('Study session complete'); return; }
+  state.studySession.index += 1; saveStudySession(); render(); scrollTo({top:0,behavior:'smooth'});
+}
+function renderStudySession(){
+  $('#hero').hidden=true; $('#bottomArea').hidden=true; $('#weekView').hidden=true; $('#mainContent').hidden=false;
+  const ss=state.studySession, queue=ss.queue.map(id=>findTaskById(id)).filter(Boolean), task=currentSessionTask();
+  if(!ss.active || !queue.length || !task){ endStudySession(); return; }
+  const idx=ss.index, done=queue.slice(0,idx).filter(t=>ts(t.id).completed).length, pct=Math.round(((idx)/queue.length)*100);
+  const elapsed=ss.startedAt?Math.max(0,Math.floor((Date.now()-new Date(ss.startedAt).getTime())/60000)):0;
+  $('#mainContent').innerHTML=`
+    <section class="session-shell">
+      <div class="session-top"><div><div class="eyebrow">Focused study session</div><h1>Today's study</h1><p>${esc(activeBook().title)} · ${queue.length} priority tasks</p></div><button class="smallbtn" id="endStudySession">End session</button></div>
+      <div class="session-progress"><div><strong>${idx+1} of ${queue.length}</strong><span>${elapsed} min elapsed</span></div><div class="progress"><i style="width:${pct}%"></i></div></div>
+      <section class="session-current">
+        <div class="eyebrow">Current task</div><h2>${esc(task.title)}</h2>
+        <p class="session-ref">${esc(task.book)}${task.page?` · p.${esc(task.page)}`:''} · ${esc(task.duration)}</p>
+        <div class="session-description">${esc(task.desc)}</div>
+        ${reviewInfo(task).label?`<div class="session-review">🔄 ${esc(reviewInfo(task).label)} · ${esc(ts(task.id).mastery)}</div>`:''}
+        <div class="session-actions"><button class="smallbtn primary" id="sessionPomo">${state.pomodoro.taskId===task.id&&state.pomodoro.status==='running'?'Pomodoro running':'Start Pomodoro'}</button><button class="smallbtn" id="sessionOpenTask">Open full task</button><button class="smallbtn" id="sessionComplete">${ts(task.id).completed?'Completed ✓':'Mark complete & next →'}</button></div>
+      </section>
+      <section class="session-queue panel"><div class="panelhead"><div><h3>Session queue</h3><p class="subtitle">The queue is generated from today's schedule, due reviews and your next unfinished work.</p></div></div><div class="session-list">${queue.map((t,i)=>{const st=ts(t.id);return `<button class="session-row ${i===idx?'current':''} ${st.completed?'done':''}" data-session-index="${i}"><span class="session-number">${i+1}</span><span><strong>${esc(t.title)}</strong><small>${esc(t.book)}${t.page?` · p.${esc(t.page)}`:''}${i<idx?' · visited':i===idx?' · now':''}</small></span><span class="status-dot ${st.mastery}">${st.completed?'✓':''}</span></button>`}).join('')}</div></section>
+    </section>`;
+  $('#endStudySession').onclick=endStudySession;
+  $('#sessionPomo').onclick=()=>{startPomodoro(task.id);renderStudySession();};
+  $('#sessionOpenTask').onclick=()=>openTask(task.id);
+  $('#sessionComplete').onclick=()=>{if(!ts(task.id).completed)setTask(task.id,{completed:true,mastery:ts(task.id).mastery==='not_started'?'studying':ts(task.id).mastery}); if(state.studySession.index<state.studySession.queue.length-1)advanceStudySession(); else endStudySession();};
+  $('#mainContent').querySelectorAll('[data-session-index]').forEach(b=>b.onclick=()=>{state.studySession.index=+b.dataset.sessionIndex;saveStudySession();render();});
+}
 function render(){
   if(!state.ready || !state.user){ renderGate(); return; }
   $('#appShell').hidden=false; $('#loginGate').hidden=true;
   renderHeader(); renderNav();
   if(state.view==='dashboard') renderDashboard();
+  else if(state.view==='session') renderStudySession();
   else if(state.view==='plan') renderWeek();
   else if(state.view==='lesson') renderLesson(state.lesson);
   else renderLibrary();
@@ -426,10 +499,15 @@ function masteryInterval(mastery){
 function reviewInfo(t){
   const s=ts(t.id), mastery=s.mastery;
   if(!['studying','shaky','review'].includes(mastery)) return {due:false,days:null,label:''};
-  if(!s.completed_at) return {due:true,days:0,label:'Due now'};
-  const interval=masteryInterval(mastery), dueAt=new Date(s.completed_at).getTime()+interval*86400000;
+  if(!s.review_due_at){
+    const scheduled=scheduleReview(t.id,mastery,s.completed_at||new Date().toISOString(),0);
+    const dueAt=new Date(scheduled.review_due_at).getTime();
+    const days=Math.ceil((dueAt-Date.now())/86400000);
+    return {due:Date.now()>=dueAt,days,label:days<=0?'Due now':`Due in ${days}d`};
+  }
+  const dueAt=new Date(s.review_due_at).getTime();
   const days=Math.ceil((dueAt-Date.now())/86400000);
-  return {due:Date.now()>=dueAt,days, label:days<=0?'Due now':`Due in ${days}d`};
+  return {due:Date.now()>=dueAt,days,label:days<=0?'Due now':`Due in ${days}d`};
 }
 function reviewQueue(limit=10){
   return allCoreTasks().map(t=>({t,s:ts(t.id),r:reviewInfo(t)})).filter(x=>{
@@ -502,7 +580,7 @@ function renderDashboard(){
       <article class="panel"><div class="panelhead"><div><h3>Top tasks by time</h3><p class="subtitle">Where your logged focus time has actually gone.</p></div></div>${topTasks.length?`<div class="attentionlist">${topTasks.map(x=>`<button class="attention" data-task="${esc(x.id)}"><span class="status-dot ${x.task?ts(x.id).mastery:'not_started'}"></span><span><strong>${x.task?esc(x.task.title):'Unknown task'}</strong><small>${fmtDuration(x.secs)} logged${x.task?.lesson?` · L${x.task.lesson}`:''}</small></span></button>`).join('')}</div>`:'<div class="empty">No Pomodoro sessions logged yet.</div>'}</article>
       <article class="panel"><div class="panelhead"><div><h3>How progression works</h3><p class="subtitle">Completion is not the same thing as mastery.</p></div></div><div class="empty"><strong>Study → complete → assess → review → progress.</strong><br><br>Mark a component <strong>Mastered</strong> only when you can recognise, understand and produce it reliably. <strong>Shaky</strong> and <strong>Studying</strong> items return to the review queue automatically.</div></article>
     </section>`;
-  $('#startToday')?.addEventListener('click',()=>{const x=adaptive[0]; if(x)openTask(x.t.id);});
+  $('#startToday')?.addEventListener('click',()=>startStudySession());
   $('#goPlan')?.addEventListener('click',()=>{state.week=current.week;state.view='plan';render();});
   $('#openNext')?.addEventListener('click',()=>{state.week=next.week;state.view='plan';render();setTimeout(()=>openTask(next.task.id),50);});
   $('#mainContent').querySelectorAll('.lessonrow').forEach(b=>b.onclick=()=>{state.lesson=+b.dataset.lesson;state.view='lesson';render();scrollTo({top:0,behavior:'smooth'});});
@@ -596,7 +674,7 @@ function openTask(id){
   const timeLine=secs?`<div class="time-stat">⏱ ${fmtDuration(secs)} studied on this task</div>`:'';
   const isActive=state.pomodoro.taskId===id && state.pomodoro.status==='running';
   const pomoBtn=`<button type="button" class="smallbtn primary" id="startTaskPomo">${isActive?'Timer running for this task':'Start pomodoro for this task'}</button>`;
-  $('#modalDesc').innerHTML=`${pageLink}${timeLine}<p>${esc(t.desc)}</p>${t.lesson?'<p><strong>Study rule:</strong> Work through this section. If you already know it, do a small representative check and mark the skill mastered instead of grinding repetitive questions.</p>':''}<div class="modal-related">${lessonLink}${pomoBtn}</div>`;
+  $('#modalDesc').innerHTML=`${pageLink}${timeLine}${reviewLine}<p>${esc(t.desc)}</p>${t.lesson?'<p><strong>Study rule:</strong> Work through this section. If you already know it, do a small representative check and mark the skill mastered instead of grinding repetitive questions.</p>':''}<div class="modal-related">${lessonLink}${pomoBtn}</div>`;
   $('#modalDone').checked=s.completed; $('#modalDone').onchange=()=>toggle(id);
   $('#mastery').value=s.mastery; $('#mastery').onchange=e=>setTask(id,{mastery:e.target.value});
   $('#confidence').value=s.confidence||''; $('#confidence').onchange=e=>setTask(id,{confidence:e.target.value?+e.target.value:null});
@@ -608,7 +686,7 @@ function openTask(id){
 async function loadCloud(){
   if(!db||!state.user)return;
   const {data,error}=await db.from('task_state').select('*').eq('user_id',state.user.id);
-  if(!error&&data) data.forEach(r=>state.taskState[r.task_id]={completed:r.completed,mastery:r.mastery,confidence:r.confidence,notes:r.notes,completed_at:r.completed_at});
+  if(!error&&data) data.forEach(r=>state.taskState[r.task_id]={completed:r.completed,mastery:r.mastery,confidence:r.confidence,notes:r.notes,completed_at:r.completed_at,review_due_at:r.review_due_at||null,review_stage:r.review_stage||0});
   const {data:n}=await db.from('app_notes').select('notes').eq('user_id',state.user.id).maybeSingle(); if(n)state.notes=n.notes||'';
   const {data:p}=await db.from('user_preferences').select('start_date,settings').eq('user_id',state.user.id).maybeSingle();
   if(p?.start_date)state.startDate=p.start_date;
