@@ -556,6 +556,7 @@ function render(){
       loadWaniKani().then(()=>loadWaniKaniDetail()).catch(()=>{});
     }
   }
+  else if(state.view==='library' && state.libraryItem) renderBookMap(state.libraryItem);
   else renderLibrary();
   $('#globalNotes').value=state.notes; $('#startDate').value=state.startDate; renderStatus();
   renderPomodoroSettings();
@@ -593,6 +594,60 @@ function renderNav(){
   if(pomoClose) pomoClose.onclick=()=>{state.pomoOpen=false;localStorage.setItem('pomodoroOpen','false');renderPomodoro();renderNav();};
 }
 
+function renderBookMap(bookId){
+  const book=(window.BOOKS||[]).find(b=>b.id===bookId);
+  const map=(window.BOOK_MAPS||{})[bookId];
+  if(!book || !map){ state.libraryItem=null; renderLibrary(); return; }
+
+  $('#hero').hidden=true; $('#bottomArea').hidden=true; $('#weekView').hidden=true; $('#mainContent').hidden=false;
+
+  const lessons=map.lessons||[];
+  const projects=map.projects||[];
+  $('#mainContent').innerHTML=`
+    <div class="book-detail-toolbar">
+      <button class="smallbtn" id="backToLibrary">← Learning hub</button>
+      <span class="book-status mapped">Mapped · not scheduled</span>
+    </div>
+    <section class="library-hero book-detail-hero">
+      <div class="eyebrow">${esc(book.series)} · ${esc(book.level)}</div>
+      <h1>${esc(book.title)}</h1>
+      <p>${esc(book.description)}</p>
+      <div class="book-detail-stats">
+        <div><strong>${map.structure.lessons}</strong><span>lessons</span></div>
+        <div><strong>${map.structure.units}</strong><span>units</span></div>
+        <div><strong>${esc(map.structure.lessonPages)}</strong><span>lesson pages</span></div>
+      </div>
+    </section>
+    <section class="library-section">
+      <div class="panelhead"><div><h2>Book structure</h2><p class="subtitle">The source book's own organisation is preserved. This map is ready to become a programme later without making it one now.</p></div></div>
+      <div class="book-structure-grid">${(map.learningModel||[]).map((x,i)=>`<div class="structure-item"><span>${i+1}</span><strong>${esc(x)}</strong></div>`).join('')}</div>
+      <div class="book-reference-note">${esc(map.sourceNote)}</div>
+    </section>
+    <section class="library-section">
+      <div class="panelhead"><div><h2>Lesson map</h2><p class="subtitle">Exact main-text lesson ranges from the supplied book. The app deliberately does not invent subsection page numbers.</p></div></div>
+      <div class="book-lesson-map">
+        ${lessons.map(l=>`
+          <article class="mapped-lesson">
+            <div class="mapped-lesson-top"><span class="lessonnum">${l.n}</span><div><div class="eyebrow">${esc(l.unit)}</div><h3>${esc(l.title)}</h3></div><strong>pp. ${esc(l.pages)}</strong></div>
+            <div class="mapped-meta"><div><span>Conversation</span><strong>${esc(l.conversation)}</strong></div><div><span>Topic</span><strong>${esc(l.topic)}</strong></div></div>
+            <div class="mapped-readings"><span>Readings</span>${l.readings.map(r=>`<span class="chip">${esc(r)}</span>`).join('')}</div>
+            <details class="mapped-cando"><summary>Can-Do goals (${l.canDo.length})</summary><ul>${l.canDo.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></details>
+            <div class="mapped-components">${l.components.map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</div>
+            <div class="mapped-project"><span>Project</span><strong>${esc(l.project)}</strong></div>
+          </article>`).join('')}
+      </div>
+    </section>
+    <section class="library-section">
+      <div class="panelhead"><div><h2>Unit projects</h2><p class="subtitle">Projects are integration work, not extra daily textbook pages.</p></div></div>
+      <div class="project-map">${projects.map(p=>`<article class="project-map-card"><div class="eyebrow">${esc(p.unit)} · Lessons ${esc(p.lessons)}</div><h3>${esc(p.title)}</h3><p>${esc(p.note)}</p></article>`).join('')}</div>
+    </section>
+    <section class="library-section">
+      <div class="panelhead"><div><h2>Programme status</h2><p class="subtitle">This book is mapped, but it is deliberately not part of your current schedule.</p></div></div>
+      <div class="future-programme panel"><strong>Ready for the next step:</strong> create a dedicated study programme when you decide how you want to use TOBIRA I. The current Beginning Japanese II programme and its progress are unaffected.</div>
+    </section>`;
+  $('#backToLibrary').onclick=()=>{state.libraryItem=null;state.view='library';render();scrollTo({top:0,behavior:'smooth'});};
+}
+
 function renderLibrary(){
   $('#hero').hidden=true; $('#bottomArea').hidden=true; $('#weekView').hidden=true; $('#mainContent').hidden=false;
   const books=window.BOOKS||[], resources=window.STUDY_RESOURCES||[], programmes=window.PROGRAMMES||[];
@@ -605,11 +660,17 @@ function renderLibrary(){
       <div class="hub-current"><div><span class="eyebrow">Active programme</span><h2>${esc(activeP?.title||'No active programme')}</h2><p>${esc(activeP?.description||'')}</p></div><span class="book-status active">${esc(activeBook().title)}</span></div>
     </section>
     <section class="library-section"><div class="panelhead"><div><h2>Study programmes</h2><p class="subtitle">Choose a structured course when its contents have been mapped. Only the active programme generates the current schedule.</p></div></div><div class="programme-grid">${programmes.map(p=>{const x=programmeSummary(p),active=p.id===state.programmeId;return `<article class="programme-card ${active?'active-programme':''}"><div class="book-card-top"><span class="book-status ${p.status}">${active?'Active':p.status==='planned'?'Planned':'Available'}</span><span class="book-level">${p.weeks?`${p.weeks} weeks`:'Not mapped'}</span></div><div class="eyebrow">${esc(x.book?.series||'Programme')}</div><h3>${esc(p.title)}</h3><p>${esc(p.description)}</p>${x.ready ? `<div class="programme-meta"><span>${p.targetHours?.[0]||12}–${p.targetHours?.[1]||18} h/week</span><span>${esc(x.book?.level||'')}</span></div>${active?'<span class="current-badge">Current programme</span>':'<button class="smallbtn primary" data-select-programme="'+esc(p.id)+'">Use this programme</button>'}` : `<div class="book-placeholder">Contents/pages not mapped yet. Add the book data first; the same programme engine will then handle it.</div>`}</article>`}).join('')}</div></section>
-    <section class="library-section"><div class="panelhead"><div><h2>Book library</h2><p class="subtitle">Books are reusable resources. Workbooks and other companion material can be attached to a book without making them separate programmes.</p></div></div><div class="book-grid">${books.map(b=>{const p=programmes.find(x=>x.bookId===b.id);return `<article class="book-card ${b.id===activeBook().id?'active-book':''}"><div class="book-card-top"><span class="book-status ${b.status}">${b.status==='active'?'In use':b.status==='planned'?'Planned':'Available'}</span><span class="book-level">${esc(b.level)}</span></div><div class="eyebrow">${esc(b.series)}</div><h3>${esc(b.title)}</h3><p>${esc(b.description)}</p><div class="book-meta">${p?`<span>Programme: ${esc(p.shortTitle||p.title)}</span>`:'<span>No programme mapped</span>'}${b.workbooks?.length?`<span>${b.workbooks.map(esc).join(' · ')}</span>`:''}</div></article>`}).join('')}</div></section>
+    <section class="library-section"><div class="panelhead"><div><h2>Book library</h2><p class="subtitle">Books are reusable resources. Workbooks and other companion material can be attached to a book without making them separate programmes.</p></div></div><div class="book-grid">${books.map(b=>{const p=programmes.find(x=>x.bookId===b.id);const mapped=!!(window.BOOK_MAPS||{})[b.id];return `<article class="book-card ${b.id===activeBook().id?'active-book':''} ${mapped?'mapped-book':''}" data-open-book="${esc(b.id)}" tabindex="0" role="button"><div class="book-card-top"><span class="book-status ${b.status}">${b.status==='active'?'In use':b.status==='planned'?'Planned':mapped?'Mapped':'Available'}</span><span class="book-level">${esc(b.level)}</span></div><div class="eyebrow">${esc(b.series)}</div><h3>${esc(b.title)}</h3><p>${esc(b.description)}</p><div class="book-meta">${p?`<span>Programme: ${esc(p.shortTitle||p.title)}</span>`:'<span>No programme mapped</span>'}${b.workbooks?.length?`<span>${b.workbooks.map(esc).join(' · ')}</span>`:''}${mapped?'<span>Open content map →</span>':''}</div></article>`}).join('')}</div></section>
     <section class="library-section"><div class="panelhead"><div><h2>Study tools & input</h2><p class="subtitle">Supporting resources stay independent from textbook programmes.</p></div></div><div class="resource-grid">${resources.map(r=>`<article class="resource-card"><div class="book-card-top"><span class="resource-type">${esc(r.type)}</span><span class="book-status ${r.status}">${r.status==='active'?'Active':'Available'}</span></div><h3>${esc(r.title)}</h3><p>${esc(r.description)}</p></article>`).join('')}</div></section>
-    <section class="library-section architecture-note"><div class="eyebrow">How this scales</div><h2>Book → programme → schedule</h2><p>A future textbook does not require another custom page. Once its contents are mapped, it can become a programme with its own lesson structure, duration, workload and tasks.</p><div class="hub-flow"><span>Book</span><b>→</b><span>Programme</span><b>→</b><span>Lessons</span><b>→</b><span>Tasks</span><b>→</b><span>Progress</span></div></section>`;
+    <section class="library-section architecture-note"><div class="eyebrow">How this scales</div><h2>Book → map → programme → schedule</h2><p>A future textbook can first become a mapped library resource. Only when you decide to study it should it become a programme with its own workload, tasks and progress.</p><div class="hub-flow"><span>Book</span><b>→</b><span>Map</span><b>→</b><span>Programme</span><b>→</b><span>Schedule</span><b>→</b><span>Progress</span></div></section>`;
   $('#mainContent').querySelectorAll('[data-select-programme]').forEach(b=>b.onclick=()=>selectProgramme(b.dataset.selectProgramme));
+  $('#mainContent').querySelectorAll('[data-open-book]').forEach(b=>{
+    const open=()=>{state.libraryItem=b.dataset.openBook;state.view='library';render();scrollTo({top:0,behavior:'smooth'});};
+    b.onclick=open;
+    b.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();open();}};
+  });
 }
+
 function lessonButton(l){
   const p=lessonProgress(l.n), pct=p.total?p.done/p.total*100:0, [cls,label]=lessonStatus(l.n);
   const secs=lessonSeconds(l.n), timeBit=secs?` · ${fmtDuration(secs)} studied`:'';
