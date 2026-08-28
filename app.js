@@ -17,6 +17,7 @@ const state = {
   user: null,
   ready: false,
   pomodoroSettings: JSON.parse(localStorage.getItem('pomodoroSettings') || 'null') || { work:25, short:5, long:15, cycle:4 },
+  pomodoroVisible: false,
   pomodoro: JSON.parse(localStorage.getItem('pomodoroState') || 'null') || {
     status: 'idle', mode: 'work', remaining: POMO_DURATIONS.work,
     taskId: null, cycle: 0, endAt: null, startedAt: null
@@ -325,9 +326,41 @@ function renderPomodoroQuickLink(){
   sel.innerHTML=`<option value="">Quick-link a habit…</option>${opts}`;
   sel.value = state.pomodoro.taskId && habits(w,d).some(t=>t.id===state.pomodoro.taskId) ? state.pomodoro.taskId : '';
 }
+function ensurePomodoroToggle(){
+  const w=$('#pomodoroWidget'); if(!w) return;
+  if(!w.querySelector('.pomo-minimize')){
+    const btn=document.createElement('button');
+    btn.type='button';
+    btn.className='pomo-minimize';
+    btn.setAttribute('aria-label','Minimize Pomodoro');
+    btn.title='Minimize Pomodoro';
+    btn.textContent='−';
+    const head=w.querySelector('.pomo-head');
+    if(head) head.appendChild(btn); else w.prepend(btn);
+    btn.addEventListener('click',()=>{
+      w.classList.toggle('minimized');
+      const minimized=w.classList.contains('minimized');
+      btn.textContent=minimized?'+':'−';
+      btn.setAttribute('aria-label',minimized?'Expand Pomodoro':'Minimize Pomodoro');
+      btn.title=minimized?'Expand Pomodoro':'Minimize Pomodoro';
+      localStorage.setItem('pomodoroMinimized', minimized?'1':'0');
+    });
+  }
+  const saved=localStorage.getItem('pomodoroMinimized');
+  if(saved==='1') w.classList.add('minimized');
+  if(saved==='0') w.classList.remove('minimized');
+  const btn=w.querySelector('.pomo-minimize');
+  if(btn){
+    const minimized=w.classList.contains('minimized');
+    btn.textContent=minimized?'+':'−';
+    btn.setAttribute('aria-label',minimized?'Expand Pomodoro':'Minimize Pomodoro');
+    btn.title=minimized?'Expand Pomodoro':'Minimize Pomodoro';
+  }
+}
 function renderPomodoro(){
   const w=$('#pomodoroWidget'); if(!w) return;
-  w.hidden = !(state.ready && state.user);
+  w.hidden = !(state.ready && state.user && state.pomodoroVisible);
+  ensurePomodoroToggle();
   const p=state.pomodoro;
   syncRemaining();
   const dur=pomodoroDuration(p.mode);
@@ -397,7 +430,7 @@ function renderStudySession(){
       <section class="session-queue panel"><div class="panelhead"><div><h3>Session queue</h3><p class="subtitle">The queue is generated from today's schedule, due reviews and your next unfinished work.</p></div></div><div class="session-list">${queue.map((t,i)=>{const st=ts(t.id);return `<button class="session-row ${i===idx?'current':''} ${st.completed?'done':''}" data-session-index="${i}"><span class="session-number">${i+1}</span><span><strong>${esc(t.title)}</strong><small>${esc(t.book)}${t.page?` · p.${esc(t.page)}`:''}${i<idx?' · visited':i===idx?' · now':''}</small></span><span class="status-dot ${st.mastery}">${st.completed?'✓':''}</span></button>`}).join('')}</div></section>
     </section>`;
   $('#endStudySession').onclick=endStudySession;
-  $('#sessionPomo').onclick=()=>{startPomodoro(task.id);renderStudySession();};
+  $('#sessionPomo').onclick=()=>{state.pomodoroVisible=true;startPomodoro(task.id);renderNav();renderPomodoro();renderStudySession();};
   $('#sessionOpenTask').onclick=()=>openTask(task.id);
   $('#sessionComplete').onclick=()=>{if(!ts(task.id).completed)setTask(task.id,{completed:true,mastery:ts(task.id).mastery==='not_started'?'studying':ts(task.id).mastery}); if(state.studySession.index<state.studySession.queue.length-1)advanceStudySession(); else endStudySession();};
   $('#mainContent').querySelectorAll('[data-session-index]').forEach(b=>b.onclick=()=>{state.studySession.index=+b.dataset.sessionIndex;saveStudySession();render();});
@@ -432,9 +465,18 @@ function renderHeader(){
   $('#progressBar').style.width=(p.total?p.done/p.total*100:0)+'%';
 }
 function renderNav(){
-  $('#mainNav').innerHTML=`<button class="navbtn ${state.view==='dashboard'?'active':''}" data-view="dashboard">Dashboard</button><button class="navbtn ${state.view==='plan'?'active':''}" data-view="plan">Study plan</button><button class="navbtn ${state.view==='lesson'?'active':''}" data-view="lesson">Lessons</button><button class="navbtn ${state.view==='library'?'active':''}" data-view="library">Learning hub</button>`;
-  $('#mainNav').querySelectorAll('.navbtn').forEach(b=>b.onclick=()=>{state.view=b.dataset.view;if(state.view==='lesson'&&!lessonByNumber(state.lesson))state.lesson=programLessons()[0]?.n || 1;render();scrollTo({top:0,behavior:'smooth'});});
+  const running=state.pomodoro.status==='running';
+  $('#mainNav').innerHTML=`<button class="navbtn ${state.view==='dashboard'?'active':''}" data-view="dashboard">Dashboard</button><button class="navbtn ${state.view==='plan'?'active':''}" data-view="plan">Study plan</button><button class="navbtn ${state.view==='lesson'?'active':''}" data-view="lesson">Lessons</button><button class="navbtn ${state.view==='library'?'active':''}" data-view="library">Learning hub</button><button class="navbtn pomo-navbtn ${state.pomodoroVisible?'active':''}" id="pomodoroNav" type="button" aria-label="${state.pomodoroVisible?'Hide':'Show'} Pomodoro" title="${state.pomodoroVisible?'Hide':'Show'} Pomodoro">🍅${running?' <span class=\"pomo-running-dot\"></span>':''}</button>`;
+  $('#mainNav').querySelectorAll('.navbtn[data-view]').forEach(b=>b.onclick=()=>{state.view=b.dataset.view;if(state.view==='lesson'&&!lessonByNumber(state.lesson))state.lesson=programLessons()[0]?.n || 1;render();scrollTo({top:0,behavior:'smooth'});});
+  const pomoBtn=$('#pomodoroNav');
+  if(pomoBtn) pomoBtn.onclick=()=>{
+    state.pomodoroVisible=!state.pomodoroVisible;
+    renderNav();
+    renderPomodoro();
+    if(state.pomodoroVisible) requestAnimationFrame(()=>document.querySelector('#pomodoroWidget')?.focus?.());
+  };
 }
+
 
 function programLessonsFor(pr){ return pr?.curriculum?.lessons || []; }
 function activateProgram(id){
@@ -680,7 +722,7 @@ function openTask(id){
   $('#confidence').value=s.confidence||''; $('#confidence').onchange=e=>setTask(id,{confidence:e.target.value?+e.target.value:null});
   $('#taskNotes').value=s.notes||''; $('#taskNotes').oninput=e=>{state.taskState[id]={...ts(id),notes:e.target.value};saveLocal();cloudSave(id);};
   if($('#openRelatedLesson')) $('#openRelatedLesson').onclick=()=>{state.lesson=t.lesson;state.view='lesson';$('#modal').close();render();};
-  $('#startTaskPomo').onclick=()=>{startPomodoro(id);toast('Pomodoro started for this task');$('#startTaskPomo').textContent='Timer running for this task';};
+  $('#startTaskPomo').onclick=()=>{state.pomodoroVisible=true;startPomodoro(id);renderNav();renderPomodoro();toast('Pomodoro started for this task');$('#startTaskPomo').textContent='Timer running for this task';};
   resetTaskModal(); $('#modal').showModal();
 }
 async function loadCloud(){
