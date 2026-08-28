@@ -589,6 +589,8 @@ function renderNav(){
     pomoNav.classList.toggle('is-running',state.pomodoro.status==='running');
     pomoNav.onclick=()=>{state.pomoOpen=!state.pomoOpen;localStorage.setItem('pomodoroOpen',String(state.pomoOpen));renderPomodoro();renderNav();};
   }
+  const pomoClose=$('#pomoClose');
+  if(pomoClose) pomoClose.onclick=()=>{state.pomoOpen=false;localStorage.setItem('pomodoroOpen','false');renderPomodoro();renderNav();};
 }
 
 function renderLibrary(){

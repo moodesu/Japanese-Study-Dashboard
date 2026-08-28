@@ -15,6 +15,30 @@
 <div id="appShell" class="shell" hidden>
 <header class="topbar"><div><div class="brand">Japanese Study System</div><h1 class="title">TOBIRA Foundation</h1><p class="subtitle">Beginning Japanese II → Intermediate Japanese · 12-week focused curriculum</p></div><div class="account"><span id="syncStatus" class="sync"></span><span id="userLabel" class="sync"></span><button id="openLogin" class="smallbtn primary">Login</button><button id="logout" class="smallbtn">Logout</button></div></header>
 <nav id="mainNav" class="mainnav"></nav>
+<div id="pomodoroWidget" class="pomodoro-widget" hidden>
+  <div class="pomo-head">
+    <div><span class="eyebrow">Pomodoro</span><strong id="pomoMode">Focus</strong><span id="pomoCycle" class="pomo-cycle"></span></div>
+    <button id="pomoClose" class="pomo-close" type="button" title="Hide Pomodoro" aria-label="Hide Pomodoro">×</button>
+  </div>
+  <div class="pomo-time" id="pomoTime">25:00</div>
+  <div class="pomo-progress"><i id="pomoBar"></i></div>
+  <div class="pomo-task" id="pomoTask">No task linked</div>
+  <div class="pomo-actions">
+    <button id="pomoToggle" class="smallbtn primary" type="button">Start</button>
+    <button id="pomoSkip" class="smallbtn" type="button">Skip</button>
+    <button id="pomoReset" class="smallbtn" type="button">Reset</button>
+  </div>
+  <div class="pomo-link-row"><label for="pomoQuickLink">Link to today</label><select id="pomoQuickLink"><option value="">Quick-link a habit…</option></select></div>
+  <details class="pomo-settings">
+    <summary>Timer settings</summary>
+    <div class="pomo-settings-grid">
+      <label>Focus <input id="pomoWorkMin" type="number" min="1" max="180"></label>
+      <label>Short break <input id="pomoShortMin" type="number" min="1" max="60"></label>
+      <label>Long break <input id="pomoLongMin" type="number" min="1" max="90"></label>
+      <label>Long break after <input id="pomoCycleLen" type="number" min="1" max="12"></label>
+    </div>
+  </details>
+</div>
 <section id="hero" class="hero"><div class="eyebrow" id="weekLabel">Week 1</div><h1 id="lessonLabel"></h1><p id="lessonEnglish"></p><div class="range"><span id="dateRange"></span><strong id="progressText"></strong></div><div class="progress"><i id="progressBar"></i></div></section>
 <main id="mainContent"></main>
 <section id="weekView"></section>
