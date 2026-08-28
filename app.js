@@ -350,11 +350,26 @@ function lessonButton(l){
   const secs=lessonSeconds(l.n), timeBit=secs?` · ${fmtDuration(secs)} studied`:'';
   return `<button class="lessonrow" data-lesson="${l.n}"><span class="lessonnum">${l.n}</span><span class="lessonrowmain"><strong>${esc(l.title)}</strong><small>${p.done}/${p.total} sections complete · ${p.mastered}/${p.total} mastered · ${label}${timeBit}</small><span class="mini-progress"><i style="width:${pct}%"></i></span></span><span class="lessonpct">${Math.round(pct)}%</span></button>`;
 }
+function activitySeconds(key){
+  const re=new RegExp(`^habit-w\\d+-d\\d+-${key}$`);
+  return state.sessions.filter(s=>s.task_id && re.test(s.task_id)).reduce((a,s)=>a+s.duration_seconds,0);
+}
+function topTaskSessions(limit=6){
+  const map={};
+  state.sessions.forEach(s=>{
+    if(!s.task_id || /^habit-/.test(s.task_id)) return;
+    map[s.task_id]=(map[s.task_id]||0)+s.duration_seconds;
+  });
+  return Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,limit).map(([id,secs])=>({task:findTaskById(id),secs,id}));
+}
 function renderDashboard(){
   $('#hero').hidden=true; $('#bottomArea').hidden=true; $('#weekView').hidden=true; $('#mainContent').hidden=false;
   const overall=overallProgress(),w=currentWeekIndex(),wp=progress(w),next=nextIncomplete();
   const attention=CURRICULUM.lessons.flatMap(l=>lessonTasks(l).map(t=>({t,s:ts(t.id)}))).filter(x=>['shaky','studying','review'].includes(x.s.mastery)).slice(0,8);
   const mastered=CURRICULUM.lessons.filter(l=>lessonStatus(l.n)[0]==='mastered').length;
+  const activityRows=OPTIONAL_TASKS.map(x=>({label:x.label,secs:activitySeconds(x.key)})).sort((a,b)=>b.secs-a.secs);
+  const maxActivity=Math.max(...activityRows.map(a=>a.secs),1);
+  const topTasks=topTaskSessions(6);
   $('#mainContent').innerHTML=`
     <section class="dashgrid">
       <article class="dashcard primarycard"><div class="eyebrow">Your dashboard</div><h2>Beginning II, properly worked through.</h2><p>Use the books as the backbone. Complete the assigned work, then use mastery checks to skip repetitive practice once the skill is genuinely automatic.</p><div class="bigprogress"><strong>${Math.round(overall.done/overall.total*100)||0}%</strong><span>${overall.done} of ${overall.total} scheduled core tasks complete</span></div><div class="progress"><i style="width:${overall.total?overall.done/overall.total*100:0}%"></i></div><div class="statstrip"><span><strong>${mastered}</strong> lessons mastered</span><span><strong>${attention.length}</strong> items needing attention</span><span><strong>${fmtDuration(totalSeconds())}</strong> total study time</span></div></article>
@@ -364,6 +379,10 @@ function renderDashboard(){
     <section class="dashboard-columns">
       <article class="panel"><div class="panelhead"><div><h3>Lesson map</h3><p class="subtitle">Click a lesson for the complete Workbook 1 + Workbook 2 study map.</p></div><button class="smallbtn" id="goPlan">View plan</button></div><div class="lessonprogress">${CURRICULUM.lessons.map(lessonButton).join('')}</div></article>
       <article class="panel"><div class="panelhead"><div><h3>Needs attention</h3><p class="subtitle">Your own mastery decisions drive this list.</p></div></div>${attention.length?`<div class="attentionlist">${attention.map(x=>`<button class="attention" data-task="${esc(x.t.id)}"><span class="status-dot ${x.s.mastery}"></span><span><strong>${esc(x.t.title)}</strong><small>L${x.t.lesson} · ${esc(x.t.book)} · p.${x.t.page}</small></span></button>`).join('')}</div>`:'<div class="empty">Nothing flagged yet. Use the mastery controls in each lesson.</div>'}</article>
+    </section>
+    <section class="dashboard-columns">
+      <article class="panel"><div class="panelhead"><div><h3>Study time by activity</h3><p class="subtitle">Immersion & habit time, logged via pomodoro sessions.</p></div></div><div class="timebars">${activityRows.map(a=>`<div class="timebar-row"><span>${esc(a.label)}</span><div class="timebar-track"><i style="width:${a.secs?Math.min(100,a.secs/maxActivity*100):0}%"></i></div><strong>${fmtDuration(a.secs)}</strong></div>`).join('')}</div></article>
+      <article class="panel"><div class="panelhead"><div><h3>Top tasks by time</h3><p class="subtitle">Where your logged focus time has actually gone.</p></div></div>${topTasks.length?`<div class="attentionlist">${topTasks.map(x=>`<button class="attention" data-task="${esc(x.id)}"><span class="status-dot ${x.task?ts(x.id).mastery:'not_started'}"></span><span><strong>${x.task?esc(x.task.title):'Unknown task'}</strong><small>${fmtDuration(x.secs)} logged${x.task?.lesson?` · L${x.task.lesson}`:''}</small></span></button>`).join('')}</div>`:'<div class="empty">No pomodoro sessions logged yet — start one from any task or the widget.</div>'}</article>
     </section>`;
   $('#resumeWeek').onclick=()=>{state.week=w;state.view='plan';render();};
   $('#goPlan').onclick=()=>{state.view='plan';render();};
