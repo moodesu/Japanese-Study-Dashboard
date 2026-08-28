@@ -295,3 +295,52 @@ window.STUDY_RESOURCES = [
   {id:"novels", title:"Japanese novels", type:"Reading", status:"available", description:"Long-form reading for increasing endurance and comprehension."},
   {id:"youtube", title:"Japanese YouTube", type:"Listening / input", status:"available", description:"Level-appropriate native input. Prioritise understanding the overall message over exhaustive lookup."}
 ];
+
+
+// ---- Generic learning-hub content model ----------------------------------
+// This normalises the book hierarchy without forcing future books to use
+// TOBIRA's exact structure. The application can work with:
+// Book -> Resource -> Unit -> Lesson -> Section -> Task
+// while each individual book remains free to define its own contents.
+window.CONTENT_MODEL = {
+  version: 1,
+  hierarchy: ["book", "resource", "unit", "lesson", "section", "task"],
+  taskCategories: {
+    core: "Core",
+    supporting: "Supporting",
+    optional: "Optional input"
+  },
+  book(id) {
+    return (window.BOOKS || []).find(b => b.id === id) || null;
+  },
+  resources(bookId) {
+    const b = this.book(bookId);
+    return (b?.resources || []).map(x => typeof x === 'string' ? {id:x,title:x,type:'Companion'} : x);
+  },
+  lessons(bookId) {
+    if (bookId === 'tobira-beginning-ii') return (window.CURRICULUM?.lessons || []).map(l => ({
+      id:`${bookId}-lesson-${l.n}`, n:l.n, title:l.title, english:l.english,
+      unit:l.textbook?.unit, start:l.textbook?.start, end:l.textbook?.end,
+      sections: Object.entries(l.textbook?.pages || {}).filter(([k]) => k !== 'readingAnchor').map(([key,page]) => ({id:`${bookId}-lesson-${l.n}-${key}`,key,title:key,page,resourceId:'tobira-beginning-ii-textbook'}))
+    }));
+    const data=(window.BOOK_CONTENTS||{})[bookId]||{};
+    return data.units?.flatMap(u => (u.lessons||[]).map(l=>({...l,unit:u.unit,unitTitle:u.title,id:`${bookId}-lesson-${l.n}`}))) || data.lessons || [];
+  }
+};
+
+// Normalise Beginning II's companion resources. These are resources of the
+// book, not separate courses.
+const b2Book = (window.BOOKS||[]).find(b=>b.id==='tobira-beginning-ii');
+if (b2Book) b2Book.resources = [
+  {id:'tobira-beginning-ii-textbook',title:'Textbook',type:'Textbook',pages:'pp.13–388'},
+  {id:'tobira-beginning-ii-workbook-1',title:'Workbook 1 · 漢字・読む・書く',type:'Workbook',pages:'pp.7–109'},
+  {id:'tobira-beginning-ii-workbook-2',title:'Workbook 2 · 漢字・読む・書く',type:'Workbook',pages:'pp.7–134'}
+];
+
+// Add companion resources to the Intermediate book now; detailed mappings can
+// be filled from the supplied textbook/workbooks without changing the schema.
+const i1Book = (window.BOOKS||[]).find(b=>b.id==='tobira-intermediate-i');
+if (i1Book) i1Book.resources = [
+  {id:'tobira-intermediate-i-textbook',title:'Textbook',type:'Textbook',pages:'Contents mapped'},
+  {id:'tobira-intermediate-i-workbook',title:'Companion workbook',type:'Workbook',pages:'Not yet supplied'}
+];
