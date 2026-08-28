@@ -543,7 +543,20 @@ setInterval(()=>{
   if(remaining<=0) completeSession(); else renderPomodoro();
 },1000);
 
-function render(){
+\1
+  if (typeof currentView !== 'undefined' && currentView === 'wanikani') {
+    const root = document.getElementById('mainContent');
+    if (root) {
+      root.innerHTML = renderWaniKaniDashboardView();
+      const hero = document.getElementById('hero');
+      const weekView = document.getElementById('weekView');
+      const bottomArea = document.getElementById('bottomArea');
+      if (hero) hero.hidden = true;
+      if (weekView) weekView.hidden = true;
+      if (bottomArea) bottomArea.hidden = true;
+      return;
+    }
+  }
   if(!state.ready || !state.user){ renderGate(); return; }
   $('#appShell').hidden=false; $('#loginGate').hidden=true;
   renderHeader(); renderNav();
@@ -625,6 +638,109 @@ function topTaskSessions(limit=6){
   });
   return Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,limit).map(([id,secs])=>({task:findTaskById(id),secs,id}));
 }
+
+/* WANIKANI_DETAILED_DASHBOARD */
+function renderWaniKaniDashboardView() {
+  const d = waniKaniState && waniKaniState.data;
+  const u = d && d.user ? d.user : {};
+  const s = d && d.summary ? d.summary : {};
+  const assignments = Array.isArray(waniKaniState && waniKaniState.assignments)
+    ? waniKaniState.assignments : [];
+
+  const stageName = {1:'Apprentice',2:'Apprentice',3:'Apprentice',4:'Apprentice',
+    5:'Guru',6:'Guru',7:'Master',8:'Enlightened',9:'Burned'};
+  const counts = {Apprentice:0,Guru:0,Master:0,Enlightened:0,Burned:0};
+
+  assignments.forEach(a => {
+    const n = stageName[a.srs_stage];
+    if (n) counts[n]++;
+  });
+
+  const level = u.level || '—';
+  const levelProgress = u.subscription && u.subscription.max_level_granted
+    ? Math.round((Number(level) / Number(u.subscription.max_level_granted)) * 100) : null;
+
+  const availableLessons = s.lessons && s.lessons.length != null ? s.lessons.length :
+    (s.lessons_available != null ? s.lessons_available : '—');
+  const availableReviews = s.reviews && s.reviews.length != null ? s.reviews.length :
+    (s.reviews_available != null ? s.reviews_available : '—');
+
+  const updated = waniKaniState.updatedAt
+    ? new Date(waniKaniState.updatedAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})
+    : 'Not yet';
+
+  const pct = total => total ? Math.round((counts[total] / assignments.length) * 100) : 0;
+
+  return `
+    <div class="wk-page">
+      <div class="wk-page-head">
+        <div>
+          <div class="eyebrow">WaniKani</div>
+          <h1>WaniKani Dashboard</h1>
+          <p class="subtitle">SRS progress, review workload and learning statistics.</p>
+        </div>
+        <button class="smallbtn primary" onclick="refreshWaniKani(true)">↻ Refresh</button>
+      </div>
+
+      <div class="wk-stat-grid">
+        <div class="panel wk-stat"><span>Level</span><strong>${level}</strong>${levelProgress !== null ? `<small>${levelProgress}% of level 60</small>`:''}</div>
+        <div class="panel wk-stat"><span>Reviews</span><strong>${availableReviews}</strong><small>currently available</small></div>
+        <div class="panel wk-stat"><span>Lessons</span><strong>${availableLessons}</strong><small>currently available</small></div>
+        <div class="panel wk-stat"><span>Updated</span><strong>${updated}</strong><small>WaniKani data</small></div>
+      </div>
+
+      <div class="wk-dashboard-grid">
+        <section class="panel wk-card wk-srs">
+          <div class="wk-card-title"><h3>SRS distribution</h3><span>${assignments.length || '—'} assignments</span></div>
+          <div class="wk-srs-list">
+            ${Object.entries(counts).map(([name,n]) => `
+              <div class="wk-srs-row">
+                <span>${name}</span><b>${n}</b>
+                <i><em style="width:${assignments.length ? Math.round(n/assignments.length*100) : 0}%"></em></i>
+              </div>`).join('')}
+          </div>
+        </section>
+
+        <section class="panel wk-card">
+          <div class="wk-card-title"><h3>Review workload</h3><span>Upcoming</span></div>
+          <div class="wk-forecast">
+            <div><strong>${availableReviews}</strong><span>Due now</span></div>
+            <div><strong>${s.next_reviews_at ? new Date(s.next_reviews_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '—'}</strong><span>Next review</span></div>
+          </div>
+          <div class="wk-actions">
+            <a class="smallbtn" href="https://www.wanikani.com/review" target="_blank" rel="noopener">Reviews ↗</a>
+            <a class="smallbtn" href="https://www.wanikani.com/subjects/lesson" target="_blank" rel="noopener">Lessons ↗</a>
+          </div>
+        </section>
+
+        <section class="panel wk-card wk-wide">
+          <div class="wk-card-title"><h3>Learning progress</h3><span>Items in the current dataset</span></div>
+          <div class="wk-progress-cards">
+            <div><span>Radicals</span><strong>${assignments.filter(a=>a.subject_type==='radical').length}</strong></div>
+            <div><span>Kanji</span><strong>${assignments.filter(a=>a.subject_type==='kanji').length}</strong></div>
+            <div><span>Vocabulary</span><strong>${assignments.filter(a=>a.subject_type==='vocabulary').length}</strong></div>
+          </div>
+          <p class="subtitle wk-note">Detailed item-level statistics appear when assignment data is available. This page remains independent of any particular textbook or programme.</p>
+        </section>
+
+        <section class="panel wk-card">
+          <div class="wk-card-title"><h3>Review tools</h3><span>WaniKani</span></div>
+          <div class="wk-tool-list">
+            <a href="https://www.wanikani.com/review" target="_blank" rel="noopener">Start reviews <span>↗</span></a>
+            <a href="https://www.wanikani.com/subjects/lesson" target="_blank" rel="noopener">Start lessons <span>↗</span></a>
+            <a href="https://www.wanikani.com/dashboard" target="_blank" rel="noopener">Open WaniKani dashboard <span>↗</span></a>
+          </div>
+        </section>
+
+        <section class="panel wk-card">
+          <div class="wk-card-title"><h3>Integration</h3><span>Learning Hub</span></div>
+          <p class="subtitle">WaniKani is an independent supporting resource. It is not included in textbook or programme completion.</p>
+          <div class="wk-source">Last sync: ${updated}</div>
+        </section>
+      </div>
+    </div>`;
+}
+
 function renderDashboard(){
   $('#hero').hidden=true; $('#bottomArea').hidden=true; $('#weekView').hidden=true; $('#mainContent').hidden=false;
   const overall=overallProgress(),w=currentWeekIndex(),wp=progress(w),next=nextIncomplete();
