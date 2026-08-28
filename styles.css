@@ -13,3 +13,33 @@
 .dayfocus{margin:6px 0 0;color:var(--muted);font-size:.9rem}
 .habit-target{margin:0 0 10px;color:var(--muted);font-size:.88rem}
 @media (max-width:700px){.week-overview{padding:14px}.dayfocus{line-height:1.45}.week-overview h2{font-size:1.15rem}}
+
+/* Responsive repair: keep the navigation and action controls inside the viewport. */
+html,body{max-width:100%;overflow-x:hidden}
+.shell{width:100%;min-width:0}
+.topbar,.account,.mainnav,.tabsrow,.lesson-toolbar,.panelhead,.dayhead{min-width:0}
+.mainnav{width:100%;overflow-x:auto;overflow-y:hidden;flex-wrap:nowrap;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.mainnav::-webkit-scrollbar{display:none}
+.navbtn{flex:0 0 auto;white-space:nowrap}
+.account{min-width:0;flex-wrap:wrap}
+@media(max-width:760px){
+  .shell{padding-left:10px;padding-right:10px;overflow-x:hidden}
+  .topbar{padding:15px;overflow:hidden}
+  .topbar .title{max-width:100%;overflow-wrap:anywhere}
+  .account{width:100%;gap:6px}
+  .account .sync{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mainnav{margin-top:10px;padding-bottom:7px;gap:4px}
+  .navbtn{padding:8px 10px;font-size:12px}
+  .mainnav .pomo-nav-btn{flex:0 0 38px;width:38px;min-width:38px;padding:8px 0;text-align:center}
+  .dashcard,.panel,.day,.lesson-column,.lessonhero,.library-hero,.architecture-note,.week-overview{min-width:0;max-width:100%}
+  .dayfocus,.subtitle,.dashcard p,.panel p{overflow-wrap:anywhere}
+  .timebar-row{grid-template-columns:minmax(70px,92px) minmax(0,1fr) auto;gap:7px}
+  .timebar-row>span{min-width:0}
+}
+@media(max-width:420px){
+  .topbar{padding:13px}
+  .account{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center}
+  .account .sync{grid-column:1/-1}
+  .mainnav{gap:3px}
+  .navbtn{padding:7px 9px;font-size:11px}
+}
