@@ -967,7 +967,7 @@ function openLessonMastery(l){
   $('#modalTitle').textContent=`Mastery check · Lesson ${l.n}`;
   $('#modalSub').textContent='Rate each component based on what you can actually do now.';
   $('#modalDesc').innerHTML=`<div class="mastery-list">${rows}</div><p class="mastery-tip"><strong>Mastered:</strong> you can recognise it, understand it and produce it without leaning on the book. If one of those is shaky, leave it as Studying/Shaky.</p>`;
-  $('#modalgrid').hidden=true;
+  const modalGrid=$('.modalgrid'); if(modalGrid) modalGrid.hidden=true;
   $('#mastery').closest('label').hidden=true; $('#confidence').closest('label').hidden=true;
   $('#taskNotes').hidden=true; $('.fieldlabel').hidden=true; $('#modalDone').closest('label').hidden=true;
   $('#modal').showModal();
@@ -975,7 +975,15 @@ function openLessonMastery(l){
   $('#modal').addEventListener('close',resetTaskModal,{once:true});
 }
 function resetTaskModal(){
-  $('#modalgrid').hidden=false; $('#mastery').closest('label').hidden=false; $('#confidence').closest('label').hidden=false; $('#taskNotes').hidden=false; $('.fieldlabel').hidden=false; $('#modalDone').closest('label').hidden=false;
+  const modalGrid=$('.modalgrid');
+  if(modalGrid) modalGrid.hidden=false;
+  const mastery=$('#mastery'), confidence=$('#confidence'), taskNotes=$('#taskNotes'), modalDone=$('#modalDone');
+  const masteryLabel=mastery?.closest('label'), confidenceLabel=confidence?.closest('label'), doneLabel=modalDone?.closest('label');
+  if(masteryLabel) masteryLabel.hidden=false;
+  if(confidenceLabel) confidenceLabel.hidden=false;
+  if(taskNotes) taskNotes.hidden=false;
+  document.querySelectorAll('.fieldlabel').forEach(el=>el.hidden=false);
+  if(doneLabel) doneLabel.hidden=false;
 }
 // Task interaction is delegated from the document so task cards continue to work
 // after any dashboard/plan/lesson render replaces their DOM nodes.
