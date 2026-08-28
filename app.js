@@ -895,7 +895,6 @@ function renderDashboard(){
     <section class="dashboard-lower"><article class="panel"><div class="panelhead"><div><h3>Needs attention</h3><p class="subtitle">Optional flags and notes from your study tasks.</p></div></div>${attention.length?`<div class="attentionlist">${attention.map(x=>`<button class="attention" data-task="${esc(x.t.id)}"><span class="status-dot ${x.s.mastery}"></span><span><strong>${esc(x.t.title)}</strong><small>L${x.t.lesson} · ${esc(x.t.book)} · p.${x.t.page}</small></span></button>`).join('')}</div>`:'<div class="empty">Nothing flagged yet.</div>'}</article>
     <article class="panel"><div class="panelhead"><div><h3>Study time by activity</h3><p class="subtitle">Immersion and habit time logged through Pomodoro.</p></div></div><div class="timebars">${activityRows.map(a=>`<div class="timebar-row"><span>${esc(a.label)}</span><div class="timebar-track"><i style="width:${a.secs?Math.min(100,a.secs/maxActivity*100):0}%"></i></div><strong>${fmtDuration(a.secs)}</strong></div>`).join('')}</div></article></section>
     <section class="panel dashboard-roadmap"><div class="panelhead"><div><div class="eyebrow">Product roadmap</div><h2>Learning Hub improvements</h2><p class="subtitle">A living checklist. Completed items stay checked; future refinement can be added here as we learn from actual use.</p></div><span class="roadmap-count">${ROADMAP_ITEMS.filter(x=>roadmapDone(x.id)).length}/${ROADMAP_ITEMS.length}</span></div><div class="roadmap-list">${ROADMAP_ITEMS.map(x=>`<label class="roadmap-item ${roadmapDone(x.id)?'done':''}"><input type="checkbox" data-roadmap="${esc(x.id)}" ${roadmapDone(x.id)?'checked':''}><span><strong>${esc(x.title)}</strong><small>${esc(x.detail)}</small></span></label>`).join('')}</div></section>`;
-  $('#mainContent').querySelectorAll('[data-today-task],[data-review-task],[data-task]').forEach(b=>b.onclick=()=>openTask(b.dataset.todayTask||b.dataset.reviewTask||b.dataset.task));
   $('#mainContent').querySelectorAll('[data-roadmap]').forEach(c=>c.onchange=e=>setRoadmapDone(e.target.dataset.roadmap,e.target.checked));
   $('#resumeWeek')?.addEventListener('click',()=>{state.view='plan';state.week=w;render();});
   $('#openNext')?.addEventListener('click',()=>{state.week=next.week;state.view='plan';render();setTimeout(()=>openTask(next.task.id),50);});
@@ -911,7 +910,6 @@ function renderWeek(){
   $('#hero').hidden=false; $('#bottomArea').hidden=false; $('#weekView').hidden=false; $('#mainContent').hidden=true;
   const ds=weekDates(state.week);
   $('#weekView').innerHTML=`<div class="tabsrow"><button class="smallbtn" id="prevWeek">←</button><div class="weektabs" id="weekTabs"></div><button class="smallbtn" id="nextWeek">→</button></div><div class="week-overview"><div><div class="eyebrow">WEEK ${state.week+1}</div><h2>${esc(weekPlan(state.week).focus)}</h2><p class="subtitle">Core target: ${fmtMinutes(weekPlan(state.week).days.reduce((a,x)=>a+x.target,0))} this week, with optional input bringing the overall plan toward 15–20 hours.</p></div></div>${ds.map((date,d)=>{const core=weeklyTasks(state.week,d),hs=habits(state.week,d),plan=weekPlan(state.week).days[d]||{focus:'Core study',target:120,extra:'30 min Japanese input'},isToday=dateKey(date)===dateKey(new Date());return `<section class="day ${isToday?'today':''}"><div class="dayhead"><div><div class="eyebrow">${isToday?'TODAY · ':''}${date.toLocaleDateString(undefined,{weekday:'long'})}</div><h2>${fmt(date)}</h2><p class="dayfocus"><strong>${esc(plan.focus)}</strong> · target ${fmtMinutes(plan.target)} · ${esc(plan.extra)}</p></div><span class="daycount">${core.filter(t=>ts(t.id).completed).length}/${core.length}</span></div>${core.length?`<div class="tasklist">${core.map(card).join('')}</div>`:''}<details class="habits"><summary>Optional input <span>WaniKani · Migaku · shadowing · reading</span></summary><p class="habit-target">Recommended: ${esc(plan.extra)}</p><div class="habitlist">${hs.map(card).join('')}</div></details></section>`}).join('')}`;
-  $('#weekView').querySelectorAll('[data-task]').forEach(e=>e.onclick=x=>{if(x.target.matches('input'))return;openTask(e.dataset.task);});
   $('#weekView').querySelectorAll('[data-check]').forEach(e=>e.onchange=()=>toggle(e.dataset.check));
   $('#prevWeek').onclick=()=>{state.week=Math.max(0,state.week-1);render();};
   $('#nextWeek').onclick=()=>{state.week=Math.min(11,state.week+1);render();};
@@ -960,7 +958,6 @@ function renderLesson(n){
   $('#prevLesson').onclick=()=>{if(n>11){state.lesson=n-1;render();}};
   $('#nextLesson').onclick=()=>{if(n<20){state.lesson=n+1;render();}};
   $('#lessonMastery').onclick=()=>openLessonMastery(l);
-  $('#mainContent').querySelectorAll('[data-task]').forEach(e=>{ if(e.dataset.task) e.onclick=()=>openTask(e.dataset.task); });
   const lessonNoteKey=`lesson-${n}`;
   $('#lessonNotes').value=state.taskState[lessonNoteKey]?.notes||'';
   $('#lessonNotes').oninput=e=>{state.taskState[lessonNoteKey]={...ts(lessonNoteKey),notes:e.target.value};saveLocal();cloudSave(lessonNoteKey);};
@@ -980,11 +977,29 @@ function openLessonMastery(l){
 function resetTaskModal(){
   $('#modalgrid').hidden=false; $('#mastery').closest('label').hidden=false; $('#confidence').closest('label').hidden=false; $('#taskNotes').hidden=false; $('.fieldlabel').hidden=false; $('#modalDone').closest('label').hidden=false;
 }
+// Task interaction is delegated from the document so task cards continue to work
+// after any dashboard/plan/lesson render replaces their DOM nodes.
+if(!window.__studyHubTaskClickHandler) {
+  document.addEventListener('click', e => {
+    const check=e.target.closest('[data-check]');
+    if(check) return; // the change handler owns completion checkboxes
+    const trigger=e.target.closest('[data-today-task],[data-review-task],[data-task]');
+    if(!trigger) return;
+    const id=trigger.dataset.todayTask || trigger.dataset.reviewTask || trigger.dataset.task;
+    if(id) {
+      e.preventDefault();
+      e.stopPropagation();
+      openTask(id);
+    }
+  });
+  window.__studyHubTaskClickHandler=true;
+}
+
 function openTask(id){
   const tasks=[...allCoreTasks(),...Array.from({length:12},(_,w)=>Array.from({length:7},(_,d)=>habits(w,d)).flat())];
   let t=tasks.find(x=>x.id===id);
-  if(!t && id.startsWith('lesson-')) return;
-  if(!t)return;
+  if(!t && id?.startsWith('lesson-')) return;
+  if(!t){ toast('This study task is no longer in the active programme. Refresh the page.'); return; }
   const s=ts(id);
   $('#modalTitle').textContent=t.title;
   $('#modalSub').textContent=`${t.lesson?`${esc(CURRICULUM.book)} · Lesson ${t.lesson}`:'Daily habit'} · ${t.book}${t.page?` · p.${t.page}`:''}`;
