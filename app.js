@@ -56,7 +56,7 @@ function makeTask(l, key, opts={}){
   const def = defFor(key), ref = pageFor(l,key);
   if(!def || !ref) return null;
   const section = (l.sections||[]).find(x=>x.taskKey===key);
-  return { id:`b2-l${l.n}-${key}`, lesson:l.n, key, title:def.label, book:ref.book, page:ref.page, duration:def.duration, desc:def.desc, section:section?.label||null, sectionPages:section?.pages||null, ...opts };
+  return { id:`b2-l${l.n}-${key}`, lesson:l.n, key, title:def.label, book:ref.book, page:ref.page, duration:def.duration, desc:def.desc, section:section?.label||null, sectionPages:section?.pages||null, sectionSteps:section?.steps||[], sectionItems:section?.items||[], ...opts };
 }
 function lessonTasks(l){ return TASK_TYPES.map(d=>makeTask(l,d.key)).filter(Boolean); }
 function weeklyTasks(w,d){
@@ -463,8 +463,9 @@ function renderLesson(n){
   const textbookSections=(l.sections||[]).map(sec=>{
     const t=tasks.find(x=>x.key===sec.taskKey);
     const st=t?ts(t.id):{};
-    const items=sec.items?.length?`<ul class="section-items">${sec.items.map(x=>`<li>${esc(x.label)}</li>`).join('')}</ul>`:'';
-    return `<button class="book-section ${t&&st.completed?'done':''}" data-task="${esc(t?.id||'')}"><div class="book-section-main"><span class="book-section-label">${esc(sec.label)}</span><strong>pp.${esc(sec.pages||'—')}</strong>${items}</div><span class="book-section-status">${t&&st.completed?'✓ Complete':'Open task'}</span></button>`;
+    const items=sec.items?.length?`<div class="section-items"><span>Includes</span><ul>${sec.items.map(x=>`<li>${esc(x.label)}</li>`).join('')}</ul></div>`:'';
+    const steps=sec.steps?.length?`<div class="section-steps"><span>Study sequence</span><ol>${sec.steps.map(x=>`<li>${esc(x)}</li>`).join('')}</ol></div>`:'';
+    return `<div class="book-section ${t&&st.completed?'done':''}" data-task="${esc(t?.id||'')}"><div class="book-section-main"><span class="book-section-label">${esc(sec.label)}</span><strong>pp.${esc(sec.pages||'—')}</strong>${items}${steps}</div><span class="book-section-status">${t&&st.completed?'✓ Complete':'Open task'}</span></div>`;
   }).join('');
   const wb2Rows=(l.workbookMap?.workbook2||[]).map(x=>{const t=tasks.find(y=>y.key===x.taskKey), st=t?ts(t.id):{};return `<button class="book-section compact ${st.completed?'done':''}" data-task="${esc(t?.id||'')}"><div class="book-section-main"><span class="book-section-label">${esc(x.label)}</span><strong>p.${esc(x.page)}</strong></div><span class="book-section-status">${st.completed?'✓':'Open'}</span></button>`}).join('');
   const wb1Rows=(l.workbookMap?.workbook1||[]).map(x=>{const t=tasks.find(y=>y.key===x.taskKey), st=t?ts(t.id):{};return `<button class="book-section compact ${st.completed?'done':''}" data-task="${esc(t?.id||'')}"><div class="book-section-main"><span class="book-section-label">${esc(x.label)}</span><strong>p.${esc(x.page)}</strong></div><span class="book-section-status">${st.completed?'✓':'Open'}</span></button>`}).join('');
@@ -519,7 +520,9 @@ function openTask(id){
   const timeLine=secs?`<div class="time-stat">⏱ ${fmtDuration(secs)} studied on this task</div>`:'';
   const isActive=state.pomodoro.taskId===id && state.pomodoro.status==='running';
   const pomoBtn=`<button type="button" class="smallbtn primary" id="startTaskPomo">${isActive?'Timer running for this task':'Start pomodoro for this task'}</button>`;
-  $('#modalDesc').innerHTML=`${pageLink}${timeLine}<p>${esc(t.desc)}</p>${t.lesson?'<p><strong>Study rule:</strong> Work through this section. If you already know it, do a small representative check and mark the skill mastered instead of grinding repetitive questions.</p>':''}<div class="modal-related">${lessonLink}${pomoBtn}</div>`;
+  const workflow=t.sectionSteps?.length?`<div class="task-workflow"><strong>Suggested study sequence</strong><ol>${t.sectionSteps.map(x=>`<li>${esc(x)}</li>`).join('')}</ol></div>`:'';
+  const items=t.sectionItems?.length?`<div class="task-items"><strong>Content in this section</strong><ul>${t.sectionItems.map(x=>`<li>${esc(x.label)}</li>`).join('')}</ul></div>`:'';
+  $('#modalDesc').innerHTML=`${pageLink}${timeLine}<p>${esc(t.desc)}</p>${items}${workflow}${t.lesson?'<p><strong>Study rule:</strong> Work through this section. If you already know it, do a small representative check and move on rather than grinding repetitive questions.</p>':''}<div class="modal-related">${lessonLink}${pomoBtn}</div>`;
   $('#modalDone').checked=s.completed; $('#modalDone').onchange=()=>toggle(id);
   $('#mastery').value=s.mastery; $('#mastery').onchange=e=>setTask(id,{mastery:e.target.value});
   $('#confidence').value=s.confidence||''; $('#confidence').onchange=e=>setTask(id,{confidence:e.target.value?+e.target.value:null});

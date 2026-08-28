@@ -60,13 +60,13 @@ window.CURRICULUM = {
 // Task IDs remain b2-l<lesson>-<key> so existing Supabase/local progress is
 // preserved when the richer hierarchy is introduced.
 const B2_SECTION_DEFS = [
-  {key:"conversation", label:"Conversation", taskKey:"textbook_conversation", resource:"Textbook", desc:"Work through the lesson conversation and its associated interaction practice."},
-  {key:"vocabulary", label:"Vocabulary", taskKey:"textbook_vocab", resource:"Textbook", desc:"Study the lesson vocabulary in context and retrieve it actively."},
-  {key:"kanji", label:"Kanji", taskKey:"textbook_kanji", resource:"Textbook", desc:"Study the lesson kanji, readings and example compounds; writing reinforcement is in Workbook 1."},
-  {key:"grammar", label:"Grammar", taskKey:"textbook_grammar", resource:"Textbook", desc:"Work through each target grammar point, examples and practice. Create original sentences."},
-  {key:"activities", label:"話しましょう / Activities", taskKey:"textbook_talk", resource:"Textbook", desc:"Use the lesson language in the book's speaking and application activities."},
-  {key:"reading", label:"読みましょう / Reading", taskKey:"textbook_reading", resource:"Textbook", desc:"Read for overall meaning first, then investigate only language that blocks or repeatedly matters."},
-  {key:"listening", label:"聞きましょう / Listening", taskKey:"textbook_listening", resource:"Textbook", desc:"Listen without the script first, diagnose misses with the script, then replay and shadow selected lines."}
+  {key:"conversation", label:"Conversation", taskKey:"textbook_conversation", resource:"Textbook", desc:"Work through the lesson conversation and its associated interaction practice.", steps:["Listen once for the situation and overall meaning.","Read with the book and check anything that blocks understanding.","Listen again and repeat selected lines.","Practise the interaction aloud rather than only rereading it."]},
+  {key:"vocabulary", label:"Vocabulary", taskKey:"textbook_vocab", resource:"Textbook", desc:"Study the lesson vocabulary in context and retrieve it actively.", steps:["Work through the visual/context vocabulary first.","Study the vocabulary list and example usage.","Test yourself without looking at the list.","Record only recurring or genuinely useful unknowns."]},
+  {key:"kanji", label:"Kanji", taskKey:"textbook_kanji", resource:"Textbook", desc:"Study the lesson kanji, readings and example compounds; writing reinforcement is in Workbook 1.", steps:["Learn recognition and the readings shown in the textbook.","Work through the compounds/examples in context.","Test recognition and readings from memory.","Use Workbook 1 for focused writing reinforcement."]},
+  {key:"grammar", label:"Grammar", taskKey:"textbook_grammar", resource:"Textbook", desc:"Work through each target grammar point, examples and practice. Create original sentences.", steps:["Study each listed grammar point in the textbook.","Understand the examples before attempting production.","Produce your own examples without copying the model.","Use Workbook 2 Grammar practice after the textbook work.","Flag only grammar that remains genuinely uncertain."]},
+  {key:"activities", label:"話しましょう / Activities", taskKey:"textbook_talk", resource:"Textbook", desc:"Use the lesson language in the book's speaking and application activities.", steps:["Attempt the activity using the target lesson language.","Speak rather than silently planning every answer.","Repeat weak answers with improved wording.","Keep a note of useful phrases or recurring production problems."]},
+  {key:"reading", label:"読みましょう / Reading", taskKey:"textbook_reading", resource:"Textbook", desc:"Read for overall meaning first, then investigate only language that blocks or repeatedly matters.", steps:["Read once for the overall message without stopping constantly.","Use the lesson strategy to approach the text.","Check comprehension and investigate important unknown language.","Give yourself a short summary before moving on."]},
+  {key:"listening", label:"聞きましょう / Listening", taskKey:"textbook_listening", resource:"Textbook", desc:"Listen without the script first, diagnose misses with the script, then replay and shadow selected lines.", steps:["Listen once without reading the script.","Identify what you understood and what you missed.","Use the script to diagnose the misses.","Replay difficult sections and shadow selected lines."]}
 ];
 const B2_WB2_DEFS = [
   {key:"vocab", label:"Vocabulary practice", taskKey:"vocab"},
@@ -91,7 +91,7 @@ function buildB2ContentMap(l){
   };
   l.sections=B2_SECTION_DEFS.map(d=>({
     id:`b2-l${l.n}-${d.key}`, key:d.key, label:d.label, resource:d.resource,
-    pages:sectionPages[d.key], taskKey:d.taskKey, desc:d.desc,
+    pages:sectionPages[d.key], taskKey:d.taskKey, desc:d.desc, steps:d.steps||[],
     items:d.key==='grammar' ? (l.textbook.grammar||[]).map((name,i)=>({id:`b2-l${l.n}-grammar-${i+1}`,label:name})) : []
   }));
   l.workbookMap={
