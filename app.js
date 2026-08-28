@@ -17,6 +17,7 @@ const state = {
   user: null,
   ready: false,
   pomodoroSettings: JSON.parse(localStorage.getItem('pomodoroSettings') || 'null') || { work:25, short:5, long:15, cycle:4 },
+  pomodoroVisible: false,
   pomodoro: JSON.parse(localStorage.getItem('pomodoroState') || 'null') || {
     status: 'idle', mode: 'work', remaining: POMO_DURATIONS.work,
     taskId: null, cycle: 0, endAt: null, startedAt: null
@@ -346,7 +347,6 @@ function ensurePomodoroToggle(){
     });
   }
   const saved=localStorage.getItem('pomodoroMinimized');
-  if(saved===null && window.matchMedia('(max-width:760px)').matches) w.classList.add('minimized');
   if(saved==='1') w.classList.add('minimized');
   if(saved==='0') w.classList.remove('minimized');
   const btn=w.querySelector('.pomo-minimize');
@@ -359,7 +359,7 @@ function ensurePomodoroToggle(){
 }
 function renderPomodoro(){
   const w=$('#pomodoroWidget'); if(!w) return;
-  w.hidden = !(state.ready && state.user);
+  w.hidden = !(state.ready && state.user && state.pomodoroVisible);
   ensurePomodoroToggle();
   const p=state.pomodoro;
   syncRemaining();
@@ -410,6 +410,41 @@ function advanceStudySession(){
   if(state.studySession.index >= state.studySession.queue.length-1){ endStudySession(); toast('Study session complete'); return; }
   state.studySession.index += 1; saveStudySession(); render(); scrollTo({top:0,behavior:'smooth'});
 }
+function finishSessionAssessment(id){
+  const s=ts(id), mastery=$('#mastery').value||s.mastery||'studying', confidence=$('#confidence').value?+$('#confidence').value:null;
+  setTask(id,{mastery,confidence,completed:true,completed_at:s.completed_at||new Date().toISOString()});
+  const ss=state.studySession;
+  if(ss.active){
+    const occurrences=ss.queue.filter(x=>x===id).length;
+    if((mastery==='shaky' || (confidence!==null && confidence<=2)) && occurrences<2){
+      ss.queue.push(id);
+      toast('Marked for another pass later in this session.');
+    }
+    saveStudySession();
+  }
+  $('#modal').close();
+  resetTaskModal();
+  if(state.studySession.active) advanceStudySession();
+}
+function openSessionAssessment(id){
+  const t=findTaskById(id), s=ts(id);
+  if(!t)return;
+  $('#modalTitle').textContent='Quick mastery check';
+  $('#modalSub').textContent=`${esc(t.title)} · ${esc(t.book)}${t.page?` · p.${t.page}`:''}`;
+  $('#modalDesc').innerHTML=`<div class="assessment-callout"><strong>Don't grade the time you spent.</strong><p>Rate what you can do <em>right now</em> without leaning on the book. If it is not reliable yet, keep it as Studying or Shaky.</p></div>`;
+  $('#modalgrid').hidden=false;
+  $('#mastery').closest('label').hidden=false; $('#confidence').closest('label').hidden=false;
+  $('#mastery').value=s.mastery==='not_started'?'studying':s.mastery;
+  $('#confidence').value=s.confidence?String(s.confidence):'';
+  $('#taskNotes').hidden=false; $('.fieldlabel').hidden=false;
+  $('#taskNotes').value=s.notes||'';
+  $('#modalDone').closest('label').hidden=true;
+  const action=$('#modal .modalactions button.primary');
+  action.textContent='Save & next →';
+  action.onclick=(e)=>{e.preventDefault(); const notes=$('#taskNotes').value; state.taskState[id]={...ts(id),notes}; saveLocal(); cloudSave(id); finishSessionAssessment(id);};
+  $('#modal').showModal();
+  $('#modal').addEventListener('close',resetTaskModal,{once:true});
+}
 function renderStudySession(){
   $('#hero').hidden=true; $('#bottomArea').hidden=true; $('#weekView').hidden=true; $('#mainContent').hidden=false;
   const ss=state.studySession, queue=ss.queue.map(id=>findTaskById(id)).filter(Boolean), task=currentSessionTask();
@@ -430,9 +465,16 @@ function renderStudySession(){
       <section class="session-queue panel"><div class="panelhead"><div><h3>Session queue</h3><p class="subtitle">The queue is generated from today's schedule, due reviews and your next unfinished work.</p></div></div><div class="session-list">${queue.map((t,i)=>{const st=ts(t.id);return `<button class="session-row ${i===idx?'current':''} ${st.completed?'done':''}" data-session-index="${i}"><span class="session-number">${i+1}</span><span><strong>${esc(t.title)}</strong><small>${esc(t.book)}${t.page?` · p.${esc(t.page)}`:''}${i<idx?' · visited':i===idx?' · now':''}</small></span><span class="status-dot ${st.mastery}">${st.completed?'✓':''}</span></button>`}).join('')}</div></section>
     </section>`;
   $('#endStudySession').onclick=endStudySession;
-  $('#sessionPomo').onclick=()=>{startPomodoro(task.id);renderStudySession();};
+  $('#sessionPomo').onclick=()=>{state.pomodoroVisible=true;startPomodoro(task.id);renderNav();renderPomodoro();renderStudySession();};
   $('#sessionOpenTask').onclick=()=>openTask(task.id);
-  $('#sessionComplete').onclick=()=>{if(!ts(task.id).completed)setTask(task.id,{completed:true,mastery:ts(task.id).mastery==='not_started'?'studying':ts(task.id).mastery}); if(state.studySession.index<state.studySession.queue.length-1)advanceStudySession(); else endStudySession();};
+  $('#sessionComplete').onclick=()=>{
+    if(ts(task.id).completed){
+      if(state.studySession.index<state.studySession.queue.length-1) advanceStudySession(); else endStudySession();
+      return;
+    }
+    setTask(task.id,{completed:true,completed_at:new Date().toISOString(),mastery:ts(task.id).mastery==='not_started'?'studying':ts(task.id).mastery});
+    openSessionAssessment(task.id);
+  };
   $('#mainContent').querySelectorAll('[data-session-index]').forEach(b=>b.onclick=()=>{state.studySession.index=+b.dataset.sessionIndex;saveStudySession();render();});
 }
 function render(){
@@ -443,6 +485,7 @@ function render(){
   else if(state.view==='session') renderStudySession();
   else if(state.view==='plan') renderWeek();
   else if(state.view==='lesson') renderLesson(state.lesson);
+  else if(state.view==='progress') renderProgress();
   else renderLibrary();
   $('#globalNotes').value=state.notes; $('#startDate').value=state.startDate; renderStatus();
   renderPomodoroSettings();
@@ -465,9 +508,18 @@ function renderHeader(){
   $('#progressBar').style.width=(p.total?p.done/p.total*100:0)+'%';
 }
 function renderNav(){
-  $('#mainNav').innerHTML=`<button class="navbtn ${state.view==='dashboard'?'active':''}" data-view="dashboard">Dashboard</button><button class="navbtn ${state.view==='plan'?'active':''}" data-view="plan">Study plan</button><button class="navbtn ${state.view==='lesson'?'active':''}" data-view="lesson">Lessons</button><button class="navbtn ${state.view==='library'?'active':''}" data-view="library">Learning hub</button>`;
-  $('#mainNav').querySelectorAll('.navbtn').forEach(b=>b.onclick=()=>{state.view=b.dataset.view;if(state.view==='lesson'&&!lessonByNumber(state.lesson))state.lesson=programLessons()[0]?.n || 1;render();scrollTo({top:0,behavior:'smooth'});});
+  const running=state.pomodoro.status==='running';
+  $('#mainNav').innerHTML=`<button class="navbtn ${state.view==='dashboard'?'active':''}" data-view="dashboard">Dashboard</button><button class="navbtn ${state.view==='plan'?'active':''}" data-view="plan">Study plan</button><button class="navbtn ${state.view==='lesson'?'active':''}" data-view="lesson">Lessons</button><button class="navbtn ${state.view==='progress'?'active':''}" data-view="progress">Progress</button><button class="navbtn ${state.view==='library'?'active':''}" data-view="library">Learning hub</button><button class="navbtn pomo-navbtn ${state.pomodoroVisible?'active':''}" id="pomodoroNav" type="button" aria-label="${state.pomodoroVisible?'Hide':'Show'} Pomodoro" title="${state.pomodoroVisible?'Hide':'Show'} Pomodoro">🍅${running?' <span class=\"pomo-running-dot\"></span>':''}</button>`;
+  $('#mainNav').querySelectorAll('.navbtn[data-view]').forEach(b=>b.onclick=()=>{state.view=b.dataset.view;if(state.view==='lesson'&&!lessonByNumber(state.lesson))state.lesson=programLessons()[0]?.n || 1;render();scrollTo({top:0,behavior:'smooth'});});
+  const pomoBtn=$('#pomodoroNav');
+  if(pomoBtn) pomoBtn.onclick=()=>{
+    state.pomodoroVisible=!state.pomodoroVisible;
+    renderNav();
+    renderPomodoro();
+    if(state.pomodoroVisible) requestAnimationFrame(()=>document.querySelector('#pomodoroWidget')?.focus?.());
+  };
 }
+
 
 function programLessonsFor(pr){ return pr?.curriculum?.lessons || []; }
 function activateProgram(id){
@@ -479,6 +531,53 @@ function activateProgram(id){
   state.lesson=pr.curriculum.lessons?.[0]?.n || 1;
   render();
   toast(`Active programme: ${pr.title}`);
+}
+
+
+function studyDayKey(offset){
+  const d=new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()+offset); return dateKey(d);
+}
+function progressSnapshot(){
+  const tasks=allCoreTasks();
+  const states=tasks.map(t=>ts(t.id));
+  const mastery={not_started:0,studying:0,shaky:0,review:0,mastered:0};
+  states.forEach(x=>mastery[x.mastery]=(mastery[x.mastery]||0)+1);
+  const completedDates={};
+  states.forEach(x=>{if(x.completed_at){const k=dateKey(new Date(x.completed_at));completedDates[k]=(completedDates[k]||0)+1;}});
+  let streak=0;
+  for(let i=0;i<365;i++){ if(completedDates[studyDayKey(-i)]||state.sessions.some(x=>x.completed_at&&dateKey(new Date(x.completed_at))===studyDayKey(-i))) streak++; else break; }
+  const days=Array.from({length:7},(_,i)=>{const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-(6-i));const k=dateKey(d);const secs=state.sessions.filter(x=>x.completed_at&&dateKey(new Date(x.completed_at))===k).reduce((a,x)=>a+(x.duration_seconds||0),0);return {date:d,key:k,secs,done:completedDates[k]||0};});
+  const totalStudy=totalSeconds();
+  const last7=days.reduce((a,x)=>a+x.secs,0);
+  const avg=last7/7;
+  return {mastery,completed:states.filter(x=>x.completed).length,total:tasks.length,streak,days,totalStudy,last7,avg};
+}
+function renderProgress(){
+  $('#hero').hidden=true; $('#bottomArea').hidden=true; $('#weekView').hidden=true; $('#mainContent').hidden=false;
+  const p=progressSnapshot(), pct=p.total?Math.round(p.completed/p.total*100):0;
+  const max=Math.max(...p.days.map(x=>x.secs),1);
+  const recent=[...state.sessions].sort((a,b)=>new Date(b.completed_at||0)-new Date(a.completed_at||0)).slice(0,8);
+  const recentHtml=recent.length?recent.map(x=>{const t=x.task_id?findTaskById(x.task_id):null;return `<div class="history-row"><span class="history-icon">${x.duration_seconds>=1500?'🍅':'•'}</span><span><strong>${esc(t?.title||'Unlinked focus session')}</strong><small>${new Date(x.completed_at||x.started_at).toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}${t?.lesson?` · Lesson ${t.lesson}`:''}</small></span><strong>${fmtDuration(x.duration_seconds||0)}</strong></div>`}).join(''):'<div class="empty">No focus sessions yet. Start a Pomodoro from a task when you are ready.</div>';
+  const masteryRows=[['mastered','Mastered'],['review','Review'],['shaky','Shaky'],['studying','Studying'],['not_started','Not started']];
+  $('#mainContent').innerHTML=`
+    <section class="library-hero progress-hero"><div class="eyebrow">Progress & review</div><h1>How your Japanese study is actually going</h1><p>This page separates <strong>time spent</strong>, <strong>work completed</strong> and <strong>mastery</strong>. Use it for a weekly check-in rather than chasing a single percentage.</p></section>
+    <section class="stats-grid progress-stats">
+      <article class="stat-card"><span class="eyebrow">Programme completion</span><strong>${pct}%</strong><small>${p.completed} of ${p.total} core tasks complete</small><div class="progress"><i style="width:${pct}%"></i></div></article>
+      <article class="stat-card"><span class="eyebrow">Study time · 7 days</span><strong>${fmtDuration(p.last7)}</strong><small>${fmtDuration(Math.round(p.avg))} average per day</small></article>
+      <article class="stat-card"><span class="eyebrow">Current streak</span><strong>${p.streak} day${p.streak===1?'':'s'}</strong><small>Based on completed work or logged focus</small></article>
+      <article class="stat-card"><span class="eyebrow">All-time focus</span><strong>${fmtDuration(p.totalStudy)}</strong><small>Logged Pomodoro focus time</small></article>
+    </section>
+    <section class="dashboard-columns">
+      <article class="panel"><div class="panelhead"><div><h3>Last 7 days</h3><p class="subtitle">Completed tasks and logged focus time.</p></div></div><div class="week-bars">${p.days.map(x=>`<div class="week-bar"><div class="week-bar-value">${x.secs?fmtDuration(x.secs):'—'}</div><div class="week-bar-track"><i style="height:${x.secs?Math.max(8,x.secs/max*100):0}%"></i></div><strong>${x.date.toLocaleDateString(undefined,{weekday:'short'})}</strong><small>${x.done} done</small></div>`).join('')}</div></article>
+      <article class="panel"><div class="panelhead"><div><h3>Mastery distribution</h3><p class="subtitle">This is more useful than completion alone.</p></div></div><div class="mastery-bars">${masteryRows.map(([k,label])=>{const n=p.mastery[k]||0;const w=p.total?n/p.total*100:0;return `<div class="mastery-bar-row"><span>${label}</span><div class="timebar-track"><i class="mastery-${k}" style="width:${w}%"></i></div><strong>${n}</strong></div>`}).join('')}</div></article>
+    </section>
+    <section class="dashboard-columns">
+      <article class="panel"><div class="panelhead"><div><h3>Recent focus sessions</h3><p class="subtitle">Your actual logged study time.</p></div></div><div class="history-list">${recentHtml}</div></article>
+      <article class="panel"><div class="panelhead"><div><h3>Weekly check-in</h3><p class="subtitle">Use these questions once a week.</p></div></div><div class="checkin"><label>What can I now do automatically?<textarea placeholder="Grammar, vocabulary, listening, reading..." id="checkinStrength"></textarea></label><label>What is still shaky?<textarea placeholder="Name the exact lesson/component rather than just 'grammar'." id="checkinWeakness"></textarea></label><label>What will I fix next week?<textarea placeholder="One or two concrete priorities." id="checkinNext"></textarea></label><button class="smallbtn primary" id="saveCheckin">Save check-in</button></div></article>
+    </section>`;
+  const key=`weekly-checkin-${dateKey(new Date())}`; const saved=JSON.parse(localStorage.getItem(key)||'null')||{};
+  $('#checkinStrength').value=saved.strength||''; $('#checkinWeakness').value=saved.weakness||''; $('#checkinNext').value=saved.next||'';
+  $('#saveCheckin').onclick=()=>{localStorage.setItem(key,JSON.stringify({strength:$('#checkinStrength').value,weakness:$('#checkinWeakness').value,next:$('#checkinNext').value,savedAt:new Date().toISOString()}));toast('Weekly check-in saved');};
 }
 
 function renderLibrary(){
@@ -713,7 +812,7 @@ function openTask(id){
   $('#confidence').value=s.confidence||''; $('#confidence').onchange=e=>setTask(id,{confidence:e.target.value?+e.target.value:null});
   $('#taskNotes').value=s.notes||''; $('#taskNotes').oninput=e=>{state.taskState[id]={...ts(id),notes:e.target.value};saveLocal();cloudSave(id);};
   if($('#openRelatedLesson')) $('#openRelatedLesson').onclick=()=>{state.lesson=t.lesson;state.view='lesson';$('#modal').close();render();};
-  $('#startTaskPomo').onclick=()=>{startPomodoro(id);toast('Pomodoro started for this task');$('#startTaskPomo').textContent='Timer running for this task';};
+  $('#startTaskPomo').onclick=()=>{state.pomodoroVisible=true;startPomodoro(id);renderNav();renderPomodoro();toast('Pomodoro started for this task');$('#startTaskPomo').textContent='Timer running for this task';};
   resetTaskModal(); $('#modal').showModal();
 }
 async function loadCloud(){
