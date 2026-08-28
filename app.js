@@ -55,9 +55,8 @@ function pageFor(l, key){
 function makeTask(l, key, opts={}){
   const def = defFor(key), ref = pageFor(l,key);
   if(!def || !ref) return null;
-  const category = key.startsWith('textbook_') || ['vocab','particle','grammar1','comp1','grammar2','comp2','listening','kanji','reading','writing','review'].includes(key) ? 'core' : 'supporting';
-  const resourceId = ref.book==='Textbook' ? 'tobira-beginning-ii-textbook' : ref.book==='Workbook 1' ? 'tobira-beginning-ii-workbook-1' : 'tobira-beginning-ii-workbook-2';
-  return { id:`b2-l${l.n}-${key}`, lesson:l.n, key, sectionKey:key, sectionType:key, category, title:def.label, book:ref.book, resourceId, page:ref.page, pageStart:String(ref.page).includes('–')?String(ref.page).split('–')[0]:ref.page, duration:def.duration, desc:def.desc, ...opts };
+  const section = (l.sections||[]).find(x=>x.taskKey===key);
+  return { id:`b2-l${l.n}-${key}`, lesson:l.n, key, title:def.label, book:ref.book, page:ref.page, duration:def.duration, desc:def.desc, section:section?.label||null, sectionPages:section?.pages||null, ...opts };
 }
 function lessonTasks(l){ return TASK_TYPES.map(d=>makeTask(l,d.key)).filter(Boolean); }
 function weeklyTasks(w,d){
@@ -85,7 +84,7 @@ function consolidationTasks(w,d){
 }
 
 function habits(w,d){
-  return OPTIONAL_TASKS.map(x => ({id:`habit-w${w+1}-d${d+1}-${x.key}`,key:x.key,title:x.label,duration:x.duration,book:'Habit',resourceId:x.key,category:'optional',sectionKey:x.key,desc:x.desc,habit:true}));
+  return OPTIONAL_TASKS.map(x => ({id:`habit-w${w+1}-d${d+1}-${x.key}`,key:x.key,title:x.label,duration:x.duration,book:'Habit',desc:x.desc,habit:true}));
 }
 function ts(id){ return state.taskState[id] || {completed:false,mastery:'not_started',confidence:null,notes:'',completed_at:null}; }
 function saveLocal(){
@@ -333,7 +332,6 @@ function render(){
   if(state.view==='dashboard') renderDashboard();
   else if(state.view==='plan') renderWeek();
   else if(state.view==='lesson') renderLesson(state.lesson);
-  else if(state.view==='book') renderBookDetail(state.libraryItem);
   else renderLibrary();
   $('#globalNotes').value=state.notes; $('#startDate').value=state.startDate; renderStatus();
   renderPomodoroSettings();
@@ -359,7 +357,7 @@ function renderHeader(){
   $('#progressBar').style.width=(p.total?p.done/p.total*100:0)+'%';
 }
 function renderNav(){
-  $('#mainNav').innerHTML=`<button class="navbtn ${state.view==='dashboard'?'active':''}" data-view="dashboard">Dashboard</button><button class="navbtn ${state.view==='plan'?'active':''}" data-view="plan">Study plan</button><button class="navbtn ${state.view==='lesson'?'active':''}" data-view="lesson">Lessons</button><button class="navbtn ${(state.view==='library'||state.view==='book')?'active':''}" data-view="library">Books</button><button class="navbtn pomo-nav-btn" id="pomoNavBtn" type="button" title="Pomodoro" aria-label="Open Pomodoro">🍅</button>`;
+  $('#mainNav').innerHTML=`<button class="navbtn ${state.view==='dashboard'?'active':''}" data-view="dashboard">Dashboard</button><button class="navbtn ${state.view==='plan'?'active':''}" data-view="plan">Study plan</button><button class="navbtn ${state.view==='lesson'?'active':''}" data-view="lesson">Lessons</button><button class="navbtn ${state.view==='library'?'active':''}" data-view="library">Learning hub</button><button class="navbtn pomo-nav-btn" id="pomoNavBtn" type="button" title="Pomodoro" aria-label="Open Pomodoro">🍅</button>`;
   $('#mainNav').querySelectorAll('.navbtn[data-view]').forEach(b=>b.onclick=()=>{state.view=b.dataset.view;if(state.view==='lesson'&&!lessonByNumber(state.lesson))state.lesson=11;render();scrollTo({top:0,behavior:'smooth'});});
   const pomoNav=$('#pomoNavBtn');
   if(pomoNav){
@@ -369,56 +367,27 @@ function renderNav(){
   }
 }
 
-function bookContents(bookId){ return (window.BOOK_CONTENTS||{})[bookId] || {}; }
-function bookLessons(bookId){ return window.CONTENT_MODEL?.lessons ? window.CONTENT_MODEL.lessons(bookId) : []; }
-function bookUnits(bookId){
-  const data=bookContents(bookId);
-  if(data.units) return data.units;
-  const lessons=bookLessons(bookId);
-  const groups={};
-  lessons.forEach(l=>{const key=l.unit||'Course'; (groups[key] ||= {unit:key,title:key,lessons:[]}).lessons.push(l);});
-  return Object.values(groups);
-}
-function bookProgress(bookId){
-  const lessons=bookLessons(bookId);
-  const executable=bookId==='tobira-beginning-ii' ? lessons : [];
-  const tasks=executable.flatMap(l=>lessonTasks(lessonByNumber(l.n)||l));
-  return {done:tasks.filter(t=>ts(t.id).completed).length,total:tasks.length,pct:tasks.length?Math.round(tasks.filter(t=>ts(t.id).completed).length/tasks.length*100):0};
-}
-function noteKey(kind,id){ return `${kind}-${id}`; }
-function getNote(kind,id){ return ts(noteKey(kind,id)).notes || ''; }
-function saveNote(kind,id,value){ const key=noteKey(kind,id); state.taskState[key]={...ts(key),notes:value}; saveLocal(); cloudSave(key); }
-
 function renderLibrary(){
   $('#hero').hidden=true; $('#bottomArea').hidden=true; $('#weekView').hidden=true; $('#mainContent').hidden=false;
   const books=window.BOOKS||[], resources=window.STUDY_RESOURCES||[], programmes=window.PROGRAMMES||[];
-  const activeP=activeProgramme(), activeB=activeBook();
+  const activeP=activeProgramme();
   $('#mainContent').innerHTML=`
     <section class="library-hero">
       <div class="eyebrow">Japanese learning hub</div>
-      <h1>Books, programmes and study resources</h1>
-      <p>Books contain the source material. Programmes decide how that material is studied. Tasks are the actionable units generated from a programme.</p>
-      <div class="hub-current"><div><span class="eyebrow">Active programme</span><h2>${esc(activeP?.title||'No active programme')}</h2><p>${esc(activeP?.description||'')}</p></div><span class="book-status active">${esc(activeB.title)}</span></div>
+      <h1>One place for every Japanese book you study</h1>
+      <p>The hub separates <strong>books</strong> from <strong>study programmes</strong>. A book can exist in your library without being scheduled; a programme decides how and when its material is studied.</p>
+      <div class="hub-current"><div><span class="eyebrow">Active programme</span><h2>${esc(activeP?.title||'No active programme')}</h2><p>${esc(activeP?.description||'')}</p></div><span class="book-status active">${esc(activeBook().title)}</span></div>
     </section>
-
-    <section class="library-section"><div class="panelhead"><div><div class="eyebrow">01 · Programmes</div><h2>Study programmes</h2><p class="subtitle">A programme selects book content, sets the duration and creates the schedule. Only the active programme generates your current tasks.</p></div></div>
-      <div class="programme-grid">${programmes.map(p=>{const x=programmeSummary(p),active=p.id===state.programmeId;return `<article class="programme-card ${active?'active-programme':''}"><div class="book-card-top"><span class="book-status ${active?'active':p.status}">${active?'Active':p.status==='planned'?'Planned':'Available'}</span><span class="book-level">${p.weeks?`${p.weeks} weeks`:'Duration TBD'}</span></div><div class="eyebrow">${esc(x.book?.series||'Programme')}</div><h3>${esc(p.title)}</h3><p>${esc(p.description||'')}</p><div class="programme-meta"><span>${p.targetHours?`${p.targetHours[0]}–${p.targetHours[1]} h/week`:'Workload TBD'}</span><span>${x.ready?'Mapped':'Not mapped'}</span></div>${x.ready&&!active?`<button class="smallbtn primary" data-select-programme="${esc(p.id)}">Use this programme</button>`:active?'<span class="current-badge">Current programme</span>':'<div class="book-placeholder">Map the book contents first.</div>'}</article>`}).join('')}</div>
-    </section>
-
-    <section class="library-section"><div class="panelhead"><div><div class="eyebrow">02 · Library</div><h2>Books & courses</h2><p class="subtitle">A book can be stored and analysed without being part of your current schedule.</p></div></div>
-      <div class="book-grid">${books.map(b=>{const p=programmes.find(x=>x.bookId===b.id), bp=bookProgress(b.id);return `<button class="book-card book-card-button ${b.id===activeB.id?'active-book':''}" data-open-book="${esc(b.id)}"><div class="book-card-top"><span class="book-status ${b.status}">${b.status==='active'?'In use':b.status==='planned'?'Planned':'Available'}</span><span class="book-level">${esc(b.level)}</span></div><div class="eyebrow">${esc(b.series)}</div><h3>${esc(b.title)}</h3><p>${esc(b.description||'')}</p><div class="book-meta"><span>${p?`Programme: ${esc(p.shortTitle||p.title)}`:'No programme mapped'}</span>${bp.total?`<span>${bp.pct}% complete</span>`:''}</div><span class="book-open-hint">Open book →</span></button>`}).join('')}</div>
-    </section>
-
-    <section class="library-section"><div class="panelhead"><div><div class="eyebrow">03 · Supporting resources</div><h2>Study tools & input</h2><p class="subtitle">These reinforce the curriculum rather than becoming competing courses.</p></div></div><div class="resource-grid">${resources.map(r=>`<article class="resource-card"><div class="book-card-top"><span class="resource-type">${esc(r.type)}</span><span class="book-status ${r.status}">${r.status==='active'?'Active':'Available'}</span></div><h3>${esc(r.title)}</h3><p>${esc(r.description)}</p></article>`).join('')}</div></section>
-
-    <section class="library-section architecture-note"><div class="eyebrow">04 · Content model</div><h2>One system, many books</h2><p>The app stores content independently from scheduling so a future textbook can have a different structure. The common model is:</p><div class="hub-flow"><span>Book</span><b>→</b><span>Resource</span><b>→</b><span>Unit</span><b>→</b><span>Lesson</span><b>→</b><span>Section</span><b>→</b><span>Task</span><b>→</b><span>Progress</span></div></section>`;
-  $('#mainContent').querySelectorAll('[data-select-programme]').forEach(b=>b.onclick=e=>{e.stopPropagation();selectProgramme(b.dataset.selectProgramme)});
-  $('#mainContent').querySelectorAll('[data-open-book]').forEach(b=>b.onclick=()=>{state.libraryItem=b.dataset.openBook;state.view='book';render();scrollTo({top:0,behavior:'smooth'});});
+    <section class="library-section"><div class="panelhead"><div><h2>Study programmes</h2><p class="subtitle">Choose a structured course when its contents have been mapped. Only the active programme generates the current schedule.</p></div></div><div class="programme-grid">${programmes.map(p=>{const x=programmeSummary(p),active=p.id===state.programmeId;return `<article class="programme-card ${active?'active-programme':''}"><div class="book-card-top"><span class="book-status ${p.status}">${active?'Active':p.status==='planned'?'Planned':'Available'}</span><span class="book-level">${p.weeks?`${p.weeks} weeks`:'Not mapped'}</span></div><div class="eyebrow">${esc(x.book?.series||'Programme')}</div><h3>${esc(p.title)}</h3><p>${esc(p.description)}</p>${x.ready ? `<div class="programme-meta"><span>${p.targetHours?.[0]||12}–${p.targetHours?.[1]||18} h/week</span><span>${esc(x.book?.level||'')}</span></div>${active?'<span class="current-badge">Current programme</span>':'<button class="smallbtn primary" data-select-programme="'+esc(p.id)+'">Use this programme</button>'}` : `<div class="book-placeholder">Contents/pages not mapped yet. Add the book data first; the same programme engine will then handle it.</div>`}</article>`}).join('')}</div></section>
+    <section class="library-section"><div class="panelhead"><div><h2>Book library</h2><p class="subtitle">Books are reusable resources. Workbooks and other companion material can be attached to a book without making them separate programmes.</p></div></div><div class="book-grid">${books.map(b=>{const p=programmes.find(x=>x.bookId===b.id);return `<article class="book-card ${b.id===activeBook().id?'active-book':''}"><div class="book-card-top"><span class="book-status ${b.status}">${b.status==='active'?'In use':b.status==='planned'?'Planned':'Available'}</span><span class="book-level">${esc(b.level)}</span></div><div class="eyebrow">${esc(b.series)}</div><h3>${esc(b.title)}</h3><p>${esc(b.description)}</p><div class="book-meta">${p?`<span>Programme: ${esc(p.shortTitle||p.title)}</span>`:'<span>No programme mapped</span>'}${b.workbooks?.length?`<span>${b.workbooks.map(esc).join(' · ')}</span>`:''}</div></article>`}).join('')}</div></section>
+    <section class="library-section"><div class="panelhead"><div><h2>Study tools & input</h2><p class="subtitle">Supporting resources stay independent from textbook programmes.</p></div></div><div class="resource-grid">${resources.map(r=>`<article class="resource-card"><div class="book-card-top"><span class="resource-type">${esc(r.type)}</span><span class="book-status ${r.status}">${r.status==='active'?'Active':'Available'}</span></div><h3>${esc(r.title)}</h3><p>${esc(r.description)}</p></article>`).join('')}</div></section>
+    <section class="library-section architecture-note"><div class="eyebrow">How this scales</div><h2>Book → programme → schedule</h2><p>A future textbook does not require another custom page. Once its contents are mapped, it can become a programme with its own lesson structure, duration, workload and tasks.</p><div class="hub-flow"><span>Book</span><b>→</b><span>Programme</span><b>→</b><span>Lessons</span><b>→</b><span>Tasks</span><b>→</b><span>Progress</span></div></section>`;
+  $('#mainContent').querySelectorAll('[data-select-programme]').forEach(b=>b.onclick=()=>selectProgramme(b.dataset.selectProgramme));
 }
 function lessonButton(l){
   const p=lessonProgress(l.n), pct=p.total?p.done/p.total*100:0, [cls,label]=lessonStatus(l.n);
   const secs=lessonSeconds(l.n), timeBit=secs?` · ${fmtDuration(secs)} studied`:'';
-  return `<button class="lessonrow" data-lesson="${l.n}"><span class="lessonnum">${l.n}</span><span class="lessonrowmain"><strong>${esc(l.title)}</strong><small>${p.done}/${p.total} sections complete · ${label}${timeBit}</small><span class="mini-progress"><i style="width:${pct}%"></i></span></span><span class="lessonpct">${Math.round(pct)}%</span></button>`;
+  return `<button class="lessonrow" data-lesson="${l.n}"><span class="lessonnum">${l.n}</span><span class="lessonrowmain"><strong>${esc(l.title)}</strong><small>${p.done}/${p.total} sections complete · ${p.mastered}/${p.total} mastered · ${label}${timeBit}</small><span class="mini-progress"><i style="width:${pct}%"></i></span></span><span class="lessonpct">${Math.round(pct)}%</span></button>`;
 }
 function activitySeconds(key){
   const re=new RegExp(`^habit-w\\d+-d\\d+-${key}$`);
@@ -432,50 +401,17 @@ function topTaskSessions(limit=6){
   });
   return Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,limit).map(([id,secs])=>({task:findTaskById(id),secs,id}));
 }
-function renderBookDetail(bookId){
-  const book=(window.BOOKS||[]).find(b=>b.id===bookId);
-  if(!book){state.view='library';state.libraryItem=null;render();return;}
-  $('#hero').hidden=true; $('#bottomArea').hidden=true; $('#weekView').hidden=true; $('#mainContent').hidden=false;
-  const data=bookContents(book.id), programmes=(window.PROGRAMMES||[]).filter(p=>p.bookId===book.id), activeP=activeProgramme();
-  const units=bookUnits(book.id), lessons=bookLessons(book.id), bp=bookProgress(book.id), note=getNote('book',book.id);
-  const isExecutable=book.id==='tobira-beginning-ii';
-  const resources=window.CONTENT_MODEL?.resources(book.id) || book.resources || [];
-  const status=book.status==='active'?'In use':book.status==='planned'?'Planned':'Available';
-  const unitMarkup=units.length ? units.map(u=>`<section class="book-unit"><div class="eyebrow">${esc(String(u.unit||''))}</div><h3>${esc(u.title||u.unitTitle||'Course content')}</h3><div class="book-unit-lessons">${(u.lessons||[]).map(l=>{
-    const lp=isExecutable?lessonProgress(l.n):null, pct=lp?.total?Math.round(lp.done/lp.total*100):0;
-    const sectionCount=isExecutable?lessonTasks(lessonByNumber(l.n)).length:(l.sections?.length||0);
-    const sectionMarkup=isExecutable?lessonTasks(lessonByNumber(l.n)).map(t=>`<button class="book-section-row" data-book-task="${esc(t.id)}"><span>${esc(t.title)}</span><small>${esc(t.book)} · p.${esc(t.page)} · ${esc(t.duration)}</small></button>`).join(''):(l.topics||[]).map(x=>`<span>${esc(x)}</span>`).join('');
-    return `<article class="book-outline-row"><div class="book-outline-head"><button class="book-lesson-row compact" ${isExecutable?`data-book-lesson="${l.n}"`:''}><span class="book-lesson-num">${l.n}</span><span class="book-lesson-main"><strong>${esc(l.title)}</strong><small>Textbook pp.${l.start}–${l.end}${l.english?` · ${esc(l.english)}`:''}</small></span><span class="book-lesson-pct">${isExecutable?`${pct}%`:''}</span></button></div>${isExecutable?`<div class="book-section-list">${sectionMarkup}</div>`:(l.topics?.length?`<div class="outline-topics">${sectionMarkup}</div>`:'')} ${l.project?`<div class="book-project"><strong>Unit project · p.${esc(l.projectPage||'')}</strong><span>${esc(l.project)}</span></div>`:''}<div class="book-outline-footer"><span>${sectionCount} ${isExecutable?'mapped sections':'content areas'}</span></div></article>`;
-  }).join('')}</div></section>`).join('') : '<div class="empty">Contents have not been mapped yet.</div>';
-  const programmeMarkup=programmes.length?programmes.map(p=>`<article class="book-programme-row"><div><span class="book-status ${p.status}">${p.status==='active'?'Active':p.status==='planned'?'Planned':'Available'}</span><h3>${esc(p.title)}</h3><p>${esc(p.description||'')}</p></div>${p.id===activeP?.id?'<span class="current-badge">Current programme</span>':p.status==='active'?`<button class="smallbtn primary" data-select-programme="${esc(p.id)}">Use programme</button>`:''}</article>`).join(''):'<div class="empty">No programme has been built for this book yet.</div>';
-  const resourceMarkup=resources.length?resources.map(r=>`<div class="resource-row"><div><strong>${esc(r.title)}</strong><small>${esc(r.type||'Resource')}</small></div><span>${esc(r.pages||'')}</span></div>`).join(''):'<div class="empty">No companion resources mapped yet.</div>';
-  $('#mainContent').innerHTML=`
-    <div class="lesson-toolbar"><button class="smallbtn" id="backLibrary">← Learning hub</button>${isExecutable?'<button class="smallbtn" id="bookOpenPlan">Open current plan</button>':''}</div>
-    <section class="book-detail-hero"><div><div class="eyebrow">${esc(book.series)} · ${esc(book.level)}</div><h1>${esc(book.title)}</h1><p>${esc(data.description||book.description||'')}</p><div class="book-detail-meta"><span class="book-status ${book.status}">${status}</span><span>${esc(data.contentsStatus||'Book record')}</span>${bp.total?`<span>${bp.pct}% of mapped core work complete</span>`:''}</div></div><div class="book-detail-stat"><strong>${lessons.length||'—'}</strong><span>lessons mapped</span></div></section>
-    <section class="book-detail-grid"><div class="panel"><div class="panelhead"><div><div class="eyebrow">Book content</div><h2>Units → lessons → sections</h2><p class="subtitle">This is the canonical cross-reference. The programme later turns these content items into scheduled tasks.</p></div></div>${unitMarkup}</div><aside class="panel book-side"><div class="eyebrow">Book record</div><h2>Resources</h2><div class="resource-list">${resourceMarkup}</div><dl class="book-facts"><div><dt>Publisher</dt><dd>${esc(data.publisher||'')}</dd></div><div><dt>Status</dt><dd>${status}</dd></div><div><dt>Programme</dt><dd>${programmes.length?programmes.map(p=>esc(p.shortTitle||p.title)).join('<br>'):'Not scheduled'}</dd></div></dl>${data.sourceNote?`<div class="source-note"><strong>Source note</strong><p>${esc(data.sourceNote)}</p></div>`:''}</aside></section>
-    <section class="panel"><div class="panelhead"><div><div class="eyebrow">Study relationship</div><h2>Programmes using this book</h2><p class="subtitle">Scheduling belongs here, not in the book record.</p></div></div><div class="book-programme-list">${programmeMarkup}</div></section>
-    <section class="panel"><div class="panelhead"><div><div class="eyebrow">Personal layer</div><h2>Book notes</h2><p class="subtitle">These notes belong to the book rather than to one task.</p></div></div><textarea id="bookNotes" class="notes" placeholder="What do you notice about this book? How do you want to use it?"></textarea><div class="linkrow"><button class="smallbtn primary" id="saveBookNotes">Save book notes</button></div></section>
-    ${data.backMatter?.length?`<section class="panel"><div class="panelhead"><div><h2>Reference sections</h2><p class="subtitle">Book-level reference material.</p></div></div><div class="reference-chip-grid">${data.backMatter.map(x=>`<span class="reference-chip">${esc(x)}</span>`).join('')}</div></section>`:''}`;
-  $('#backLibrary').onclick=()=>{state.view='library';state.libraryItem=null;render();};
-  if($('#bookOpenPlan')) $('#bookOpenPlan').onclick=()=>{state.view='plan';render();};
-  $('#bookNotes').value=note;
-  $('#saveBookNotes').onclick=()=>{saveNote('book',book.id,$('#bookNotes').value);toast('Book notes saved');};
-  $('#mainContent').querySelectorAll('[data-book-lesson]').forEach(b=>b.onclick=()=>{state.lesson=+b.dataset.bookLesson;state.view='lesson';render();});
-  $('#mainContent').querySelectorAll('[data-book-task]').forEach(b=>b.onclick=()=>openTask(b.dataset.bookTask));
-  $('#mainContent').querySelectorAll('[data-select-programme]').forEach(b=>b.onclick=()=>selectProgramme(b.dataset.selectProgramme));
-}
-
 function renderDashboard(){
   $('#hero').hidden=true; $('#bottomArea').hidden=true; $('#weekView').hidden=true; $('#mainContent').hidden=false;
   const overall=overallProgress(),w=currentWeekIndex(),wp=progress(w),next=nextIncomplete();
   const attention=CURRICULUM.lessons.flatMap(l=>lessonTasks(l).map(t=>({t,s:ts(t.id)}))).filter(x=>['shaky','studying','review'].includes(x.s.mastery)).slice(0,8);
-  const mastered=CURRICULUM.lessons.filter(l=>{const p=lessonProgress(l.n);return p.total>0&&p.done===p.total;}).length;
+  const mastered=CURRICULUM.lessons.filter(l=>lessonStatus(l.n)[0]==='mastered').length;
   const activityRows=OPTIONAL_TASKS.map(x=>({label:x.label,secs:activitySeconds(x.key)})).sort((a,b)=>b.secs-a.secs);
   const maxActivity=Math.max(...activityRows.map(a=>a.secs),1);
   const topTasks=topTaskSessions(6);
   $('#mainContent').innerHTML=`
     <section class="dashgrid">
-      <article class="dashcard primarycard"><div class="eyebrow">Your dashboard</div><h2>Japanese learning hub.</h2><p><strong>${esc(activeBook().title)}</strong> is your active curriculum. Complete the assigned work, use the page references to work directly from the books, and mark tasks complete as you go.</p><div class="bigprogress"><strong>${Math.round(overall.done/overall.total*100)||0}%</strong><span>${overall.done} of ${overall.total} scheduled core tasks complete</span></div><div class="progress"><i style="width:${overall.total?overall.done/overall.total*100:0}%"></i></div><div class="statstrip"><span><strong>${mastered}</strong> lessons fully completed</span><span><strong>${attention.length}</strong> items needing attention</span><span><strong>${fmtDuration(totalSeconds())}</strong> total study time</span></div></article>
+      <article class="dashcard primarycard"><div class="eyebrow">Your dashboard</div><h2>Japanese learning hub.</h2><p><strong>${esc(activeBook().title)}</strong> is your active curriculum. Complete the assigned work, use the page references to work directly from the books, and mark tasks complete as you go.</p><div class="bigprogress"><strong>${Math.round(overall.done/overall.total*100)||0}%</strong><span>${overall.done} of ${overall.total} scheduled core tasks complete</span></div><div class="progress"><i style="width:${overall.total?overall.done/overall.total*100:0}%"></i></div><div class="statstrip"><span><strong>${mastered}</strong> lessons mastered</span><span><strong>${attention.length}</strong> items needing attention</span><span><strong>${fmtDuration(totalSeconds())}</strong> total study time</span></div></article>
       <article class="dashcard"><div class="eyebrow">Current week</div><h3>Week ${w+1}</h3><p>${wp.done}/${wp.total} core tasks complete</p><p class="subtitle">${fmtDuration(weekSeconds(7))} studied in the last 7 days</p><button class="smallbtn primary" id="resumeWeek">Open this week</button></article>
       <article class="dashcard"><div class="eyebrow">Next up</div><h3>${next?esc(next.task.title):'Course complete'}</h3><p>${next?`Week ${next.week+1} · ${esc(next.task.book)}${next.task.page?` · p.${next.task.page}`:''}`:'You have completed every scheduled core task.'}</p>${next?'<button class="smallbtn primary" id="openNext">Open task</button>':''}</article>
     </section>
@@ -495,12 +431,12 @@ function renderDashboard(){
 }
 function card(t){
   const s=ts(t.id);
-  return `<article class="task ${s.completed?'done':''}" data-task="${esc(t.id)}"><input type="checkbox" data-check="${esc(t.id)}" ${s.completed?'checked':''}><div class="taskmain"><div class="tasktitle">${esc(t.title)}</div><div class="taskmeta"><span class="task-category ${esc(t.category||'core')}">${esc((window.CONTENT_MODEL?.taskCategories?.[t.category||'core'])||'Core')}</span> · ${esc(t.book)}${t.page?` · p.${t.page}`:''} · ${esc(t.duration)}</div><div class="taskhint">Tap for instructions, page reference and notes</div></div><span class="status-dot ${s.mastery}"></span></article>`;
+  return `<article class="task ${s.completed?'done':''}" data-task="${esc(t.id)}"><input type="checkbox" data-check="${esc(t.id)}" ${s.completed?'checked':''}><div class="taskmain"><div class="tasktitle">${esc(t.title)}</div><div class="taskmeta">${esc(t.book)}${t.page?` · p.${t.page}`:''} · ${esc(t.duration)}</div><div class="taskhint">Tap for instructions, mastery and notes</div></div><span class="status-dot ${s.mastery}"></span></article>`;
 }
 function renderWeek(){
   $('#hero').hidden=false; $('#bottomArea').hidden=false; $('#weekView').hidden=false; $('#mainContent').hidden=true;
   const ds=weekDates(state.week);
-  $('#weekView').innerHTML=`<section class="programme-strip"><div><div class="eyebrow">Active programme</div><strong>${esc(activeProgramme()?.title||'Study programme')}</strong><span>${esc(activeProgramme()?.description||'')}</span></div><div class="programme-strip-meta"><span>${activeProgramme()?.targetHours?.[0]||12}–${activeProgramme()?.targetHours?.[1]||18} h/week</span><span>Core: textbook + workbooks</span></div></section><div class="tabsrow"><button class="smallbtn" id="prevWeek">←</button><div class="weektabs" id="weekTabs"></div><button class="smallbtn" id="nextWeek">→</button></div><div class="week-overview"><div><div class="eyebrow">WEEK ${state.week+1}</div><h2>${esc(weekPlan(state.week).focus)}</h2><p class="subtitle">Core target: ${fmtMinutes(weekPlan(state.week).days.reduce((a,x)=>a+x.target,0))} this week, with optional input bringing the overall plan toward 15–20 hours.</p></div></div>${ds.map((date,d)=>{const core=weeklyTasks(state.week,d),hs=habits(state.week,d),plan=weekPlan(state.week).days[d]||{focus:'Core study',target:120,extra:'30 min Japanese input'},isToday=dateKey(date)===dateKey(new Date());return `<section class="day ${isToday?'today':''}"><div class="dayhead"><div><div class="eyebrow">${isToday?'TODAY · ':''}${date.toLocaleDateString(undefined,{weekday:'long'})}</div><h2>${fmt(date)}</h2><p class="dayfocus"><strong>${esc(plan.focus)}</strong> · target ${fmtMinutes(plan.target)} · ${esc(plan.extra)}</p></div><span class="daycount">${core.filter(t=>ts(t.id).completed).length}/${core.length}</span></div>${core.length?`<div class="tasklist">${core.map(card).join('')}</div>`:''}<details class="habits"><summary>Optional input <span>WaniKani · Migaku · shadowing · reading</span></summary><p class="habit-target">Recommended: ${esc(plan.extra)}</p><div class="habitlist">${hs.map(card).join('')}</div></details></section>`}).join('')}`;
+  $('#weekView').innerHTML=`<div class="tabsrow"><button class="smallbtn" id="prevWeek">←</button><div class="weektabs" id="weekTabs"></div><button class="smallbtn" id="nextWeek">→</button></div><div class="week-overview"><div><div class="eyebrow">WEEK ${state.week+1}</div><h2>${esc(weekPlan(state.week).focus)}</h2><p class="subtitle">Core target: ${fmtMinutes(weekPlan(state.week).days.reduce((a,x)=>a+x.target,0))} this week, with optional input bringing the overall plan toward 15–20 hours.</p></div></div>${ds.map((date,d)=>{const core=weeklyTasks(state.week,d),hs=habits(state.week,d),plan=weekPlan(state.week).days[d]||{focus:'Core study',target:120,extra:'30 min Japanese input'},isToday=dateKey(date)===dateKey(new Date());return `<section class="day ${isToday?'today':''}"><div class="dayhead"><div><div class="eyebrow">${isToday?'TODAY · ':''}${date.toLocaleDateString(undefined,{weekday:'long'})}</div><h2>${fmt(date)}</h2><p class="dayfocus"><strong>${esc(plan.focus)}</strong> · target ${fmtMinutes(plan.target)} · ${esc(plan.extra)}</p></div><span class="daycount">${core.filter(t=>ts(t.id).completed).length}/${core.length}</span></div>${core.length?`<div class="tasklist">${core.map(card).join('')}</div>`:''}<details class="habits"><summary>Optional input <span>WaniKani · Migaku · shadowing · reading</span></summary><p class="habit-target">Recommended: ${esc(plan.extra)}</p><div class="habitlist">${hs.map(card).join('')}</div></details></section>`}).join('')}`;
   $('#weekView').querySelectorAll('[data-task]').forEach(e=>e.onclick=x=>{if(x.target.matches('input'))return;openTask(e.dataset.task);});
   $('#weekView').querySelectorAll('[data-check]').forEach(e=>e.onchange=()=>toggle(e.dataset.check));
   $('#prevWeek').onclick=()=>{state.week=Math.max(0,state.week-1);render();};
@@ -522,26 +458,34 @@ function renderLesson(n){
   const tasks=lessonTasks(l), w=n-11, p=lessonProgress(n), pct=p.total?p.done/p.total*100:0;
   const tb=tasks.filter(t=>t.book==='Textbook'), wb2=tasks.filter(t=>t.book==='Workbook 2'), wb1=tasks.filter(t=>t.book==='Workbook 1');
   const flagged=tasks.filter(t=>['shaky','studying','review'].includes(ts(t.id).mastery));
-  const grammar=l.textbook.grammar.map(x=>`<li>${esc(x)}</li>`).join('');
+  const grammar=l.textbook.grammar.map((x,i)=>`<li><strong>${i+1}.</strong> ${esc(x)}</li>`).join('');
   const cando=l.textbook.cando.map(x=>`<li>${esc(x)}</li>`).join('');
+  const textbookSections=(l.sections||[]).map(sec=>{
+    const t=tasks.find(x=>x.key===sec.taskKey);
+    const st=t?ts(t.id):{};
+    const items=sec.items?.length?`<ul class="section-items">${sec.items.map(x=>`<li>${esc(x.label)}</li>`).join('')}</ul>`:'';
+    return `<button class="book-section ${t&&st.completed?'done':''}" data-task="${esc(t?.id||'')}"><div class="book-section-main"><span class="book-section-label">${esc(sec.label)}</span><strong>pp.${esc(sec.pages||'—')}</strong>${items}</div><span class="book-section-status">${t&&st.completed?'✓ Complete':'Open task'}</span></button>`;
+  }).join('');
+  const wb2Rows=(l.workbookMap?.workbook2||[]).map(x=>{const t=tasks.find(y=>y.key===x.taskKey), st=t?ts(t.id):{};return `<button class="book-section compact ${st.completed?'done':''}" data-task="${esc(t?.id||'')}"><div class="book-section-main"><span class="book-section-label">${esc(x.label)}</span><strong>p.${esc(x.page)}</strong></div><span class="book-section-status">${st.completed?'✓':'Open'}</span></button>`}).join('');
+  const wb1Rows=(l.workbookMap?.workbook1||[]).map(x=>{const t=tasks.find(y=>y.key===x.taskKey), st=t?ts(t.id):{};return `<button class="book-section compact ${st.completed?'done':''}" data-task="${esc(t?.id||'')}"><div class="book-section-main"><span class="book-section-label">${esc(x.label)}</span><strong>p.${esc(x.page)}</strong></div><span class="book-section-status">${st.completed?'✓':'Open'}</span></button>`}).join('');
   $('#mainContent').innerHTML=`
     <div class="lesson-toolbar"><button class="smallbtn" id="backDashboard">← Dashboard</button><button class="smallbtn" id="backPlan">Week ${w+1} plan</button><div class="lesson-select"><button class="smallbtn" id="prevLesson" ${n===11?'disabled':''}>← L${n-1}</button><button class="smallbtn" id="nextLesson" ${n===20?'disabled':''}>L${n+1} →</button></div></div>
-    <section class="lessonhero"><div class="eyebrow">${esc(CURRICULUM.book)} · Lesson ${l.n}</div><h1>${esc(l.title)}</h1><p>${esc(l.english)}</p><div class="lessonhero-grid"><div><strong>${p.done}/${p.total}</strong><span>sections complete</span></div><div><strong>${Math.max(0,p.total-p.done)}</strong><span>sections remaining</span></div><div><strong>${Math.round(pct)}%</strong><span>lesson progress</span></div></div><div class="progress"><i style="width:${pct}%"></i></div></section>
-    <section class="study-rule panel"><div><h3>Textbook first</h3><p>This lesson runs from <strong>pp.${l.textbook.start}–${l.textbook.end}</strong>. Work through the actual textbook before using the workbooks as reinforcement. If you already know a section, do a representative mastery check rather than grinding every repetition.</p></div><button class="smallbtn primary" id="lessonMastery">Open mastery check</button></section>
-    <section class="panel lesson-overview"><div class="overview-grid"><div><div class="eyebrow">Can-do goals</div><ul>${cando}</ul></div><div><div class="eyebrow">Target grammar</div><ul>${grammar}</ul></div></div>${l.textbook.note?`<p class="subtitle"><strong>Language/Culture note:</strong> ${esc(l.textbook.note)}</p>`:''}</section>
+    <section class="lessonhero"><div class="eyebrow">${esc(CURRICULUM.book)} · Lesson ${l.n}</div><h1>${esc(l.title)}</h1><p>${esc(l.english)}</p><div class="lessonhero-grid"><div><strong>${p.done}/${p.total}</strong><span>mapped tasks complete</span></div><div><strong>${p.mastered}/${p.total}</strong><span>currently marked mastered</span></div><div><strong>${Math.round(pct)}%</strong><span>lesson progress</span></div></div><div class="progress"><i style="width:${pct}%"></i></div></section>
+    <section class="study-rule panel"><div><h3>Textbook first</h3><p>Work through the actual textbook lesson <strong>pp.${l.textbook.start}–${l.textbook.end}</strong>. Each section below now points to its own page range. If you already know a section, do a representative check and move on rather than grinding repetitive practice.</p></div><button class="smallbtn primary" id="lessonMastery">Optional mastery check</button></section>
+    <section class="panel lesson-overview"><div class="overview-grid"><div><div class="eyebrow">Can-do goals</div><ul>${cando}</ul></div><div><div class="eyebrow">Target grammar</div><ul>${grammar}</ul></div></div>${l.textbook.note?`<p class="subtitle"><strong>Language / culture note:</strong> ${esc(l.textbook.note)}</p>`:''}</section>
+    <section class="panel book-map-panel"><div class="section-heading"><div><div class="eyebrow">Textbook · pp.${l.textbook.start}–${l.textbook.end}</div><h2>Textbook content map</h2><p class="subtitle">Use this as the primary route through the physical book. Grammar points are listed inside the Grammar section.</p></div></div><div class="book-section-list">${textbookSections}</div></section>
     <section class="lesson-grid">
-      <div class="lesson-column"><div class="section-heading"><div><div class="eyebrow">Textbook · pp.${l.textbook.start}–${l.textbook.end}</div><h2>Core lesson</h2><p class="subtitle">Conversation → vocabulary → kanji → grammar → speaking → reading → listening.</p></div></div><div class="component-list">${tb.map(t=>componentRow(l,t)).join('')}</div></div>
-      <div class="lesson-column"><div class="section-heading"><div><div class="eyebrow">Workbook 2</div><h2>Vocabulary · grammar · listening</h2><p class="subtitle">Complete after the corresponding textbook material.</p></div></div><div class="component-list">${wb2.map(t=>componentRow(l,t)).join('')}</div></div>
+      <div class="lesson-column"><div class="section-heading"><div><div class="eyebrow">Workbook 2</div><h2>Vocabulary · grammar · listening</h2><p class="subtitle">Complete these after the corresponding textbook work.</p></div></div><div class="book-section-list">${wb2Rows}</div></div>
+      <div class="lesson-column"><div class="section-heading"><div><div class="eyebrow">Workbook 1</div><h2>Kanji · reading · writing</h2><p class="subtitle">Use as reinforcement for the same lesson, especially where a section is weak.</p></div></div><div class="book-section-list">${wb1Rows}</div></div>
     </section>
-    <section class="panel"><div class="section-heading"><div><div class="eyebrow">Workbook 1</div><h2>Kanji · reading · writing</h2><p class="subtitle">Use the corresponding Workbook 1 pages to reinforce the same lesson.</p></div></div><div class="component-list">${wb1.map(t=>componentRow(l,t)).join('')}</div></section>
-    <section class="panel lesson-notes-panel"><div class="panelhead"><div><h3>Lesson notes</h3><p class="subtitle">For overall observations. Individual task notes live in each task.</p></div><span class="flag-count">${flagged.length} flagged</span></div><textarea id="lessonNotes" class="notes" placeholder="What was easy? What keeps tripping you up? Useful example sentences..."></textarea></section>
-    <section class="panel page-map"><div class="panelhead"><div><h3>Book cross-reference</h3><p class="subtitle">Textbook lesson range plus exact workbook pages.</p></div></div><div class="page-map-grid">${tasks.map(t=>`<button class="page-chip" data-task="${esc(t.id)}"><span>${esc(t.title)}</span><strong>${esc(t.book)} · p.${t.page}</strong></button>`).join('')}</div></section>`;
+    <section class="panel lesson-notes-panel"><div class="panelhead"><div><h3>Lesson notes</h3><p class="subtitle">Overall observations; individual task notes stay attached to their task.</p></div><span class="flag-count">${flagged.length} flagged</span></div><textarea id="lessonNotes" class="notes" placeholder="What was easy? What keeps tripping you up? Useful example sentences..."></textarea></section>
+    <section class="panel page-map"><div class="panelhead"><div><h3>Cross-reference</h3><p class="subtitle">Every scheduled component now identifies the physical book and page.</p></div></div><div class="page-map-grid">${tasks.map(t=>`<button class="page-chip" data-task="${esc(t.id)}"><span>${esc(t.title)}</span><strong>${esc(t.book)} · ${t.page?`p.${esc(t.page)}`:'—'}${t.section?` · ${esc(t.section)}`:''}</strong></button>`).join('')}</div></section>`;
   $('#backDashboard').onclick=()=>{state.view='dashboard';render();};
   $('#backPlan').onclick=()=>{state.week=w;state.view='plan';render();};
   $('#prevLesson').onclick=()=>{if(n>11){state.lesson=n-1;render();}};
   $('#nextLesson').onclick=()=>{if(n<20){state.lesson=n+1;render();}};
   $('#lessonMastery').onclick=()=>openLessonMastery(l);
-  $('#mainContent').querySelectorAll('[data-task]').forEach(e=>e.onclick=()=>openTask(e.dataset.task));
+  $('#mainContent').querySelectorAll('[data-task]').forEach(e=>{ if(e.dataset.task) e.onclick=()=>openTask(e.dataset.task); });
   const lessonNoteKey=`lesson-${n}`;
   $('#lessonNotes').value=state.taskState[lessonNoteKey]?.notes||'';
   $('#lessonNotes').oninput=e=>{state.taskState[lessonNoteKey]={...ts(lessonNoteKey),notes:e.target.value};saveLocal();cloudSave(lessonNoteKey);};
@@ -569,7 +513,7 @@ function openTask(id){
   const s=ts(id);
   $('#modalTitle').textContent=t.title;
   $('#modalSub').textContent=`${t.lesson?`${esc(CURRICULUM.book)} · Lesson ${t.lesson}`:'Daily habit'} · ${t.book}${t.page?` · p.${t.page}`:''}`;
-  const pageLink=t.page?`<div class="book-reference"><span>BOOK REFERENCE</span><strong>${esc(t.book)} · page ${t.page}</strong><small>Use this exact page in your physical book/workbook.</small></div>`:'';
+  const pageLink=t.page?`<div class="book-reference"><span>BOOK REFERENCE</span><strong>${esc(t.book)} · ${t.page.includes?.('–')?'pages':'page'} ${esc(t.page)}</strong>${t.section?`<small>Lesson section: ${esc(t.section)}${t.sectionPages?` · pp.${esc(t.sectionPages)}`:''}</small>`:''}<small>Use this exact location in your physical book/workbook.</small></div>`:'';
   const lessonLink=t.lesson?`<button type="button" class="smallbtn" id="openRelatedLesson">Open Lesson ${t.lesson} workspace</button>`:'';
   const secs=taskSeconds(id);
   const timeLine=secs?`<div class="time-stat">⏱ ${fmtDuration(secs)} studied on this task</div>`:'';

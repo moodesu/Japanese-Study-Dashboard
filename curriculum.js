@@ -55,6 +55,52 @@ window.CURRICULUM = {
   ]
 };
 
+// ---- Canonical textbook content map ---------------------------------------
+// Section-level data is derived from the printed TOBIRA II lesson page map.
+// Task IDs remain b2-l<lesson>-<key> so existing Supabase/local progress is
+// preserved when the richer hierarchy is introduced.
+const B2_SECTION_DEFS = [
+  {key:"conversation", label:"Conversation", taskKey:"textbook_conversation", resource:"Textbook", desc:"Work through the lesson conversation and its associated interaction practice."},
+  {key:"vocabulary", label:"Vocabulary", taskKey:"textbook_vocab", resource:"Textbook", desc:"Study the lesson vocabulary in context and retrieve it actively."},
+  {key:"kanji", label:"Kanji", taskKey:"textbook_kanji", resource:"Textbook", desc:"Study the lesson kanji, readings and example compounds; writing reinforcement is in Workbook 1."},
+  {key:"grammar", label:"Grammar", taskKey:"textbook_grammar", resource:"Textbook", desc:"Work through each target grammar point, examples and practice. Create original sentences."},
+  {key:"activities", label:"話しましょう / Activities", taskKey:"textbook_talk", resource:"Textbook", desc:"Use the lesson language in the book's speaking and application activities."},
+  {key:"reading", label:"読みましょう / Reading", taskKey:"textbook_reading", resource:"Textbook", desc:"Read for overall meaning first, then investigate only language that blocks or repeatedly matters."},
+  {key:"listening", label:"聞きましょう / Listening", taskKey:"textbook_listening", resource:"Textbook", desc:"Listen without the script first, diagnose misses with the script, then replay and shadow selected lines."}
+];
+const B2_WB2_DEFS = [
+  {key:"vocab", label:"Vocabulary practice", taskKey:"vocab"},
+  {key:"particle", label:"Particle practice", taskKey:"particle"},
+  {key:"grammar1", label:"Grammar practice 1", taskKey:"grammar1"},
+  {key:"comp1", label:"Comprehensive practice 1", taskKey:"comp1"},
+  {key:"grammar2", label:"Grammar practice 2", taskKey:"grammar2"},
+  {key:"comp2", label:"Comprehensive practice 2", taskKey:"comp2"},
+  {key:"listening", label:"Listening practice", taskKey:"listening"}
+];
+const B2_WB1_DEFS = [
+  {key:"kanji", label:"Kanji practice", taskKey:"kanji"},
+  {key:"reading", label:"Reading practice", taskKey:"reading"},
+  {key:"writing", label:"Writing practice", taskKey:"writing"},
+  {key:"review", label:"Review", taskKey:"review"}
+];
+function buildB2ContentMap(l){
+  const p=l.textbook.pages||{};
+  const sectionPages={
+    conversation:p.conversation, vocabulary:p.vocab, kanji:p.kanji, grammar:p.grammar,
+    activities:p.talk, reading:p.reading, listening:p.listening
+  };
+  l.sections=B2_SECTION_DEFS.map(d=>({
+    id:`b2-l${l.n}-${d.key}`, key:d.key, label:d.label, resource:d.resource,
+    pages:sectionPages[d.key], taskKey:d.taskKey, desc:d.desc,
+    items:d.key==='grammar' ? (l.textbook.grammar||[]).map((name,i)=>({id:`b2-l${l.n}-grammar-${i+1}`,label:name})) : []
+  }));
+  l.workbookMap={
+    workbook2:B2_WB2_DEFS.map(d=>({key:d.key,label:d.label,taskKey:d.taskKey,page:l.workbook2?.[d.key] ?? null})).filter(x=>x.page!=null),
+    workbook1:B2_WB1_DEFS.map(d=>({key:d.key,label:d.label,taskKey:d.taskKey,page:l.workbook1?.[d.key] ?? null})).filter(x=>x.page!=null)
+  };
+}
+window.CURRICULUM.lessons.forEach(buildB2ContentMap);
+
 // ---- Programme registry ---------------------------------------------------
 // Programmes are independent of the book registry. A programme chooses a
 // book, a curriculum dataset and a scheduling model. Future books can be
@@ -251,42 +297,6 @@ window.BOOKS = [
   {id:"try-n3", title:"TRY! N3", series:"TRY!", level:"JLPT N3", status:"planned", description:"Targeted grammar/reference layer for N3 preparation.", curriculum:false}
 ];
 
-
-// Structured book metadata / contents. This is intentionally separate from
-// the executable curriculum so books can be catalogued before they become
-// active programmes.
-window.BOOK_CONTENTS = {
-  "tobira-beginning-ii": {
-    publisher: "Kurosio Publishers",
-    description: "TOBIRA Beginning Japanese II is the current core textbook. Lessons 11–20 are fully mapped to textbook sections and both workbooks.",
-    contentsStatus: "fully mapped",
-    lessons: (window.CURRICULUM?.lessons || []).map(l => ({n:l.n,title:l.title,english:l.english,start:l.textbook.start,end:l.textbook.end,unit:l.textbook.unit}))
-  },
-  "tobira-intermediate-i": {
-    publisher: "Kurosio Publishers",
-    description: "TOBIRA: Intermediate Japanese I. The supplied textbook contains the first half of the revised Intermediate Japanese course, reorganized as TOBIRA I and TOBIRA II.",
-    contentsStatus: "contents mapped · programme not yet built",
-    sourceNote: "Contents/page structure extracted from the textbook supplied for analysis. The book is not yet part of the active study schedule.",
-    units: [
-      {unit:1,title:"日本をもっと知ろう",lessons:[
-        {n:1,title:"日本の名所や名物をもっと知ろう",start:23,end:44,topics:["日本の地理と気候","日本の色々な名所","質問する／聞き返す"]},
-        {n:2,title:"私の日本語は大丈夫？",start:45,end:66,topics:["日本語の言葉の使い分け","「話す・書く」のポイントを学ぼう！","謝る"]},
-        {n:3,title:"日本のかわいいAIロボット",start:67,end:88,topics:["日本ロボット界のレジェンド達","ペットロボット：AIBOからaiboへ","依頼する／感謝する"]}
-      ],project:"地図で広がる日本の世界／4コマで知る！日本語の色々な話し方",projectPage:87},
-      {unit:2,title:"日本の考えにふれてみよう",lessons:[
-        {n:4,title:"武道の心とスポーツ",start:89,end:108,topics:["武道を通して学ぶ","武道の心","相談する"]},
-        {n:5,title:"世界に広がる日本の味",start:109,end:132,topics:["世界中で愛されるインスタントラーメン","インスタントラーメンの父：安藤百福の物語","マンガ「カップヌードル誕生物語」","質問に答えて説明する／考えを言う"]},
-        {n:6,title:"年中行事や習慣から日本を考えよう",start:133,end:154,topics:["日本には神様がいっぱい","日本の神話「天の岩戸」","グラフを使って説明する／自分の意見を言う／データを使って発表する"]}
-      ],project:"違って、面白い！〇〇の食文化／神道についてもっと知ろう",projectPage:155},
-      {unit:3,title:"日本のアートについて知ろう",lessons:[
-        {n:7,title:"日本のポップカルチャーのルーツは？",start:157,end:180,topics:["「ドキドキする」ってどんな気持ち？","日本のポップカルチャーのルーツは？","困った状況を説明する／解決やアドバイスをもらう"]},
-        {n:8,title:"伝統芸能からの贈り物",start:181,end:206,topics:["笑いの効果","狂言と笑い","ストーリーを話す"]}
-      ],project:"日本のアニメ、マンガ、アニメ映画が伝えるメッセージ／和楽器とJ-POPのコラボレーション",projectPage:207}
-    ],
-    backMatter:["単語索引 · p.209","文法・表現リスト · p.228","言語ノート · pp.43–205","文化ノート · pp.130–204"]
-  }
-};
-
 window.STUDY_RESOURCES = [
   {id:"wanikani", title:"WaniKani", type:"SRS", status:"active", description:"Daily kanji/vocabulary SRS. The dashboard complements WaniKani rather than duplicating it."},
   {id:"migaku", title:"Migaku", type:"Native input", status:"active", description:"Controlled native Japanese input and sentence mining. Keep it subordinate to the core curriculum."},
@@ -294,53 +304,4 @@ window.STUDY_RESOURCES = [
   {id:"yotsuba", title:"よつばと！ / Manga", type:"Reading", status:"active", description:"Extensive Japanese reading for volume, speed and natural expressions."},
   {id:"novels", title:"Japanese novels", type:"Reading", status:"available", description:"Long-form reading for increasing endurance and comprehension."},
   {id:"youtube", title:"Japanese YouTube", type:"Listening / input", status:"available", description:"Level-appropriate native input. Prioritise understanding the overall message over exhaustive lookup."}
-];
-
-
-// ---- Generic learning-hub content model ----------------------------------
-// This normalises the book hierarchy without forcing future books to use
-// TOBIRA's exact structure. The application can work with:
-// Book -> Resource -> Unit -> Lesson -> Section -> Task
-// while each individual book remains free to define its own contents.
-window.CONTENT_MODEL = {
-  version: 1,
-  hierarchy: ["book", "resource", "unit", "lesson", "section", "task"],
-  taskCategories: {
-    core: "Core",
-    supporting: "Supporting",
-    optional: "Optional input"
-  },
-  book(id) {
-    return (window.BOOKS || []).find(b => b.id === id) || null;
-  },
-  resources(bookId) {
-    const b = this.book(bookId);
-    return (b?.resources || []).map(x => typeof x === 'string' ? {id:x,title:x,type:'Companion'} : x);
-  },
-  lessons(bookId) {
-    if (bookId === 'tobira-beginning-ii') return (window.CURRICULUM?.lessons || []).map(l => ({
-      id:`${bookId}-lesson-${l.n}`, n:l.n, title:l.title, english:l.english,
-      unit:l.textbook?.unit, start:l.textbook?.start, end:l.textbook?.end,
-      sections: Object.entries(l.textbook?.pages || {}).filter(([k]) => k !== 'readingAnchor').map(([key,page]) => ({id:`${bookId}-lesson-${l.n}-${key}`,key,title:key,page,resourceId:'tobira-beginning-ii-textbook'}))
-    }));
-    const data=(window.BOOK_CONTENTS||{})[bookId]||{};
-    return data.units?.flatMap(u => (u.lessons||[]).map(l=>({...l,unit:u.unit,unitTitle:u.title,id:`${bookId}-lesson-${l.n}`}))) || data.lessons || [];
-  }
-};
-
-// Normalise Beginning II's companion resources. These are resources of the
-// book, not separate courses.
-const b2Book = (window.BOOKS||[]).find(b=>b.id==='tobira-beginning-ii');
-if (b2Book) b2Book.resources = [
-  {id:'tobira-beginning-ii-textbook',title:'Textbook',type:'Textbook',pages:'pp.13–388'},
-  {id:'tobira-beginning-ii-workbook-1',title:'Workbook 1 · 漢字・読む・書く',type:'Workbook',pages:'pp.7–109'},
-  {id:'tobira-beginning-ii-workbook-2',title:'Workbook 2 · 漢字・読む・書く',type:'Workbook',pages:'pp.7–134'}
-];
-
-// Add companion resources to the Intermediate book now; detailed mappings can
-// be filled from the supplied textbook/workbooks without changing the schema.
-const i1Book = (window.BOOKS||[]).find(b=>b.id==='tobira-intermediate-i');
-if (i1Book) i1Book.resources = [
-  {id:'tobira-intermediate-i-textbook',title:'Textbook',type:'Textbook',pages:'Contents mapped'},
-  {id:'tobira-intermediate-i-workbook',title:'Companion workbook',type:'Workbook',pages:'Not yet supplied'}
 ];
