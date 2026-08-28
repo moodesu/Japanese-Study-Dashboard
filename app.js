@@ -8,6 +8,10 @@ let waniKaniState = { status:'idle', data:null, error:null, fetchedAt:null };
 let waniKaniPromise = null;
 const WK_CACHE_KEY = 'wanikaniDashboardCache';
 const WK_CACHE_TTL = 60 * 60 * 1000;
+const WK_DETAIL_CACHE_KEY = 'wanikaniDashboardDetailCache';
+const WK_DETAIL_CACHE_TTL = 60 * 60 * 1000;
+let waniKaniDetailState = { status:'idle', data:null, error:null, fetchedAt:null };
+let waniKaniDetailPromise = null;
 
 function readWaniKaniCache(){
   try{
@@ -63,6 +67,130 @@ async function loadWaniKani(force=false){
   }).finally(()=>{waniKaniPromise=null;});
   return waniKaniPromise;
 }
+function readWaniKaniDetailCache(){
+  try{
+    const c=JSON.parse(localStorage.getItem(WK_DETAIL_CACHE_KEY)||'null');
+    if(c && c.fetchedAt && Date.now()-c.fetchedAt < WK_DETAIL_CACHE_TTL) return c;
+  }catch(e){}
+  return null;
+}
+async function fetchAllWaniKaniAssignments(){
+  const headers={Authorization:`Bearer ${WK.apiToken}`,'Wanikani-Revision':'20170710'};
+  let url='https://api.wanikani.com/v2/assignments';
+  const all=[];
+  while(url){
+    const res=await fetch(url,{headers});
+    if(!res.ok) throw new Error(`WaniKani assignments error (${res.status})`);
+    const body=await res.json();
+    all.push(...(body.data||[]));
+    url=body.pages?.next_url||null;
+  }
+  return all;
+}
+function buildWaniKaniDetail(assignments, summary, user){
+  const stageNames=['Lesson','Apprentice 1','Apprentice 2','Apprentice 3','Apprentice 4','Guru 1','Guru 2','Master','Enlightened','Burned'];
+  const srs={};
+  const byType={radical:0,kanji:0,vocabulary:0,kana_vocabulary:0};
+  const currentLevel={radical:0,kanji:0};
+  const currentLevelPassed={radical:0,kanji:0};
+  const currentLevelTotal={radical:0,kanji:0};
+  let recentLessons=0;
+  const now=Date.now();
+  for(const row of assignments){
+    const d=row.data||{};
+    if(d.hidden) continue;
+    const stage=Number.isFinite(+d.srs_stage)?+d.srs_stage:0;
+    const key=stageNames[stage]||`Stage ${stage}`;
+    srs[key]=(srs[key]||0)+1;
+    if(byType[d.subject_type]!==undefined) byType[d.subject_type]++;
+    if(Number(d.level)===Number(user?.level) && (d.subject_type==='radical'||d.subject_type==='kanji')){
+      currentLevelTotal[d.subject_type]++;
+      if(d.passed_at) currentLevelPassed[d.subject_type]++;
+      if(d.subject_type==='radical') currentLevel.radical++; else currentLevel.kanji++;
+    }
+    if(d.started_at){
+      const started=Date.parse(d.started_at);
+      if(Number.isFinite(started) && now-started < 14*24*3600000) recentLessons++;
+    }
+  }
+  const forecast=(summary?.reviews||[]).map(b=>({
+    available_at:b.available_at,
+    count:b.subject_ids?.length||0
+  })).sort((a,b)=>Date.parse(a.available_at)-Date.parse(b.available_at));
+  const nextLevelReview=assignments
+    .filter(r=>Number(r.data?.level)===Number(user?.level) && r.data?.available_at)
+    .map(r=>new Date(r.data.available_at))
+    .filter(d=>!Number.isNaN(d.getTime()))
+    .sort((a,b)=>a-b)[0]||null;
+  return {stageNames,srs,byType,currentLevelPassed,currentLevelTotal,recentLessons,forecast,nextLevelReview};
+}
+async function loadWaniKaniDetail(force=false){
+  if(!hasWaniKani){waniKaniDetailState={status:'unconfigured',data:null,error:null,fetchedAt:null};renderWaniKaniDashboard();return;}
+  if(!force){
+    const cached=readWaniKaniDetailCache();
+    if(cached){waniKaniDetailState={status:'ready',data:cached.data,error:null,fetchedAt:cached.fetchedAt};renderWaniKaniDashboard();return;}
+  }
+  if(waniKaniDetailPromise) return waniKaniDetailPromise;
+  waniKaniDetailState={status:'loading',data:null,error:null,fetchedAt:null};renderWaniKaniDashboard();
+  waniKaniDetailPromise=fetchAllWaniKaniAssignments().then(assignments=>{
+    const base=waniKaniState.data||readWaniKaniCache()?.data;
+    if(!base) throw new Error('Load the basic WaniKani data first.');
+    const data={detail:buildWaniKaniDetail(assignments,base.summary,base.user),user:base.user,summary:base.summary};
+    const fetchedAt=Date.now();
+    waniKaniDetailState={status:'ready',data,error:null,fetchedAt};
+    localStorage.setItem(WK_DETAIL_CACHE_KEY,JSON.stringify({data,fetchedAt}));
+    renderWaniKaniDashboard();
+  }).catch(err=>{waniKaniDetailState={status:'error',data:null,error:err?.message||'Unable to load detailed WaniKani data',fetchedAt:null};renderWaniKaniDashboard();}).finally(()=>{waniKaniDetailPromise=null;});
+  return waniKaniDetailPromise;
+}
+function wkTimeLabel(d){
+  if(!d) return '—';
+  const x=d instanceof Date?d:new Date(d);
+  if(Number.isNaN(x.getTime())) return '—';
+  return x.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});
+}
+function wkDateLabel(d){
+  const x=d instanceof Date?d:new Date(d);
+  if(Number.isNaN(x.getTime())) return '—';
+  return x.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});
+}
+function renderWaniKaniDashboard(){
+  if(state.view!=='wanikani') return;
+  $('#hero').hidden=true; $('#bottomArea').hidden=true; $('#weekView').hidden=true; $('#mainContent').hidden=false;
+  if(waniKaniDetailState.status==='unconfigured'){
+    $('#mainContent').innerHTML=`<section class="wk-page"><div class="wk-page-head"><div><div class="eyebrow">Supporting resource</div><h1>WaniKani</h1><p class="subtitle">Add your API token to <code>wanikani-config.js</code> to load your dashboard.</p></div></div></section>`; return;
+  }
+  if(waniKaniDetailState.status==='loading'){
+    $('#mainContent').innerHTML=`<section class="wk-page"><div class="wk-page-head"><div><div class="eyebrow">Supporting resource</div><h1>WaniKani dashboard</h1><p class="subtitle">Loading your SRS data…</p></div></div><div class="panel wk-loading">Loading detailed assignments. This is cached for one hour.</div></section>`; return;
+  }
+  if(waniKaniDetailState.status==='error'){
+    $('#mainContent').innerHTML=`<section class="wk-page"><div class="wk-page-head"><div><div class="eyebrow">Supporting resource</div><h1>WaniKani dashboard</h1><p class="subtitle">${esc(waniKaniDetailState.error)}</p></div><button class="smallbtn" id="wkDetailRetry">Retry</button></div></section>`;
+    $('#wkDetailRetry').onclick=()=>loadWaniKaniDetail(true); return;
+  }
+  const d=waniKaniDetailState.data||{}, u=d.user||{}, s=d.summary||{}, x=d.detail||{};
+  const reviews=countAvailableReviews(s), lessons=countLessons(s), next=nextReview(s);
+  const stages=['Apprentice','Guru','Master','Enlightened','Burned'];
+  const stageCounts=stages.map(name=>{
+    if(name==='Apprentice') return ['Apprentice 1','Apprentice 2','Apprentice 3','Apprentice 4'].reduce((n,k)=>n+(x.srs?.[k]||0),0);
+    if(name==='Guru') return ['Guru 1','Guru 2'].reduce((n,k)=>n+(x.srs?.[k]||0),0);
+    return x.srs?.[name]||0;
+  });
+  const maxStage=Math.max(...stageCounts,1);
+  const forecast=(x.forecast||[]).slice(0,12);
+  const maxForecast=Math.max(...forecast.map(b=>b.count),1);
+  const fetched=waniKaniDetailState.fetchedAt?new Date(waniKaniDetailState.fetchedAt).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}):'—';
+  const radicalPct=x.currentLevelTotal?.radical?Math.round(x.currentLevelPassed.radical/x.currentLevelTotal.radical*100):0;
+  const kanjiPct=x.currentLevelTotal?.kanji?Math.round(x.currentLevelPassed.kanji/x.currentLevelTotal.kanji*100):0;
+  $('#mainContent').innerHTML=`
+    <section class="wk-page">
+      <div class="wk-page-head"><div><div class="eyebrow">Supporting resource</div><h1>WaniKani dashboard</h1><p class="subtitle">Level ${esc(u.level??'—')} · ${esc(u.username||'')} · detailed SRS view</p></div><div class="wk-page-actions"><button class="smallbtn" id="wkDetailRefresh">↻ Refresh</button><a class="smallbtn" href="https://www.wanikani.com" target="_blank" rel="noopener">Open WaniKani ↗</a></div></div>
+      <section class="wk-overview-grid"><article class="wk-stat-card wk-level-card"><span class="eyebrow">Current level</span><strong>${esc(u.level??'—')}</strong><span>${esc(u.subscription?.max_level_granted??'')} max level access</span></article><article class="wk-stat-card"><strong>${reviews}</strong><span>Reviews due now</span></article><article class="wk-stat-card"><strong>${lessons}</strong><span>Lessons available</span></article><article class="wk-stat-card"><strong>${esc(formatWkNextReview(next))}</strong><span>Next review</span></article></section>
+      <section class="wk-grid"><article class="panel"><div class="panelhead"><div><h2>Upcoming reviews</h2><p class="subtitle">The next review buckets returned by WaniKani.</p></div></div><div class="wk-forecast">${forecast.length?forecast.map(b=>`<div class="wk-forecast-col"><div class="wk-forecast-count">${b.count}</div><div class="wk-forecast-bar"><i style="height:${Math.max(5,b.count/maxForecast*100)}%"></i></div><small>${wkTimeLabel(b.available_at)}</small></div>`).join(''):'<div class="empty">No upcoming review buckets returned.</div>'}</div></article><article class="panel"><div class="panelhead"><div><h2>SRS distribution</h2><p class="subtitle">Current assignment counts by major WaniKani SRS group.</p></div></div><div class="wk-srs-list">${stages.map((name,i)=>`<div class="wk-srs-row"><span>${name}</span><div class="wk-srs-track"><i style="width:${stageCounts[i]/maxStage*100}%"></i></div><strong>${stageCounts[i]}</strong></div>`).join('')}</div></article></section>
+      <section class="wk-grid"><article class="panel"><div class="panelhead"><div><h2>Current level progress</h2><p class="subtitle">Radicals and kanji assigned to your current level.</p></div></div><div class="wk-progress-block"><div class="wk-progress-head"><span>Radicals</span><strong>${radicalPct}%</strong></div><div class="progress"><i style="width:${radicalPct}%"></i></div><small>${x.currentLevelPassed?.radical||0} of ${x.currentLevelTotal?.radical||0} passed</small></div><div class="wk-progress-block"><div class="wk-progress-head"><span>Kanji</span><strong>${kanjiPct}%</strong></div><div class="progress"><i style="width:${kanjiPct}%"></i></div><small>${x.currentLevelPassed?.kanji||0} of ${x.currentLevelTotal?.kanji||0} passed</small></div></article><article class="panel"><div class="panelhead"><div><h2>Review tools</h2><p class="subtitle">Shortcuts into WaniKani for focused review work.</p></div></div><div class="wk-tool-list"><a class="wk-tool" href="https://www.wanikani.com/review" target="_blank" rel="noopener"><strong>Reviews</strong><span>${reviews} currently due</span></a><a class="wk-tool" href="https://www.wanikani.com/lesson" target="_blank" rel="noopener"><strong>Lessons</strong><span>${lessons} available</span></a><a class="wk-tool" href="https://www.wanikani.com/dashboard" target="_blank" rel="noopener"><strong>WaniKani dashboard</strong><span>Open the full native dashboard</span></a></div></article></section>
+      <div class="wk-footnote">Detailed data updated ${esc(fetched)} · cached for 1 hour. Assignments are read-only here; reviews and lessons remain in WaniKani.</div>
+    </section>`;
+  $('#wkDetailRefresh').onclick=()=>loadWaniKaniDetail(true);
+}
 function formatWkNextReview(d){
   if(!d) return 'None scheduled';
   const diff=d.getTime()-Date.now();
@@ -73,21 +201,20 @@ function formatWkNextReview(d){
 }
 function renderWaniKani(){
   const el=$('#wanikaniCard'); if(!el) return;
+  el.classList.add('wk-mini-card');
   if(waniKaniState.status==='unconfigured'){
-    el.innerHTML=`<div class="panelhead"><div><div class="eyebrow">Supporting resource</div><h3>WaniKani</h3><p class="subtitle">Add your API token to <code>wanikani-config.js</code> to show your live stats.</p></div></div>`; return;
-  }
-  if(waniKaniState.status==='loading'){
-    el.innerHTML=`<div class="panelhead"><div><div class="eyebrow">Supporting resource</div><h3>WaniKani</h3><p class="subtitle">Loading your current WaniKani data…</p></div></div>`; return;
-  }
-  if(waniKaniState.status==='error'){
-    el.innerHTML=`<div class="panelhead"><div><div class="eyebrow">Supporting resource</div><h3>WaniKani</h3><p class="subtitle">${esc(waniKaniState.error)}</p></div><button class="smallbtn" id="wkRetry">Retry</button></div>`;
+    el.innerHTML=`<button type="button" class="wk-mini-inner" id="openWkDashboard"><div class="panelhead"><div><div class="eyebrow">Supporting resource</div><h3>WaniKani</h3><p class="subtitle">Add your API token to show live stats.</p></div><span class="wk-mini-arrow">→</span></div></button>`;
+  }else if(waniKaniState.status==='loading'){
+    el.innerHTML=`<button type="button" class="wk-mini-inner" id="openWkDashboard"><div class="panelhead"><div><div class="eyebrow">Supporting resource</div><h3>WaniKani</h3><p class="subtitle">Loading current stats…</p></div><span class="wk-mini-arrow">→</span></div></button>`;
+  }else if(waniKaniState.status==='error'){
+    el.innerHTML=`<div class="wk-mini-inner"><div class="panelhead"><div><div class="eyebrow">Supporting resource</div><h3>WaniKani</h3><p class="subtitle">${esc(waniKaniState.error)}</p></div><button class="smallbtn" id="wkRetry">Retry</button></div></div>`;
     $('#wkRetry').onclick=()=>loadWaniKani(true); return;
+  }else{
+    const d=waniKaniState.data||{}, u=d.user||{}, s=d.summary||{};
+    const reviews=countAvailableReviews(s), lessons=countLessons(s), next=nextReview(s);
+    el.innerHTML=`<button type="button" class="wk-mini-inner" id="openWkDashboard"><div class="panelhead"><div><div class="eyebrow">Supporting resource</div><h3>WaniKani</h3><p class="subtitle">Level ${esc(u.level??'—')} · ${esc(u.username||'')}</p></div><span class="wk-mini-arrow">→</span></div><div class="wk-mini-stats"><div><strong>${reviews}</strong><span>Reviews</span></div><div><strong>${lessons}</strong><span>Lessons</span></div><div><strong>${esc(formatWkNextReview(next))}</strong><span>Next review</span></div></div><div class="wk-footer">Open full WaniKani dashboard</div></button>`;
   }
-  const d=waniKaniState.data || {}, u=d.user || {}, s=d.summary || {};
-  const reviews=countAvailableReviews(s), lessons=countLessons(s), next=nextReview(s);
-  const fetched=waniKaniState.fetchedAt?new Date(waniKaniState.fetchedAt).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}):'';
-  el.innerHTML=`<div class="panelhead"><div><div class="eyebrow">Supporting resource</div><h3>WaniKani</h3><p class="subtitle">${esc(u?.username||'')} · Level ${esc(u?.level??'—')}</p></div><div class="wk-actions"><button class="smallbtn" id="wkRefresh" title="Refresh WaniKani data">↻ Refresh</button><a class="smallbtn" href="https://www.wanikani.com" target="_blank" rel="noopener">Open WaniKani ↗</a></div></div><div class="wk-stats"><div><strong>${reviews}</strong><span>Reviews due</span></div><div><strong>${lessons}</strong><span>Lessons available</span></div><div><strong>${esc(formatWkNextReview(next))}</strong><span>Next review</span></div></div><div class="wk-footer"><span>Updated ${esc(fetched||'—')} · cached for 1 hour</span></div>`;
-  $('#wkRefresh').onclick=()=>loadWaniKani(true);
+  $('#openWkDashboard')?.addEventListener('click',()=>{state.view='wanikani';render();scrollTo({top:0,behavior:'smooth'});loadWaniKaniDetail();});
 }
 
 const POMO_DURATIONS = { work: 25*60, short: 5*60, long: 15*60 }; // fallback defaults
@@ -423,6 +550,12 @@ function render(){
   if(state.view==='dashboard') renderDashboard();
   else if(state.view==='plan') renderWeek();
   else if(state.view==='lesson') renderLesson(state.lesson);
+  else if(state.view==='wanikani') {
+    renderWaniKaniDashboard();
+    if(waniKaniDetailState.status==='idle') {
+      loadWaniKani().then(()=>loadWaniKaniDetail()).catch(()=>{});
+    }
+  }
   else renderLibrary();
   $('#globalNotes').value=state.notes; $('#startDate').value=state.startDate; renderStatus();
   renderPomodoroSettings();
@@ -448,7 +581,7 @@ function renderHeader(){
   $('#progressBar').style.width=(p.total?p.done/p.total*100:0)+'%';
 }
 function renderNav(){
-  $('#mainNav').innerHTML=`<button class="navbtn ${state.view==='dashboard'?'active':''}" data-view="dashboard">Dashboard</button><button class="navbtn ${state.view==='plan'?'active':''}" data-view="plan">Study plan</button><button class="navbtn ${state.view==='lesson'?'active':''}" data-view="lesson">Lessons</button><button class="navbtn ${state.view==='library'?'active':''}" data-view="library">Learning hub</button><button class="navbtn pomo-nav-btn" id="pomoNavBtn" type="button" title="Pomodoro" aria-label="Open Pomodoro">🍅</button>`;
+  $('#mainNav').innerHTML=`<button class="navbtn ${state.view==='dashboard'?'active':''}" data-view="dashboard">Dashboard</button><button class="navbtn ${state.view==='plan'?'active':''}" data-view="plan">Study plan</button><button class="navbtn ${state.view==='lesson'?'active':''}" data-view="lesson">Lessons</button><button class="navbtn ${state.view==='library'?'active':''}" data-view="library">Learning hub</button><button class="navbtn ${state.view==='wanikani'?'active':''}" data-view="wanikani">WaniKani</button><button class="navbtn pomo-nav-btn" id="pomoNavBtn" type="button" title="Pomodoro" aria-label="Open Pomodoro">🍅</button>`;
   $('#mainNav').querySelectorAll('.navbtn[data-view]').forEach(b=>b.onclick=()=>{state.view=b.dataset.view;if(state.view==='lesson'&&!lessonByNumber(state.lesson))state.lesson=11;render();scrollTo({top:0,behavior:'smooth'});});
   const pomoNav=$('#pomoNavBtn');
   if(pomoNav){
