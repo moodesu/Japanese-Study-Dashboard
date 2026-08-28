@@ -2,6 +2,94 @@ const SB = window.SUPABASE_CONFIG || {};
 const hasSupabase = !!(SB.url && SB.anonKey && !SB.url.includes('YOUR_') && !SB.anonKey.includes('YOUR_'));
 const db = hasSupabase && window.supabase ? window.supabase.createClient(SB.url, SB.anonKey) : null;
 
+const WK = window.WANIKANI_CONFIG || {};
+const hasWaniKani = !!(WK.apiToken && !WK.apiToken.includes('YOUR_'));
+let waniKaniState = { status:'idle', data:null, error:null, fetchedAt:null };
+let waniKaniPromise = null;
+const WK_CACHE_KEY = 'wanikaniDashboardCache';
+const WK_CACHE_TTL = 60 * 60 * 1000;
+
+function readWaniKaniCache(){
+  try{
+    const c=JSON.parse(localStorage.getItem(WK_CACHE_KEY)||'null');
+    if(c && c.fetchedAt && Date.now()-c.fetchedAt < WK_CACHE_TTL) return c;
+  }catch(e){}
+  return null;
+}
+function countAvailableReviews(summary){
+  const now=Date.now();
+  return (summary?.reviews||[]).reduce((n,b)=>{
+    const t=Date.parse(b.available_at||'');
+    return n + (Number.isFinite(t) && t<=now ? (b.subject_ids?.length||0) : 0);
+  },0);
+}
+function countLessons(summary){ return (summary?.lessons||[]).reduce((n,b)=>n+(b.subject_ids?.length||0),0); }
+function nextReview(summary){
+  const raw=summary?.next_reviews_at;
+  if(!raw) return null;
+  const d=new Date(raw);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+async function fetchWaniKani(){
+  if(!hasWaniKani) return null;
+  const headers={Authorization:`Bearer ${WK.apiToken}`,'Wanikani-Revision':'20170710'};
+  const [userRes,summaryRes]=await Promise.all([
+    fetch('https://api.wanikani.com/v2/user',{headers}),
+    fetch('https://api.wanikani.com/v2/summary',{headers})
+  ]);
+  if(!userRes.ok || !summaryRes.ok){
+    let message=`WaniKani API error (${userRes.status}/${summaryRes.status})`;
+    try{ const body=await (!userRes.ok?userRes:summaryRes).json(); if(body?.error?.message) message=body.error.message; }catch(e){}
+    throw new Error(message);
+  }
+  const user=await userRes.json(), summary=await summaryRes.json();
+  return {user:user.data,summary:summary.data,fetchedAt:Date.now()};
+}
+async function loadWaniKani(force=false){
+  if(!hasWaniKani){ waniKaniState={status:'unconfigured',data:null,error:null,fetchedAt:null}; renderWaniKani(); return; }
+  if(!force){
+    const cached=readWaniKaniCache();
+    if(cached){ waniKaniState={status:'ready',data:cached.data,error:null,fetchedAt:cached.fetchedAt}; renderWaniKani(); return; }
+  }
+  if(waniKaniPromise) return waniKaniPromise;
+  waniKaniState.status='loading'; waniKaniState.error=null; renderWaniKani();
+  waniKaniPromise=fetchWaniKani().then(data=>{
+    waniKaniState={status:'ready',data,error:null,fetchedAt:data.fetchedAt};
+    localStorage.setItem(WK_CACHE_KEY,JSON.stringify({data,fetchedAt:data.fetchedAt}));
+    renderWaniKani();
+  }).catch(err=>{
+    waniKaniState={status:'error',data:null,error:err?.message||'Unable to load WaniKani',fetchedAt:null};
+    renderWaniKani();
+  }).finally(()=>{waniKaniPromise=null;});
+  return waniKaniPromise;
+}
+function formatWkNextReview(d){
+  if(!d) return 'None scheduled';
+  const diff=d.getTime()-Date.now();
+  if(diff<=0) return 'Available now';
+  const h=Math.floor(diff/3600000), m=Math.floor((diff%3600000)/60000);
+  if(h<24) return `in ${h}h${m?` ${m}m`:''}`;
+  return d.toLocaleDateString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+}
+function renderWaniKani(){
+  const el=$('#wanikaniCard'); if(!el) return;
+  if(waniKaniState.status==='unconfigured'){
+    el.innerHTML=`<div class="panelhead"><div><div class="eyebrow">Supporting resource</div><h3>WaniKani</h3><p class="subtitle">Add your API token to <code>wanikani-config.js</code> to show your live stats.</p></div></div>`; return;
+  }
+  if(waniKaniState.status==='loading'){
+    el.innerHTML=`<div class="panelhead"><div><div class="eyebrow">Supporting resource</div><h3>WaniKani</h3><p class="subtitle">Loading your current WaniKani data…</p></div></div>`; return;
+  }
+  if(waniKaniState.status==='error'){
+    el.innerHTML=`<div class="panelhead"><div><div class="eyebrow">Supporting resource</div><h3>WaniKani</h3><p class="subtitle">${esc(waniKaniState.error)}</p></div><button class="smallbtn" id="wkRetry">Retry</button></div>`;
+    $('#wkRetry').onclick=()=>loadWaniKani(true); return;
+  }
+  const d=waniKaniState.data, u=d.user, s=d.summary;
+  const reviews=countAvailableReviews(s), lessons=countLessons(s), next=nextReview(s);
+  const fetched=waniKaniState.fetchedAt?new Date(waniKaniState.fetchedAt).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}):'';
+  el.innerHTML=`<div class="panelhead"><div><div class="eyebrow">Supporting resource</div><h3>WaniKani</h3><p class="subtitle">${esc(u?.username||'')} · Level ${esc(u?.level??'—')}</p></div><div class="wk-actions"><button class="smallbtn" id="wkRefresh" title="Refresh WaniKani data">↻ Refresh</button><a class="smallbtn" href="https://www.wanikani.com" target="_blank" rel="noopener">Open WaniKani ↗</a></div></div><div class="wk-stats"><div><strong>${reviews}</strong><span>Reviews due</span></div><div><strong>${lessons}</strong><span>Lessons available</span></div><div><strong>${esc(formatWkNextReview(next))}</strong><span>Next review</span></div></div><div class="wk-footer"><span>Updated ${esc(fetched||'—')} · cached for 1 hour</span></div>`;
+  $('#wkRefresh').onclick=()=>loadWaniKani(true);
+}
+
 const POMO_DURATIONS = { work: 25*60, short: 5*60, long: 15*60 }; // fallback defaults
 const POMO_CYCLE_LENGTH = 4; // fallback default
 
@@ -416,6 +504,10 @@ function renderDashboard(){
       <article class="dashcard"><div class="eyebrow">Next up</div><h3>${next?esc(next.task.title):'Course complete'}</h3><p>${next?`Week ${next.week+1} · ${esc(next.task.book)}${next.task.page?` · p.${next.task.page}`:''}`:'You have completed every scheduled core task.'}</p>${next?'<button class="smallbtn primary" id="openNext">Open task</button>':''}</article>
     </section>
     <section class="dashboard-columns">
+      <article class="panel wanikani-panel" id="wanikaniCard"></article>
+      <article class="panel"><div class="panelhead"><div><h3>Quick links</h3><p class="subtitle">Supporting Japanese resources stay separate from the core TOBIRA programme.</p></div></div><div class="quick-resource-links"><a href="https://www.wanikani.com" target="_blank" rel="noopener" class="resource-link">WaniKani ↗</a><span class="resource-link muted">Migaku</span><span class="resource-link muted">Shadowing</span></div></article>
+    </section>
+    <section class="dashboard-columns">
       <article class="panel"><div class="panelhead"><div><h3>Active curriculum</h3><p class="subtitle">Click a lesson for its complete mapped study workspace. Add future books from the Learning hub.</p></div><button class="smallbtn" id="goPlan">View plan</button></div><div class="lessonprogress">${CURRICULUM.lessons.map(lessonButton).join('')}</div></article>
       <article class="panel"><div class="panelhead"><div><h3>Needs attention</h3><p class="subtitle">Optional flags and notes from your study tasks appear here.</p></div></div>${attention.length?`<div class="attentionlist">${attention.map(x=>`<button class="attention" data-task="${esc(x.t.id)}"><span class="status-dot ${x.s.mastery}"></span><span><strong>${esc(x.t.title)}</strong><small>L${x.t.lesson} · ${esc(x.t.book)} · p.${x.t.page}</small></span></button>`).join('')}</div>`:'<div class="empty">Nothing flagged yet. Use the mastery controls in each lesson.</div>'}</article>
     </section>
@@ -428,6 +520,8 @@ function renderDashboard(){
   $('#openNext')?.addEventListener('click',()=>{state.week=next.week;state.view='plan';render();setTimeout(()=>openTask(next.task.id),50);});
   $('#mainContent').querySelectorAll('.lessonrow').forEach(b=>b.onclick=()=>{state.lesson=+b.dataset.lesson;state.view='lesson';render();scrollTo({top:0,behavior:'smooth'});});
   $('#mainContent').querySelectorAll('.attention').forEach(b=>b.onclick=()=>openTask(b.dataset.task));
+  renderWaniKani();
+  if(waniKaniState.status==='idle') loadWaniKani();
 }
 function card(t){
   const s=ts(t.id);
