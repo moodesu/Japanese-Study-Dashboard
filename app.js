@@ -233,8 +233,11 @@ function savePomodoroSettings(){
 }
 function renderPomodoroSettings(){
   const s=state.pomodoroSettings;
-  $('#pomoWorkMin').value=s.work; $('#pomoShortMin').value=s.short;
-  $('#pomoLongMin').value=s.long; $('#pomoCycleLen').value=s.cycle;
+  const work=$('#pomoWorkMin'), short=$('#pomoShortMin'), long=$('#pomoLongMin'), cycle=$('#pomoCycleLen');
+  if(work) work.value=s.work;
+  if(short) short.value=s.short;
+  if(long) long.value=s.long;
+  if(cycle) cycle.value=s.cycle;
 }
 function savePomodoro(){ localStorage.setItem('pomodoroState', JSON.stringify(state.pomodoro)); }
 function saveSessions(){ localStorage.setItem('pomodoroSessions', JSON.stringify(state.sessions)); }
@@ -660,10 +663,10 @@ function updatePomoSetting(key,val,min){
   if(state.pomodoro.status==='idle') state.pomodoro.remaining=pomodoroDuration(state.pomodoro.mode);
   savePomodoroSettings(); savePomodoro(); renderPomodoro();
 }
-$('#pomoWorkMin').onchange=e=>updatePomoSetting('work',e.target.value,1);
-$('#pomoShortMin').onchange=e=>updatePomoSetting('short',e.target.value,1);
-$('#pomoLongMin').onchange=e=>updatePomoSetting('long',e.target.value,1);
-$('#pomoCycleLen').onchange=e=>updatePomoSetting('cycle',e.target.value,1);
+const pomoWorkMin=$('#pomoWorkMin'); if(pomoWorkMin) pomoWorkMin.onchange=e=>updatePomoSetting('work',e.target.value,1);
+const pomoShortMin=$('#pomoShortMin'); if(pomoShortMin) pomoShortMin.onchange=e=>updatePomoSetting('short',e.target.value,1);
+const pomoLongMin=$('#pomoLongMin'); if(pomoLongMin) pomoLongMin.onchange=e=>updatePomoSetting('long',e.target.value,1);
+const pomoCycleLen=$('#pomoCycleLen'); if(pomoCycleLen) pomoCycleLen.onchange=e=>updatePomoSetting('cycle',e.target.value,1);
 $('#openLogin').onclick=()=>$('#authDialog').showModal();
 $('#gateLogin').onclick=()=>$('#authDialog').showModal();
 $('#closeLogin').onclick=()=>$('#authDialog').close();
@@ -694,10 +697,10 @@ $('#loginForm').onsubmit=async e=>{
   }
 };
 $('#logout').onclick=async()=>{if(db)await db.auth.signOut();state.user=null;state.ready=true;render();};
-$('#pomoToggle').onclick=()=>{state.pomodoro.status==='running'?pausePomodoro():startPomodoro();};
-$('#pomoSkip').onclick=()=>skipSession();
-$('#pomoReset').onclick=()=>resetSession();
-$('#pomoQuickLink').onchange=e=>{
+const pomoToggle=$('#pomoToggle'); if(pomoToggle) pomoToggle.onclick=()=>{state.pomodoro.status==='running'?pausePomodoro():startPomodoro();};
+const pomoSkip=$('#pomoSkip'); if(pomoSkip) pomoSkip.onclick=()=>skipSession();
+const pomoReset=$('#pomoReset'); if(pomoReset) pomoReset.onclick=()=>resetSession();
+const pomoQuickLink=$('#pomoQuickLink'); if(pomoQuickLink) pomoQuickLink.onchange=e=>{
   if(!e.target.value) return;
   startPomodoro(e.target.value);
   toast('Pomodoro linked to '+(findTaskById(e.target.value)?.title||'task'));
