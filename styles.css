@@ -1695,3 +1695,306 @@ summary:focus-visible {
     padding:15px;
   }
 }
+/* =========================================================
+   v1.0 visual pass 2 — screenshot-led refinements
+   CSS only; no application behaviour changed.
+   ========================================================= */
+
+/* Dashboard: let short companion cards keep their natural height. */
+.today-layout,
+.dashboard-lower,
+.wk-grid {
+  align-items:start;
+}
+
+/* Slightly clearer icon controls in the main navigation. */
+.icon-nav-btn {
+  font-size:20px;
+  line-height:1;
+}
+
+/* ---------------------------------------------------------
+   Lesson page: textbook content map
+   --------------------------------------------------------- */
+.book-map-panel {
+  margin-top:14px;
+}
+
+.book-map-panel .section-heading {
+  margin-bottom:14px;
+}
+
+.book-section-list {
+  display:grid;
+  gap:9px;
+}
+
+.book-section {
+  appearance:none;
+  width:100%;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:start;
+  gap:12px;
+  padding:13px 14px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:#fffefa;
+  color:var(--ink);
+  text-align:left;
+  box-shadow:0 1px 2px rgba(25,39,55,.025);
+  cursor:pointer;
+  transition:border-color .15s ease, background .15s ease,
+             box-shadow .15s ease, transform .15s ease, opacity .15s ease;
+}
+
+.book-section:hover {
+  border-color:#abc0c3;
+  background:#f8fbfa;
+  box-shadow:0 5px 16px rgba(25,39,55,.05);
+  transform:translateY(-1px);
+}
+
+.book-section:focus-visible {
+  outline:3px solid rgba(22,117,141,.17);
+  outline-offset:2px;
+}
+
+.book-section-main {
+  min-width:0;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:5px 10px;
+  align-items:baseline;
+}
+
+.book-section-label {
+  min-width:0;
+  font-size:14px;
+  font-weight:850;
+  line-height:1.35;
+}
+
+.book-section-main > strong {
+  justify-self:end;
+  padding:3px 7px;
+  border-radius:7px;
+  background:var(--soft);
+  color:#4f6670;
+  font-size:11px;
+  font-weight:800;
+  font-variant-numeric:tabular-nums;
+  white-space:nowrap;
+}
+
+.book-section-status {
+  align-self:start;
+  min-width:72px;
+  padding:5px 8px;
+  border:1px solid #cbd9d9;
+  border-radius:999px;
+  background:#f4f9f8;
+  color:var(--accent);
+  font-size:10px;
+  font-weight:850;
+  line-height:1.2;
+  text-align:center;
+  white-space:nowrap;
+}
+
+.book-section.done {
+  opacity:.68;
+  background:#f4f7f3;
+}
+
+.book-section.done .book-section-label {
+  text-decoration:line-through;
+  text-decoration-thickness:1px;
+}
+
+.book-section.done .book-section-status {
+  border-color:#bcd7c8;
+  background:#e6f2eb;
+  color:#2f704f;
+}
+
+.section-items,
+.section-steps {
+  grid-column:1 / -1;
+  min-width:0;
+  margin-top:7px;
+  padding-top:9px;
+  border-top:1px solid var(--line);
+}
+
+.section-items > span,
+.section-steps > span {
+  display:block;
+  margin-bottom:6px;
+  color:var(--muted);
+  font-size:9px;
+  font-weight:850;
+  letter-spacing:.09em;
+  text-transform:uppercase;
+}
+
+.section-items ul {
+  display:flex;
+  flex-wrap:wrap;
+  gap:5px;
+  margin:0;
+  padding:0;
+  list-style:none;
+}
+
+.section-items li {
+  padding:4px 7px;
+  border-radius:7px;
+  background:#f1eee7;
+  color:#54616c;
+  font-size:11px;
+  line-height:1.35;
+}
+
+.section-steps ol {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:5px 26px;
+  margin:0;
+  padding-left:21px;
+  color:var(--muted);
+  font-size:12px;
+  line-height:1.45;
+}
+
+.section-steps li {
+  padding-left:2px;
+}
+
+/* Workbook buttons use the same visual language instead of browser defaults. */
+.lesson-column .book-section-list {
+  gap:8px;
+}
+
+.lesson-column .book-section.compact {
+  min-height:57px;
+  padding:10px 11px;
+  align-items:center;
+  background:#fffefa;
+}
+
+.lesson-column .book-section.compact .book-section-main {
+  align-items:center;
+}
+
+.lesson-column .book-section.compact .book-section-label {
+  font-size:13px;
+}
+
+.lesson-column .book-section.compact .book-section-status {
+  min-width:54px;
+}
+
+.lesson-column .book-section.compact:hover {
+  background:#f7faf9;
+}
+
+/* Keep lesson notes visually subordinate to the study material. */
+.lesson-notes-panel .notes {
+  min-height:125px;
+}
+
+/* ---------------------------------------------------------
+   Learning Hub
+   --------------------------------------------------------- */
+
+/* Three programme cards fit comfortably in the desktop content width
+   and avoid the orphaned third card seen in the screenshot. */
+.programme-grid {
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  align-items:stretch;
+}
+
+.programme-card {
+  min-width:0;
+}
+
+.programme-card .book-placeholder {
+  margin-top:auto;
+}
+
+.programme-card h3 {
+  line-height:1.25;
+}
+
+.library-section > .panelhead {
+  align-items:flex-end;
+}
+
+/* ---------------------------------------------------------
+   WaniKani
+   --------------------------------------------------------- */
+.wk-grid > .panel {
+  align-self:start;
+}
+
+.wk-page .panel {
+  box-shadow:0 3px 15px rgba(25,39,55,.035);
+}
+
+.wk-srs-row {
+  min-height:21px;
+}
+
+/* ---------------------------------------------------------
+   Responsive refinements for the new lesson-map styling
+   --------------------------------------------------------- */
+@media(max-width:1050px) {
+  .programme-grid {
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
+
+@media(max-width:760px) {
+  .programme-grid {
+    grid-template-columns:1fr;
+  }
+
+  .book-section {
+    grid-template-columns:minmax(0,1fr);
+    gap:8px;
+    padding:12px;
+  }
+
+  .book-section-status {
+    justify-self:start;
+  }
+
+  .section-steps ol {
+    grid-template-columns:1fr;
+    gap:5px;
+  }
+
+  .lesson-column .book-section.compact {
+    grid-template-columns:minmax(0,1fr) auto;
+    gap:8px;
+  }
+
+  .lesson-column .book-section.compact .book-section-status {
+    justify-self:end;
+  }
+}
+
+@media(max-width:480px) {
+  .book-section-main {
+    grid-template-columns:1fr;
+  }
+
+  .book-section-main > strong {
+    justify-self:start;
+  }
+
+  .lesson-column .book-section.compact .book-section-main {
+    grid-template-columns:1fr;
+  }
+}
