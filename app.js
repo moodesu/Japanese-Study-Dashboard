@@ -1,6 +1,8 @@
 const SB = window.SUPABASE_CONFIG || {};
 const hasSupabase = !!(SB.url && SB.anonKey && !SB.url.includes('YOUR_') && !SB.anonKey.includes('YOUR_'));
 const db = hasSupabase && window.supabase ? window.supabase.createClient(SB.url, SB.anonKey) : null;
+const AUDIO_LIBRARY = window.LESSON_AUDIO || {lessons:{},categories:[]};
+const audioUrlCache = new Map();
 
 const WK = window.WANIKANI_CONFIG || {};
 const hasWaniKani = !!(WK.apiToken && !WK.apiToken.includes('YOUR_'));
@@ -241,6 +243,15 @@ const state = {
   focusMode: false,
   searchOpen: false
 };
+
+let audioPlaybackState = (()=>{
+  try{
+    const saved=JSON.parse(localStorage.getItem('lessonAudioPlayback')||'null');
+    return saved && typeof saved==='object' ? saved : {lastPath:null,positions:{},speed:1};
+  }catch(e){
+    return {lastPath:null,positions:{},speed:1};
+  }
+})();
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -948,6 +959,115 @@ function componentRow(l,t){
   const secs=taskSeconds(t.id);
   return `<article class="component ${s.completed?'done':''}" data-task="${esc(t.id)}"><div class="component-top"><div><div class="component-title">${esc(t.title)}</div><div class="component-ref"><span class="booktag">${esc(t.book)}</span> <strong>p.${t.page}</strong> · ${esc(t.duration)}</div></div><span class="status-label ${s.mastery}">${status}</span></div><div class="component-bottom"><span>${s.completed?'✓ Completed':'Open study task'}</span><span>${secs?`<span class="time-badge">⏱ ${fmtDuration(secs)}</span>`:(s.confidence?`Confidence ${s.confidence}/5`:'')}</span></div></article>`;
 }
+
+function saveAudioPlaybackState(){
+  localStorage.setItem('lessonAudioPlayback',JSON.stringify(audioPlaybackState));
+}
+
+function audioPanelMarkup(n){
+  const lessonAudio=AUDIO_LIBRARY.lessons?.[n];
+  if(!lessonAudio) return '';
+  const groups=(AUDIO_LIBRARY.categories||[]).map(category=>{
+    const tracks=lessonAudio.groups?.[category.key]||[];
+    if(!tracks.length) return '';
+    return `<div class="audio-group"><div class="audio-group-heading"><strong>${esc(category.label)}</strong><span>${esc(category.english)} · ${tracks.length}</span></div><div class="audio-track-list">${tracks.map(track=>`<button type="button" class="audio-track" data-audio-path="${esc(track.path)}"><span>${esc(track.badge||String(track.number).padStart(2,'0'))}</span><strong>${esc(track.title)}</strong></button>`).join('')}</div></div>`;
+  }).join('');
+  return `<section class="panel lesson-audio-panel">
+    <div class="panelhead"><div><div class="eyebrow">Private lesson audio</div><h2>Listen and shadow</h2><p class="subtitle">会話 · 単語リスト · 話しましょう · 読みましょう · 聞きましょう</p></div><span class="audio-private-badge">Authenticated</span></div>
+    <div class="lesson-audio-layout">
+      <div class="audio-groups">${groups}</div>
+      <div class="audio-player-card">
+        <div class="audio-now"><span id="audioNowCategory">Lesson ${n} audio</span><strong id="audioNowTitle">Choose a track</strong><small id="audioNowFile">Stored privately in Supabase</small></div>
+        <audio id="lessonAudioPlayer" controls preload="metadata"></audio>
+        <div class="audio-controls"><button type="button" class="smallbtn" id="audioPrevious" disabled>← Previous</button><button type="button" class="smallbtn" id="audioBack">−10s</button><button type="button" class="smallbtn" id="audioForward">+10s</button><button type="button" class="smallbtn" id="audioNext" disabled>Next →</button></div>
+        <label class="audio-speed">Playback speed <select id="audioSpeed"><option value="0.75">0.75×</option><option value="1">1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label>
+        <p class="audio-status" id="audioStatus">Select a track to create a temporary private playback link.</p>
+      </div>
+    </div>
+  </section>`;
+}
+
+function initLessonAudio(n){
+  const lessonAudio=AUDIO_LIBRARY.lessons?.[n], player=$('#lessonAudioPlayer');
+  if(!lessonAudio||!player) return;
+  const tracks=lessonAudio.tracks||[];
+  const buttons=[...document.querySelectorAll('.audio-track')];
+  const status=$('#audioStatus'), title=$('#audioNowTitle'), file=$('#audioNowFile'), category=$('#audioNowCategory');
+  const previous=$('#audioPrevious'), next=$('#audioNext'), speed=$('#audioSpeed');
+  let currentIndex=-1, lastSavedSecond=-1;
+
+  speed.value=String(audioPlaybackState.speed||1);
+  player.playbackRate=Number(speed.value);
+
+  function updateSelection(){
+    buttons.forEach((button,index)=>button.classList.toggle('active',index===currentIndex));
+    previous.disabled=currentIndex<=0;
+    next.disabled=currentIndex<0||currentIndex>=tracks.length-1;
+  }
+
+  async function loadTrack(index,autoplay=false){
+    const track=tracks[index]; if(!track) return;
+    currentIndex=index; updateSelection();
+    const categoryDef=(AUDIO_LIBRARY.categories||[]).find(x=>x.key===track.category);
+    category.textContent=`${categoryDef?.label||''} · ${categoryDef?.english||''}`;
+    title.textContent=track.title;
+    file.textContent=track.filename;
+    status.textContent='Preparing private audio…';
+    try{
+      const cached=audioUrlCache.get(track.path);
+      let signedUrl=cached?.expiresAt>Date.now()+60000?cached.url:null;
+      if(!signedUrl){
+        if(!db||!state.user) throw new Error('Sign in to play private audio.');
+        const {data,error}=await db.storage.from(AUDIO_LIBRARY.bucket).createSignedUrl(track.path,21600);
+        if(error) throw error;
+        signedUrl=data?.signedUrl;
+        if(!signedUrl) throw new Error('No playback URL was returned.');
+        audioUrlCache.set(track.path,{url:signedUrl,expiresAt:Date.now()+21600000});
+      }
+      player.src=signedUrl;
+      player.playbackRate=Number(speed.value);
+      audioPlaybackState.lastPath=track.path;
+      saveAudioPlaybackState();
+      player.onloadedmetadata=()=>{
+        const saved=Number(audioPlaybackState.positions?.[track.path]||0);
+        if(saved>0 && saved<player.duration-2) player.currentTime=saved;
+        status.textContent=saved>0?`Resumed at ${Math.floor(saved/60)}:${String(Math.floor(saved%60)).padStart(2,'0')}.`:'Ready to play.';
+        if(autoplay) player.play().catch(()=>{});
+      };
+      player.onerror=()=>{status.textContent='Audio file unavailable. Check that this MP3 was uploaded to the expected storage folder.';};
+    }catch(error){
+      status.textContent=error?.message||'Unable to open this audio track.';
+    }
+  }
+
+  buttons.forEach((button,index)=>button.onclick=()=>loadTrack(index,true));
+  previous.onclick=()=>loadTrack(currentIndex-1,true);
+  next.onclick=()=>loadTrack(currentIndex+1,true);
+  $('#audioBack').onclick=()=>{player.currentTime=Math.max(0,player.currentTime-10);};
+  $('#audioForward').onclick=()=>{player.currentTime=Math.min(player.duration||Infinity,player.currentTime+10);};
+  speed.onchange=()=>{
+    audioPlaybackState.speed=Number(speed.value);
+    player.playbackRate=audioPlaybackState.speed;
+    saveAudioPlaybackState();
+  };
+  player.ontimeupdate=()=>{
+    const track=tracks[currentIndex]; if(!track) return;
+    const second=Math.floor(player.currentTime||0);
+    if(second===lastSavedSecond||second%5!==0) return;
+    lastSavedSecond=second;
+    audioPlaybackState.positions={...(audioPlaybackState.positions||{}),[track.path]:second};
+    saveAudioPlaybackState();
+  };
+  player.onended=()=>{
+    const track=tracks[currentIndex];
+    if(track){audioPlaybackState.positions={...(audioPlaybackState.positions||{}),[track.path]:0};saveAudioPlaybackState();}
+    status.textContent=currentIndex<tracks.length-1?'Track complete. Choose Next to continue.':'Lesson audio complete.';
+  };
+
+  const rememberedIndex=tracks.findIndex(track=>track.path===audioPlaybackState.lastPath);
+  if(rememberedIndex>=0) loadTrack(rememberedIndex,false);
+}
+
 function renderLesson(n){
   const l=lessonByNumber(n); if(!l)return;
   $('#hero').hidden=true; $('#bottomArea').hidden=true; $('#weekView').hidden=true; $('#mainContent').hidden=false;
@@ -971,6 +1091,7 @@ function renderLesson(n){
     <section class="study-rule panel"><div><h3>Textbook first</h3><p>Work through the actual textbook lesson <strong>pp.${l.textbook.start}–${l.textbook.end}</strong>. Each section below now points to its own page range. If you already know a section, do a representative check and move on rather than grinding repetitive practice.</p></div><button class="smallbtn primary" id="lessonMastery">Optional mastery check</button></section>
     <section class="panel lesson-overview"><div class="overview-grid"><div><div class="eyebrow">Can-do goals</div><ul>${cando}</ul></div><div><div class="eyebrow">Target grammar</div><ul>${grammar}</ul></div></div>${l.textbook.note?`<p class="subtitle"><strong>Language / culture note:</strong> ${esc(l.textbook.note)}</p>`:''}</section>
     <section class="panel book-map-panel"><div class="section-heading"><div><div class="eyebrow">Textbook · pp.${l.textbook.start}–${l.textbook.end}</div><h2>Textbook content map</h2><p class="subtitle">Use this as the primary route through the physical book. Grammar points are listed inside the Grammar section.</p></div></div><div class="book-section-list">${textbookSections}</div></section>
+    ${audioPanelMarkup(n)}
     <section class="lesson-grid">
       <div class="lesson-column"><div class="section-heading"><div><div class="eyebrow">Workbook 2</div><h2>Vocabulary · grammar · listening</h2><p class="subtitle">Complete these after the corresponding textbook work.</p></div></div><div class="book-section-list">${wb2Rows}</div></div>
       <div class="lesson-column"><div class="section-heading"><div><div class="eyebrow">Workbook 1</div><h2>Kanji · reading · writing</h2><p class="subtitle">Use as reinforcement for the same lesson, especially where a section is weak.</p></div></div><div class="book-section-list">${wb1Rows}</div></div>
@@ -982,6 +1103,7 @@ function renderLesson(n){
   $('#prevLesson').onclick=()=>{if(n>11){state.lesson=n-1;render();}};
   $('#nextLesson').onclick=()=>{if(n<20){state.lesson=n+1;render();}};
   $('#lessonMastery').onclick=()=>openLessonMastery(l);
+  initLessonAudio(n);
   const lessonNoteKey=`lesson-${n}`;
   $('#lessonNotes').value=state.taskState[lessonNoteKey]?.notes||'';
   $('#lessonNotes').oninput=e=>{state.taskState[lessonNoteKey]={...ts(lessonNoteKey),notes:e.target.value};saveLocal();cloudSave(lessonNoteKey);};
