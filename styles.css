@@ -83,3 +83,86 @@
     margin-top:0;
   }
 }
+
+
+/* Pomodoro widget cleanup */
+.pomo-widget{
+  width:min(300px,calc(100vw - 28px));
+  padding:16px;
+  border-radius:16px;
+}
+.pomo-head{
+  gap:10px;
+  margin-bottom:6px;
+}
+.pomo-mode{
+  line-height:1.2;
+}
+.pomo-cycle{
+  white-space:nowrap;
+}
+.pomo-time{
+  font-size:36px;
+  line-height:1;
+  margin:10px 0 4px;
+}
+.pomo-task{
+  min-height:18px;
+  margin-bottom:8px;
+}
+.pomo-bar{
+  margin:11px 0 12px;
+}
+.pomo-controls{
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:7px;
+}
+.pomo-controls .smallbtn{
+  min-width:0;
+  padding:9px 8px;
+  line-height:1.1;
+}
+.pomo-quicklink{
+  margin-top:9px;
+  padding:8px 9px;
+  line-height:1.2;
+}
+.pomo-widget details{
+  margin-top:9px;
+}
+.pomo-widget summary{
+  cursor:pointer;
+  color:var(--muted);
+  font-size:12px;
+  padding:3px 0;
+}
+@media(max-width:760px){
+  .pomo-widget{
+    right:10px;
+    bottom:10px;
+    width:min(280px,calc(100vw - 20px));
+    padding:13px;
+  }
+  .pomo-time{
+    font-size:32px;
+    margin-top:8px;
+  }
+  .pomo-controls{
+    grid-template-columns:repeat(3,1fr);
+    gap:6px;
+  }
+}
+@media(max-width:430px){
+  .pomo-widget{
+    width:calc(100vw - 20px);
+    max-width:none;
+  }
+  .pomo-head{
+    align-items:flex-start;
+  }
+  .pomo-controls .smallbtn{
+    padding:10px 6px;
+    font-size:13px;
+  }
+}
