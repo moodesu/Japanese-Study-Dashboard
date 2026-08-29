@@ -2067,7 +2067,7 @@ summary:focus-visible {
 }
 /* v1.0 final book-cover presentation */
 .book-card .book-cover-visual {
-  height:230px;
+  height:260px;
   display:flex;
   align-items:center;
   justify-content:center;
@@ -2088,6 +2088,6 @@ summary:focus-visible {
 
 @media(max-width:760px) {
   .book-card .book-cover-visual {
-    height:250px;
+    height:280px;
   }
 }
