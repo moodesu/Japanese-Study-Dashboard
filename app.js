@@ -858,7 +858,21 @@ function searchIndex(q){
 function renderSearchResults(q){
   const box=$('#searchResults'); if(!box)return; const rows=searchIndex(q);
   box.innerHTML=q.trim()? (rows.length?rows.map(x=>`<button class="search-result" data-search-type="${esc(x.type)}" data-search-id="${esc(x.id)}"><span class="search-type">${esc(x.type)}</span><strong>${esc(x.title)}</strong><small>${esc(x.meta)}</small></button>`).join(''):'<div class="empty">No matches.</div>'):'<div class="empty">Search lessons, tasks, books or your task notes.</div>';
-  box.querySelectorAll('.search-result').forEach(b=>b.onclick=()=>{const type=b.dataset.searchType,id=b.dataset.searchId;$('#searchDialog').close();if(type==='Task'||type==='Note'){openTask(id);}else if(type==='Lesson'){state.view='lesson';state.lesson=Number(id.replace('lesson-',''));render();}else{state.libraryItem=id;state.view='library';render();}});
+  box.querySelectorAll('.search-result').forEach(b=>b.onclick=()=>{
+    const type=b.dataset.searchType,id=b.dataset.searchId;
+    $('#searchDialog').close();
+    if(type==='Lesson' || (type==='Note' && id.startsWith('lesson-'))){
+      state.view='lesson';
+      state.lesson=Number(id.replace('lesson-',''));
+      render();
+    }else if(type==='Task'||type==='Note'){
+      openTask(id);
+    }else{
+      state.libraryItem=id;
+      state.view='library';
+      render();
+    }
+  });
 }
 
 function renderDashboard(){
