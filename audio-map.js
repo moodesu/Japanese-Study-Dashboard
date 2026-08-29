@@ -20,11 +20,11 @@
   };
 
   const categoryDefinitions = [
-    {key:"conversation",label:"会話",english:"Conversation"},
-    {key:"vocabulary",label:"単語リスト",english:"Vocabulary list"},
-    {key:"speaking",label:"話しましょう",english:"Speaking"},
-    {key:"reading",label:"読みましょう",english:"Reading"},
-    {key:"listening",label:"聞きましょう",english:"Listening"}
+    {key:"conversation",label:"会話",english:"Conversation",guide:"Book closed first: listen for the situation, then read, replay and shadow."},
+    {key:"vocabulary",label:"単語リスト",english:"Vocabulary list",guide:"Listen for pronunciation, then pause and recall each word without looking."},
+    {key:"speaking",label:"話しましょう",english:"Speaking",guide:"Pause after each prompt, answer aloud, then replay and compare."},
+    {key:"reading",label:"読みましょう",english:"Reading",guide:"Read for gist before playing the audio; then replay, reread and shadow."},
+    {key:"listening",label:"聞きましょう",english:"Listening",guide:"Listen without the script first; answer, check what you missed, then replay."}
   ];
 
   function pad(n){ return String(n).padStart(2,"0"); }

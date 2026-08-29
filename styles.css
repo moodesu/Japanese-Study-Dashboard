@@ -15,6 +15,7 @@
 .audio-group-heading{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:9px}
 .audio-group-heading strong{font-size:14px}
 .audio-group-heading span{font-size:11px;color:var(--muted)}
+.audio-group-guide{margin:-2px 0 10px;color:var(--muted);font-size:11px;line-height:1.45}
 .audio-track-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:6px}
 .audio-track{display:flex;align-items:center;gap:7px;text-align:left;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);padding:8px;min-width:0}
 .audio-track:hover{border-color:#a9bfc4;background:#f1f7f6}

@@ -1002,7 +1002,7 @@ function audioPanelMarkup(n){
   const groups=(AUDIO_LIBRARY.categories||[]).map(category=>{
     const tracks=lessonAudio.groups?.[category.key]||[];
     if(!tracks.length) return '';
-    return `<div class="audio-group"><div class="audio-group-heading"><strong>${esc(category.label)}</strong><span>${esc(category.english)} · ${tracks.length}</span></div><div class="audio-track-list">${tracks.map(track=>`<button type="button" class="audio-track" data-audio-path="${esc(track.path)}"><span>${esc(track.badge||String(track.number).padStart(2,'0'))}</span><strong>${esc(track.title)}</strong></button>`).join('')}</div></div>`;
+    return `<div class="audio-group"><div class="audio-group-heading"><strong>${esc(category.label)}</strong><span>${esc(category.english)} · ${tracks.length}</span></div>${category.guide?`<p class="audio-group-guide">${esc(category.guide)}</p>`:''}<div class="audio-track-list">${tracks.map(track=>`<button type="button" class="audio-track" data-audio-path="${esc(track.path)}"><span>${esc(track.badge||String(track.number).padStart(2,'0'))}</span><strong>${esc(track.title)}</strong></button>`).join('')}</div></div>`;
   }).join('');
   return `<section class="panel lesson-audio-panel">
     <div class="panelhead"><div><div class="eyebrow">Private lesson audio</div><h2>Listen and shadow</h2><p class="subtitle">会話 · 単語リスト · 話しましょう · 読みましょう · 聞きましょう</p></div><span class="audio-private-badge">Authenticated</span></div>
