@@ -606,6 +606,24 @@ function renderBookMap(bookId){
 
   const lessons=map.lessons||[];
   const projects=map.projects||[];
+  const renderMappedLesson=l=>{
+    const meta=[];
+    if(l.conversation) meta.push({label:'Conversation',value:l.conversation});
+    if(l.topic) meta.push({label:'Topic',value:l.topic});
+    for(const range of (l.rangeDetails||[])) meta.push(range);
+    const readings=l.readings||[];
+    const canDo=l.canDo||[];
+    const components=l.components||[];
+    return `
+      <article class="mapped-lesson">
+        <div class="mapped-lesson-top"><span class="lessonnum">${l.n}</span><div>${l.unit?`<div class="eyebrow">${esc(l.unit)}</div>`:''}<h3>${esc(l.title)}</h3></div><strong>pp. ${esc(l.pages||'—')}</strong></div>
+        ${meta.length?`<div class="mapped-meta">${meta.map(x=>`<div><span>${esc(x.label)}</span><strong>${esc(x.value)}</strong></div>`).join('')}</div>`:''}
+        ${readings.length?`<div class="mapped-readings"><span>Readings</span>${readings.map(r=>`<span class="chip">${esc(r)}</span>`).join('')}</div>`:''}
+        ${canDo.length?`<details class="mapped-cando"><summary>Can-Do goals (${canDo.length})</summary><ul>${canDo.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></details>`:''}
+        ${components.length?`<div class="mapped-components">${components.map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</div>`:''}
+        ${l.project?`<div class="mapped-project"><span>Project</span><strong>${esc(l.project)}</strong></div>`:''}
+      </article>`;
+  };
   $('#mainContent').innerHTML=`
     <div class="book-detail-toolbar">
       <button class="smallbtn" id="backToLibrary">← Learning hub</button>
@@ -617,7 +635,7 @@ function renderBookMap(bookId){
       <p>${esc(book.description)}</p>
       <div class="book-detail-stats">
         <div><strong>${map.structure.lessons}</strong><span>lessons</span></div>
-        <div><strong>${map.structure.units}</strong><span>units</span></div>
+        <div><strong>${map.structure.units}</strong><span>${esc(map.structure.unitLabel||'units')}</span></div>
         <div><strong>${esc(map.structure.lessonPages)}</strong><span>lesson pages</span></div>
       </div>
     </section>
@@ -627,26 +645,18 @@ function renderBookMap(bookId){
       <div class="book-reference-note">${esc(map.sourceNote)}</div>
     </section>
     <section class="library-section">
-      <div class="panelhead"><div><h2>Lesson map</h2><p class="subtitle">Exact main-text lesson ranges from the supplied book. The app deliberately does not invent subsection page numbers.</p></div></div>
+      <div class="panelhead"><div><h2>Lesson map</h2><p class="subtitle">${esc(map.lessonMapNote||'Exact main-text lesson ranges from the supplied book. The app deliberately does not invent subsection page numbers.')}</p></div></div>
       <div class="book-lesson-map">
-        ${lessons.map(l=>`
-          <article class="mapped-lesson">
-            <div class="mapped-lesson-top"><span class="lessonnum">${l.n}</span><div><div class="eyebrow">${esc(l.unit)}</div><h3>${esc(l.title)}</h3></div><strong>pp. ${esc(l.pages)}</strong></div>
-            <div class="mapped-meta"><div><span>Conversation</span><strong>${esc(l.conversation)}</strong></div><div><span>Topic</span><strong>${esc(l.topic)}</strong></div></div>
-            <div class="mapped-readings"><span>Readings</span>${l.readings.map(r=>`<span class="chip">${esc(r)}</span>`).join('')}</div>
-            <details class="mapped-cando"><summary>Can-Do goals (${l.canDo.length})</summary><ul>${l.canDo.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></details>
-            <div class="mapped-components">${l.components.map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</div>
-            <div class="mapped-project"><span>Project</span><strong>${esc(l.project)}</strong></div>
-          </article>`).join('')}
+        ${lessons.map(renderMappedLesson).join('')}
       </div>
     </section>
-    <section class="library-section">
+    ${projects.length?`<section class="library-section">
       <div class="panelhead"><div><h2>Unit projects</h2><p class="subtitle">Projects are integration work, not extra daily textbook pages.</p></div></div>
       <div class="project-map">${projects.map(p=>`<article class="project-map-card"><div class="eyebrow">${esc(p.unit)} · Lessons ${esc(p.lessons)}</div><h3>${esc(p.title)}</h3><p>${esc(p.note)}</p></article>`).join('')}</div>
-    </section>
+    </section>`:''}
     <section class="library-section">
       <div class="panelhead"><div><h2>Programme status</h2><p class="subtitle">This book is mapped, but it is deliberately not part of your current schedule.</p></div></div>
-      <div class="future-programme panel"><strong>Ready for the next step:</strong> create a dedicated study programme when you decide how you want to use TOBIRA I. The current Beginning Japanese II programme and its progress are unaffected.</div>
+      <div class="future-programme panel"><strong>Ready for the next step:</strong> ${esc(map.programmeNote||`Create a dedicated study programme when you decide how you want to use ${book.title}. The current Beginning Japanese II programme and its progress are unaffected.`)}</div>
     </section>`;
   $('#backToLibrary').onclick=()=>{state.libraryItem=null;state.view='library';render();scrollTo({top:0,behavior:'smooth'});};
 }
