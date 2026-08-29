@@ -255,6 +255,19 @@ let audioPlaybackState = (()=>{
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function applyTheme(theme,persist=true){
+  const value=theme==='dark'?'dark':'light', dark=value==='dark';
+  document.documentElement.dataset.theme=value;
+  if(persist) localStorage.setItem('studyTheme',value);
+  const button=$('#themeToggle');
+  if(button){
+    button.textContent=dark?'☀':'☾';
+    button.title=dark?'Switch to light mode':'Switch to dark mode';
+    button.setAttribute('aria-label',button.title);
+  }
+  const meta=document.querySelector('meta[name="theme-color"]');
+  if(meta) meta.content=dark?'#0f1722':'#18263b';
+}
 const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
 const fmt = d => d.toLocaleDateString(undefined, {weekday:'long', month:'short', day:'numeric'});
 const fmtMinutes = m => `${Math.floor(m/60)}h${m%60?` ${m%60}m`:''}`;
@@ -931,9 +944,7 @@ function renderDashboard(){
     </section>
     <section class="dashboard-history panel"><div class="panelhead"><div><h2>Study history</h2><p class="subtitle">Logged focus time from the last 7 days. This is a record, not a score.</p></div><strong>${fmtDuration(weekTime)}</strong></div><div class="history-days">${Array.from({length:7},(_,i)=>{const d=addDays(new Date(),i-6),key=dateKey(d),secs=state.sessions.filter(x=>dateKey(new Date(x.completed_at))===key).reduce((a,x)=>a+x.duration_seconds,0);return `<div class="history-day"><strong>${fmtDuration(secs)}</strong><i style="height:${Math.max(6,Math.min(100,secs/3600*100))}%"></i><small>${d.toLocaleDateString(undefined,{weekday:'short'})}</small></div>`}).join('')}</div></section>
     <section class="dashboard-lower"><article class="panel"><div class="panelhead"><div><h3>Needs attention</h3><p class="subtitle">Optional flags and notes from your study tasks.</p></div></div>${attention.length?`<div class="attentionlist">${attention.map(x=>`<button class="attention" data-task="${esc(x.t.id)}"><span class="status-dot ${x.s.mastery}"></span><span><strong>${esc(x.t.title)}</strong><small>L${x.t.lesson} · ${esc(x.t.book)} · p.${x.t.page}</small></span></button>`).join('')}</div>`:'<div class="empty">Nothing flagged yet.</div>'}</article>
-    <article class="panel"><div class="panelhead"><div><h3>Study time by activity</h3><p class="subtitle">Immersion and habit time logged through Pomodoro.</p></div></div><div class="timebars">${activityRows.map(a=>`<div class="timebar-row"><span>${esc(a.label)}</span><div class="timebar-track"><i style="width:${a.secs?Math.min(100,a.secs/maxActivity*100):0}%"></i></div><strong>${fmtDuration(a.secs)}</strong></div>`).join('')}</div></article></section>
-    <section class="panel dashboard-roadmap"><div class="panelhead"><div><div class="eyebrow">Product roadmap</div><h2>Learning Hub improvements</h2><p class="subtitle">A living checklist. Completed items stay checked; future refinement can be added here as we learn from actual use.</p></div><span class="roadmap-count">${ROADMAP_ITEMS.filter(x=>roadmapDone(x.id)).length}/${ROADMAP_ITEMS.length}</span></div><div class="roadmap-list">${ROADMAP_ITEMS.map(x=>`<label class="roadmap-item ${roadmapDone(x.id)?'done':''}"><input type="checkbox" data-roadmap="${esc(x.id)}" ${roadmapDone(x.id)?'checked':''}><span><strong>${esc(x.title)}</strong><small>${esc(x.detail)}</small></span></label>`).join('')}</div></section>`;
-  $('#mainContent').querySelectorAll('[data-roadmap]').forEach(c=>c.onchange=e=>setRoadmapDone(e.target.dataset.roadmap,e.target.checked));
+    <article class="panel"><div class="panelhead"><div><h3>Study time by activity</h3><p class="subtitle">Immersion and habit time logged through Pomodoro.</p></div></div><div class="timebars">${activityRows.map(a=>`<div class="timebar-row"><span>${esc(a.label)}</span><div class="timebar-track"><i style="width:${a.secs?Math.min(100,a.secs/maxActivity*100):0}%"></i></div><strong>${fmtDuration(a.secs)}</strong></div>`).join('')}</div></article></section>`;
   $('#resumeWeek')?.addEventListener('click',()=>{state.view='plan';state.week=w;render();});
   $('#openNext')?.addEventListener('click',()=>{state.week=next.week;state.view='plan';render();setTimeout(()=>openTask(next.task.id),50);});
   $('#openNextTask')?.addEventListener('click',()=>{state.week=next.week;state.view='plan';render();setTimeout(()=>openTask(next.task.id),50);});
@@ -1220,6 +1231,8 @@ const pomoCycleLen=$('#pomoCycleLen'); if(pomoCycleLen) pomoCycleLen.onchange=e=
 $('#openLogin').onclick=()=>$('#authDialog').showModal();
 $('#gateLogin').onclick=()=>$('#authDialog').showModal();
 $('#closeLogin').onclick=()=>$('#authDialog').close();
+$('#themeToggle').onclick=()=>applyTheme(document.documentElement.dataset.theme==='dark'?'light':'dark');
+applyTheme(document.documentElement.dataset.theme||'light',false);
 $('#backToTop').onclick=()=>window.scrollTo({top:0,behavior:'smooth'});
 window.addEventListener('scroll',updateBackToTop,{passive:true});
 $('#loginForm').onsubmit=async e=>{

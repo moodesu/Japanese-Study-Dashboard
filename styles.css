@@ -2175,3 +2175,108 @@ summary:focus-visible {
     height:42px;
   }
 }
+
+/* Light / dark appearance */
+.account {
+  flex-wrap:wrap;
+  justify-content:flex-end;
+}
+
+.theme-toggle {
+  width:40px;
+  min-width:40px;
+  padding:8px;
+  font-size:18px;
+  line-height:1;
+}
+
+html[data-theme="dark"] {
+  color-scheme:dark;
+  --bg:#0f1722;
+  --card:#172331;
+  --ink:#edf4f7;
+  --muted:#a7b4c3;
+  --line:#344455;
+  --accent:#5abbd0;
+  --soft:#203744;
+  --shadow:0 10px 30px rgba(0,0,0,.24);
+}
+
+html[data-theme="dark"] body {
+  background:linear-gradient(180deg,#0b121a,#101923 55%);
+}
+
+html[data-theme="dark"] .login-gate {
+  background:radial-gradient(circle at top,#1b3039 0,#101923 48%,#0b121a 100%);
+}
+
+html[data-theme="dark"] :is(.topbar,.today-hero,.lessonhero,.library-hero,.primarycard,.book-card.active-book,.program-card.active-program,.audio-player-card) {
+  background:linear-gradient(145deg,#192634,#142a33);
+}
+
+html[data-theme="dark"] :is(.gate-card,.hero,.day,.panel,.dashcard,.book-card,.resource-card,.program-card,.architecture-note,.lesson-column,.search-shell,.modal,.pomo-widget,.pomodoro-widget) {
+  background:var(--card);
+  border-color:var(--line);
+}
+
+html[data-theme="dark"] :is(.task,.habitlist .task,.notes,.settings input,.modalgrid select,.modal textarea,.authbox input,.attention,.lessonhero-grid div,.component,.page-chip,.mastery-row,.book-section,.audio-group,.audio-track,.audio-speed select,.search-result,.wk-tool,.pomo-quicklink) {
+  background:#111c28;
+  color:var(--ink);
+  border-color:var(--line);
+}
+
+html[data-theme="dark"] :is(input,select,textarea) {
+  background:#101a25;
+  color:var(--ink);
+  border-color:var(--line);
+}
+
+html[data-theme="dark"] :is(.lessonrow:hover,.component:hover,.audio-track:hover,.attention:hover,.search-result:hover,.smallbtn:hover:not(:disabled),.ghost:hover:not(:disabled)) {
+  background:#1d2d3a;
+  border-color:#526779;
+}
+
+html[data-theme="dark"] :is(.progress,.mini-progress,.timebar-track,.wk-srs-track,.pomo-progress,.pomo-bar) {
+  background:#293847;
+}
+
+html[data-theme="dark"] :is(.navbtn.active,.weektab.active,.smallbtn.primary,.gate-login,.back-to-top) {
+  background:#dceff3;
+  border-color:#dceff3;
+  color:#10202c;
+}
+
+html[data-theme="dark"] :is(.navbtn.active,.weektab.active,.smallbtn.primary,.gate-login,.back-to-top):hover {
+  background:#c5e4eb;
+  border-color:#c5e4eb;
+  color:#10202c;
+}
+
+html[data-theme="dark"] .audio-track.active {
+  background:#203b47;
+  border-color:var(--accent);
+}
+
+html[data-theme="dark"] .audio-track span,
+html[data-theme="dark"] .booktag,
+html[data-theme="dark"] .status-label {
+  background:#293744;
+  color:var(--muted);
+}
+
+html[data-theme="dark"] .status-label.studying { background:#5a4521; color:#f5d89a; }
+html[data-theme="dark"] .status-label.shaky { background:#573027; color:#f3bbb0; }
+html[data-theme="dark"] .status-label.mastered { background:#234638; color:#a9dfc4; }
+html[data-theme="dark"] .status-label.review { background:#2c3c62; color:#c3d0f4; }
+html[data-theme="dark"] .audio-private-badge { background:#24483b; color:#afe1c8; }
+html[data-theme="dark"] .pomo-nav-btn.is-running { background:#573027; border-color:#865044; color:#f3bbb0; }
+html[data-theme="dark"] .modal::backdrop { background:rgba(0,0,0,.68); }
+html[data-theme="dark"] .toast { background:#e4f1f4; color:#10202c; }
+html[data-theme="dark"] .book-cover-visual { background:#101923; }
+html[data-theme="dark"] .book-cover-visual img { background:#fff; }
+
+@media(max-width:760px) {
+  .account {
+    justify-content:flex-start;
+  }
+}
