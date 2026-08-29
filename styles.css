@@ -2065,3 +2065,29 @@ summary:focus-visible {
 @media(max-width:760px) {
   .book-card .book-cover-visual { height:220px; }
 }
+/* v1.0 final book-cover presentation */
+.book-card .book-cover-visual {
+  height:230px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:#f7f5ef;
+}
+
+.book-card .book-cover-visual img {
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  object-position:center;
+  padding:10px;
+  background:#fff;
+}
+
+@media(max-width:760px) {
+  .book-card .book-cover-visual {
+    height:250px;
+  }
+}
