@@ -122,7 +122,7 @@ window.PROGRAMMES = [
     id:"tobira-intermediate-future", bookId:"tobira-intermediate-i",
     title:"TOBIRA Intermediate Japanese I · future programme", shortTitle:"Intermediate Japanese I",
     status:"planned", weeks:null, targetHours:[12,18],
-    description:"Add the contents and workbook mappings when you are ready; the same programme engine will schedule it."
+    description:"The textbook content map is ready. Build the workbook tasks and schedule when you decide to make Intermediate Japanese I an active programme."
   },
   {
     id:"tobira-gateway-future", bookId:"tobira-gateway",
@@ -288,8 +288,8 @@ window.OPTIONAL_TASKS = [
 // provide their lesson/page data in the same shape as CURRICULUM when ready.
 window.BOOKS = [
   {id:"tobira-beginning-i", title:"TOBIRA Beginning Japanese I", series:"TOBIRA", level:"Beginning Japanese", status:"available", description:"Foundation course. Use for targeted review or a future full pass when needed.", curriculum:false, resources:[]},
-  {id:"tobira-beginning-ii", title:"TOBIRA Beginning Japanese II", series:"TOBIRA", level:"Beginning Japanese", status:"active", description:"Current core curriculum: Lessons 11–20, with textbook + Workbook 1 + Workbook 2 mapped to exact pages.", curriculum:true, workbooks:["Workbook 1","Workbook 2"]},
-  {id:"tobira-intermediate-i", title:"TOBIRA Intermediate Japanese I", series:"TOBIRA", level:"Intermediate Japanese", status:"planned", description:"Intermediate textbook already mapped in the Learning Hub and ready for a future study programme.", curriculum:false},
+  {id:"tobira-beginning-ii", title:"TOBIRA Beginning Japanese II", series:"TOBIRA", level:"Beginning Japanese", status:"active", description:"Current core curriculum: Lessons 11–20, with textbook + Workbook 1 + Workbook 2 mapped to exact pages.", curriculum:true, cover:"assets/covers/tobira-beginning-ii.jpg", workbooks:["Workbook 1","Workbook 2"]},
+  {id:"tobira-intermediate-i", title:"TOBIRA Intermediate Japanese I", series:"TOBIRA", level:"Intermediate Japanese", status:"planned", description:"Mapped 8-lesson intermediate textbook. Ready for a future dedicated programme; not part of the current Beginning II schedule.", curriculum:false, cover:"assets/covers/tobira-intermediate-i.jpg"},
   {id:"tobira-gateway", title:"TOBIRA Gateway to Advanced Japanese", series:"TOBIRA", level:"Advanced", status:"available", description:"Advanced follow-on course. Keep as the next major textbook layer after Beginning II is secure.", curriculum:false},
   {id:"shinkanzen-n4", title:"新完全マスター N4", series:"Shin Kanzen Master", level:"JLPT N4", status:"planned", description:"Reserve for diagnostic work and targeted foundation repair rather than parallel full-course study.", curriculum:false},
   {id:"shinkanzen-n3", title:"新完全マスター N3", series:"Shin Kanzen Master", level:"JLPT N3", status:"planned", description:"Future JLPT preparation layer once the current textbook cycle is established.", curriculum:false},
