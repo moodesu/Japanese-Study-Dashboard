@@ -2275,6 +2275,34 @@ html[data-theme="dark"] .toast { background:#e4f1f4; color:#10202c; }
 html[data-theme="dark"] .book-cover-visual { background:#101923; }
 html[data-theme="dark"] .book-cover-visual img { background:#fff; }
 
+/* Components introduced in the later dashboard visual pass. These had
+   light-only fills, which overrode the dark theme and reduced text contrast. */
+html[data-theme="dark"] :is(.focusitem,.roadmap-item,.roadmap-item.done,
+  .week-overview,.study-rule,.task-items,.task-workflow,
+  .lessonhero-grid div,.book-section.done) {
+  background:#111c28;
+  color:var(--ink);
+  border-color:var(--line);
+}
+
+html[data-theme="dark"] :is(.focusitem:hover,.roadmap-item:hover) {
+  background:#1d2d3a;
+  border-color:#526779;
+}
+
+html[data-theme="dark"] .wk-level-card {
+  background:linear-gradient(145deg,#192634,#142a33);
+}
+
+html[data-theme="dark"] :is(.programme-card,.programme-card.active-programme) {
+  background:var(--card);
+  border-color:var(--line);
+}
+
+html[data-theme="dark"] .programme-card.active-programme {
+  background:linear-gradient(145deg,#192634,#142a33);
+}
+
 @media(max-width:760px) {
   .account {
     justify-content:flex-start;
