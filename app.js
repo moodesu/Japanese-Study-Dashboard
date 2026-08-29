@@ -5,7 +5,7 @@ const AUDIO_LIBRARY = window.LESSON_AUDIO || {lessons:{},categories:[]};
 const audioUrlCache = new Map();
 
 const WK = window.WANIKANI_CONFIG || {};
-const hasWaniKani = !!(WK.apiToken && !WK.apiToken.includes('YOUR_'));
+const hasWaniKani = !!(WK.endpoint && db);
 let waniKaniState = { status:'idle', data:null, error:null, fetchedAt:null };
 let waniKaniPromise = null;
 const WK_CACHE_KEY = 'wanikaniDashboardCache';
@@ -21,6 +21,13 @@ function readWaniKaniCache(){
     if(c && c.fetchedAt && Date.now()-c.fetchedAt < WK_CACHE_TTL) return c;
   }catch(e){}
   return null;
+}
+function clearPrivateSessionCaches(){
+  localStorage.removeItem(WK_CACHE_KEY);
+  localStorage.removeItem(WK_DETAIL_CACHE_KEY);
+  audioUrlCache.clear();
+  waniKaniState={status:'idle',data:null,error:null,fetchedAt:null};
+  waniKaniDetailState={status:'idle',data:null,error:null,fetchedAt:null};
 }
 function countAvailableReviews(summary){
   const now=Date.now();
@@ -38,18 +45,28 @@ function nextReview(summary){
 }
 async function fetchWaniKani(){
   if(!hasWaniKani) return null;
-  const headers={Authorization:`Bearer ${WK.apiToken}`,'Wanikani-Revision':'20170710'};
   const [userRes,summaryRes]=await Promise.all([
-    fetch('https://api.wanikani.com/v2/user',{headers}),
-    fetch('https://api.wanikani.com/v2/summary',{headers})
+    fetchWaniKaniEndpoint('user'),
+    fetchWaniKaniEndpoint('summary')
   ]);
-  if(!userRes.ok || !summaryRes.ok){
-    let message=`WaniKani API error (${userRes.status}/${summaryRes.status})`;
-    try{ const body=await (!userRes.ok?userRes:summaryRes).json(); if(body?.error?.message) message=body.error.message; }catch(e){}
-    throw new Error(message);
-  }
-  const user=await userRes.json(), summary=await summaryRes.json();
+  const user=userRes, summary=summaryRes;
   return {user:user.data,summary:summary.data,fetchedAt:Date.now()};
+}
+async function fetchWaniKaniEndpoint(endpoint,params={}){
+  if(!db||!state.user) throw new Error('Sign in to load WaniKani.');
+  const {data,error}=await db.auth.getSession();
+  if(error||!data.session?.access_token) throw new Error('Your session has expired. Sign in again.');
+  const url=new URL(WK.endpoint,window.location.origin);
+  url.searchParams.set('endpoint',endpoint);
+  Object.entries(params).forEach(([key,value])=>{if(value!==null&&value!==undefined&&value!=='')url.searchParams.set(key,String(value));});
+  const response=await fetch(url,{headers:{Authorization:`Bearer ${data.session.access_token}`,Accept:'application/json'}});
+  let body=null;
+  try{body=await response.json();}catch(error){}
+  if(!response.ok){
+    const message=typeof body?.error==='string'?body.error:body?.error?.message;
+    throw new Error(message||`WaniKani service error (${response.status})`);
+  }
+  return body;
 }
 async function loadWaniKani(force=false){
   if(!hasWaniKani){ waniKaniState={status:'unconfigured',data:null,error:null,fetchedAt:null}; renderWaniKani(); return; }
@@ -77,16 +94,16 @@ function readWaniKaniDetailCache(){
   return null;
 }
 async function fetchAllWaniKaniAssignments(){
-  const headers={Authorization:`Bearer ${WK.apiToken}`,'Wanikani-Revision':'20170710'};
-  let url='https://api.wanikani.com/v2/assignments';
   const all=[];
-  while(url){
-    const res=await fetch(url,{headers});
-    if(!res.ok) throw new Error(`WaniKani assignments error (${res.status})`);
-    const body=await res.json();
+  let pageAfterId=null;
+  do{
+    const body=await fetchWaniKaniEndpoint('assignments',{page_after_id:pageAfterId});
     all.push(...(body.data||[]));
-    url=body.pages?.next_url||null;
-  }
+    pageAfterId=null;
+    if(body.pages?.next_url){
+      try{pageAfterId=new URL(body.pages.next_url).searchParams.get('page_after_id');}catch(error){}
+    }
+  }while(pageAfterId);
   return all;
 }
 function buildWaniKaniDetail(assignments, summary, user){
@@ -160,7 +177,7 @@ function renderWaniKaniDashboard(){
   if(state.view!=='wanikani') return;
   $('#hero').hidden=true; $('#bottomArea').hidden=true; $('#weekView').hidden=true; $('#mainContent').hidden=false;
   if(waniKaniDetailState.status==='unconfigured'){
-    $('#mainContent').innerHTML=`<section class="wk-page"><div class="wk-page-head"><div><div class="eyebrow">Supporting resource</div><h1>WaniKani</h1><p class="subtitle">Add your API token to <code>wanikani-config.js</code> to load your dashboard.</p></div></div></section>`; return;
+    $('#mainContent').innerHTML=`<section class="wk-page"><div class="wk-page-head"><div><div class="eyebrow">Supporting resource</div><h1>WaniKani</h1><p class="subtitle">The private WaniKani service has not been configured.</p></div></div></section>`; return;
   }
   if(waniKaniDetailState.status==='loading'){
     $('#mainContent').innerHTML=`<section class="wk-page"><div class="wk-page-head"><div><div class="eyebrow">Supporting resource</div><h1>WaniKani dashboard</h1><p class="subtitle">Loading your SRS data…</p></div></div><div class="panel wk-loading">Loading detailed assignments. This is cached for one hour.</div></section>`; return;
@@ -205,7 +222,7 @@ function renderWaniKani(){
   const el=$('#wanikaniCard'); if(!el) return;
   el.classList.add('wk-mini-card');
   if(waniKaniState.status==='unconfigured'){
-    el.innerHTML=`<button type="button" class="wk-mini-inner" id="openWkDashboard"><div class="panelhead"><div><div class="eyebrow">Supporting resource</div><h3>WaniKani</h3><p class="subtitle">Add your API token to show live stats.</p></div><span class="wk-mini-arrow">→</span></div></button>`;
+    el.innerHTML=`<button type="button" class="wk-mini-inner" id="openWkDashboard"><div class="panelhead"><div><div class="eyebrow">Supporting resource</div><h3>WaniKani</h3><p class="subtitle">Private WaniKani service not configured.</p></div><span class="wk-mini-arrow">→</span></div></button>`;
   }else if(waniKaniState.status==='loading'){
     el.innerHTML=`<button type="button" class="wk-mini-inner" id="openWkDashboard"><div class="panelhead"><div><div class="eyebrow">Supporting resource</div><h3>WaniKani</h3><p class="subtitle">Loading current stats…</p></div><span class="wk-mini-arrow">→</span></div></button>`;
   }else if(waniKaniState.status==='error'){
@@ -700,10 +717,11 @@ function renderLibrary(){
       <div class="hub-current"><div><span class="eyebrow">Active programme</span><h2>${esc(activeP?.title||'No active programme')}</h2><p>${esc(activeP?.description||'')}</p></div><span class="book-status active">${esc(activeBook().title)}</span></div>
     </section>
     <section class="library-section"><div class="panelhead"><div><h2>Study programmes</h2><p class="subtitle">Choose a structured course when its contents have been mapped. Only the active programme generates the current schedule.</p></div></div><div class="programme-grid">${programmes.map(p=>{const x=programmeSummary(p),active=p.id===state.programmeId,mappedBook=!!(window.BOOK_MAPS||{})[p.bookId];const stageLabel=p.weeks?`${p.weeks} weeks`:mappedBook?'Book mapped':'Not mapped';const placeholder=mappedBook?'Book content is mapped. Programme scheduling and workbook task structure have not been configured yet.':'Contents/pages not mapped yet. Add the book data first; the same programme engine will then handle it.';return `<article class="programme-card ${active?'active-programme':''}"><div class="book-card-top"><span class="book-status ${p.status}">${active?'Active':p.status==='planned'?'Planned':'Available'}</span><span class="book-level">${stageLabel}</span></div><div class="eyebrow">${esc(x.book?.series||'Programme')}</div><h3>${esc(p.title)}</h3><p>${esc(p.description)}</p>${x.ready ? `<div class="programme-meta"><span>${p.targetHours?.[0]||12}–${p.targetHours?.[1]||18} h/week</span><span>${esc(x.book?.level||'')}</span></div>${active?'<span class="current-badge">Current programme</span>':'<button class="smallbtn primary" data-select-programme="'+esc(p.id)+'">Use this programme</button>'}` : `<div class="book-placeholder">${placeholder}</div>`}</article>`}).join('')}</div></section>
-    <section class="library-section"><div class="panelhead"><div><h2>Book library</h2><p class="subtitle">Books are reusable resources. Workbooks and other companion material can be attached to a book without making them separate programmes.</p></div></div><div class="book-grid">${books.map(b=>{const p=programmes.find(x=>x.bookId===b.id);const mapped=!!(window.BOOK_MAPS||{})[b.id];return `<article class="book-card ${b.id===activeBook().id?'active-book':''} ${mapped?'mapped-book':''}" data-open-book="${esc(b.id)}" tabindex="0" role="button"><div class="book-card-top"><span class="book-status ${b.status}">${b.status==='active'?'In use':mapped?'Mapped':b.status==='planned'?'Planned':'Available'}</span><span class="book-level">${esc(b.level)}</span></div>${b.cover?`<div class="book-cover-visual"><img src="${esc(b.cover)}" alt="${esc(b.title)} cover" loading="lazy" onerror="this.closest('.book-cover-visual').hidden=true"></div>`:''}<div class="eyebrow">${esc(b.series)}</div><h3>${esc(b.title)}</h3><p>${esc(b.description)}</p><div class="book-meta">${p?`<span>Programme: ${esc(p.shortTitle||p.title)}</span>`:'<span>No programme mapped</span>'}${b.workbooks?.length?`<span>${b.workbooks.map(esc).join(' · ')}</span>`:''}${mapped?'<span>Open content map →</span>':''}</div></article>`}).join('')}</div></section>
+    <section class="library-section"><div class="panelhead"><div><h2>Book library</h2><p class="subtitle">Books are reusable resources. Workbooks and other companion material can be attached to a book without making them separate programmes.</p></div></div><div class="book-grid">${books.map(b=>{const p=programmes.find(x=>x.bookId===b.id);const mapped=!!(window.BOOK_MAPS||{})[b.id];return `<article class="book-card ${b.id===activeBook().id?'active-book':''} ${mapped?'mapped-book':''}" data-open-book="${esc(b.id)}" tabindex="0" role="button"><div class="book-card-top"><span class="book-status ${b.status}">${b.status==='active'?'In use':mapped?'Mapped':b.status==='planned'?'Planned':'Available'}</span><span class="book-level">${esc(b.level)}</span></div>${b.cover?`<div class="book-cover-visual"><img src="${esc(b.cover)}" alt="${esc(b.title)} cover" loading="lazy"></div>`:''}<div class="eyebrow">${esc(b.series)}</div><h3>${esc(b.title)}</h3><p>${esc(b.description)}</p><div class="book-meta">${p?`<span>Programme: ${esc(p.shortTitle||p.title)}</span>`:'<span>No programme mapped</span>'}${b.workbooks?.length?`<span>${b.workbooks.map(esc).join(' · ')}</span>`:''}${mapped?'<span>Open content map →</span>':''}</div></article>`}).join('')}</div></section>
     <section class="library-section"><div class="panelhead"><div><h2>Study tools & input</h2><p class="subtitle">Supporting resources stay independent from textbook programmes.</p></div></div><div class="resource-grid">${resources.map(r=>`<article class="resource-card"><div class="book-card-top"><span class="resource-type">${esc(r.type)}</span><span class="book-status ${r.status}">${r.status==='active'?'Active':'Available'}</span></div><h3>${esc(r.title)}</h3><p>${esc(r.description)}</p></article>`).join('')}</div></section>
     <section class="library-section architecture-note"><div class="eyebrow">How this scales</div><h2>Book → map → programme → schedule</h2><p>A future textbook can first become a mapped library resource. Only when you decide to study it should it become a programme with its own workload, tasks and progress.</p><div class="hub-flow"><span>Book</span><b>→</b><span>Map</span><b>→</b><span>Programme</span><b>→</b><span>Schedule</span><b>→</b><span>Progress</span></div></section>`;
   $('#mainContent').querySelectorAll('[data-select-programme]').forEach(b=>b.onclick=()=>selectProgramme(b.dataset.selectProgramme));
+  $('#mainContent').querySelectorAll('.book-cover-visual img').forEach(img=>img.onerror=()=>{img.closest('.book-cover-visual').hidden=true;});
   $('#mainContent').querySelectorAll('[data-open-book]').forEach(b=>{
     const open=()=>{state.libraryItem=b.dataset.openBook;state.view='library';render();scrollTo({top:0,behavior:'smooth'});};
     b.onclick=open;
@@ -769,7 +787,7 @@ function renderWaniKaniDashboardView() {
           <h1>WaniKani Dashboard</h1>
           <p class="subtitle">SRS progress, review workload and learning statistics.</p>
         </div>
-        <button class="smallbtn primary" onclick="refreshWaniKani(true)">↻ Refresh</button>
+        <button class="smallbtn primary" type="button">↻ Refresh</button>
       </div>
 
       <div class="wk-stat-grid">
@@ -1032,11 +1050,11 @@ function initLessonAudio(n){
       let signedUrl=cached?.expiresAt>Date.now()+60000?cached.url:null;
       if(!signedUrl){
         if(!db||!state.user) throw new Error('Sign in to play private audio.');
-        const {data,error}=await db.storage.from(AUDIO_LIBRARY.bucket).createSignedUrl(track.path,21600);
+        const {data,error}=await db.storage.from(AUDIO_LIBRARY.bucket).createSignedUrl(track.path,3600);
         if(error) throw error;
         signedUrl=data?.signedUrl;
         if(!signedUrl) throw new Error('No playback URL was returned.');
-        audioUrlCache.set(track.path,{url:signedUrl,expiresAt:Date.now()+21600000});
+        audioUrlCache.set(track.path,{url:signedUrl,expiresAt:Date.now()+3600000});
       }
       player.src=signedUrl;
       player.playbackRate=Number(speed.value);
@@ -1231,6 +1249,8 @@ const pomoCycleLen=$('#pomoCycleLen'); if(pomoCycleLen) pomoCycleLen.onchange=e=
 $('#openLogin').onclick=()=>$('#authDialog').showModal();
 $('#gateLogin').onclick=()=>$('#authDialog').showModal();
 $('#closeLogin').onclick=()=>$('#authDialog').close();
+$('#closeSearch').onclick=()=>$('#searchDialog').close();
+$('#closeTaskModal').onclick=()=>$('#modal').close();
 $('#themeToggle').onclick=()=>applyTheme(document.documentElement.dataset.theme==='dark'?'light':'dark');
 applyTheme(document.documentElement.dataset.theme||'light',false);
 $('#backToTop').onclick=()=>window.scrollTo({top:0,behavior:'smooth'});
@@ -1261,7 +1281,7 @@ $('#loginForm').onsubmit=async e=>{
     if(submit)submit.disabled=false;
   }
 };
-$('#logout').onclick=async()=>{if(db)await db.auth.signOut();state.user=null;state.ready=true;render();};
+$('#logout').onclick=async()=>{if(db)await db.auth.signOut();clearPrivateSessionCaches();state.user=null;state.ready=true;render();};
 const pomoToggle=$('#pomoToggle'); if(pomoToggle) pomoToggle.onclick=()=>{state.pomodoro.status==='running'?pausePomodoro():startPomodoro();};
 const pomoSkip=$('#pomoSkip'); if(pomoSkip) pomoSkip.onclick=()=>skipSession();
 const pomoReset=$('#pomoReset'); if(pomoReset) pomoReset.onclick=()=>resetSession();

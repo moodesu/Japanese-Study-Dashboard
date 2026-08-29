@@ -31,9 +31,21 @@ create table if not exists public.user_preferences (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.pomodoro_sessions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  task_id text,
+  lesson smallint check (lesson between 1 and 99),
+  duration_seconds integer not null check (duration_seconds > 0),
+  started_at timestamptz not null,
+  completed_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+
 alter table public.task_state enable row level security;
 alter table public.app_notes enable row level security;
 alter table public.user_preferences enable row level security;
+alter table public.pomodoro_sessions enable row level security;
 
 drop policy if exists "task_state_select_own" on public.task_state;
 drop policy if exists "task_state_insert_own" on public.task_state;
@@ -62,6 +74,15 @@ create policy "preferences_insert_own" on public.user_preferences for insert wit
 create policy "preferences_update_own" on public.user_preferences for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "preferences_delete_own" on public.user_preferences for delete using (auth.uid() = user_id);
 
+drop policy if exists "pomodoro_sessions_select_own" on public.pomodoro_sessions;
+drop policy if exists "pomodoro_sessions_insert_own" on public.pomodoro_sessions;
+drop policy if exists "pomodoro_sessions_update_own" on public.pomodoro_sessions;
+drop policy if exists "pomodoro_sessions_delete_own" on public.pomodoro_sessions;
+create policy "pomodoro_sessions_select_own" on public.pomodoro_sessions for select using (auth.uid() = user_id);
+create policy "pomodoro_sessions_insert_own" on public.pomodoro_sessions for insert with check (auth.uid() = user_id);
+create policy "pomodoro_sessions_update_own" on public.pomodoro_sessions for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "pomodoro_sessions_delete_own" on public.pomodoro_sessions for delete using (auth.uid() = user_id);
+
 create or replace function public.set_updated_at()
 returns trigger language plpgsql as $$
 begin
@@ -85,9 +106,11 @@ for each row execute function public.set_updated_at();
 revoke all on public.task_state from anon;
 revoke all on public.app_notes from anon;
 revoke all on public.user_preferences from anon;
+revoke all on public.pomodoro_sessions from anon;
 grant select, insert, update, delete on public.task_state to authenticated;
 grant select, insert, update, delete on public.app_notes to authenticated;
 grant select, insert, update, delete on public.user_preferences to authenticated;
+grant select, insert, update, delete on public.pomodoro_sessions to authenticated;
 
 -- Private lesson audio. Run this section once, then upload the extracted
 -- publisher folders L11-13, L14-16, L17-20 and reading_L11-20 into this bucket.
@@ -102,20 +125,38 @@ drop policy if exists "lesson_audio_select_authenticated" on storage.objects;
 drop policy if exists "lesson_audio_insert_authenticated" on storage.objects;
 drop policy if exists "lesson_audio_update_authenticated" on storage.objects;
 drop policy if exists "lesson_audio_delete_authenticated" on storage.objects;
+drop policy if exists "lesson_audio_select_owner" on storage.objects;
 
-create policy "lesson_audio_select_authenticated"
+-- Record the owner automatically only when this project currently has exactly
+-- one Auth user. Dashboard/service-role uploads continue to bypass this policy.
+create schema if not exists private;
+create table if not exists private.app_owner (
+  user_id uuid primary key references auth.users(id) on delete cascade
+);
+alter table private.app_owner enable row level security;
+revoke all on schema private from public, anon, authenticated;
+revoke all on private.app_owner from public, anon, authenticated;
+
+insert into private.app_owner (user_id)
+select id from auth.users
+where (select count(*) from auth.users) = 1
+on conflict (user_id) do nothing;
+
+create or replace function private.is_app_owner()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1 from private.app_owner where user_id = auth.uid()
+  );
+$$;
+revoke all on function private.is_app_owner() from public, anon;
+grant usage on schema private to authenticated;
+grant execute on function private.is_app_owner() to authenticated;
+
+create policy "lesson_audio_select_owner"
 on storage.objects for select to authenticated
-using (bucket_id = 'lesson-audio');
-
-create policy "lesson_audio_insert_authenticated"
-on storage.objects for insert to authenticated
-with check (bucket_id = 'lesson-audio');
-
-create policy "lesson_audio_update_authenticated"
-on storage.objects for update to authenticated
-using (bucket_id = 'lesson-audio')
-with check (bucket_id = 'lesson-audio');
-
-create policy "lesson_audio_delete_authenticated"
-on storage.objects for delete to authenticated
-using (bucket_id = 'lesson-audio');
+using (bucket_id = 'lesson-audio' and private.is_app_owner());
