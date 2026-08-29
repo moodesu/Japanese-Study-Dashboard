@@ -1555,15 +1555,24 @@ summary:focus-visible {
 
 @media(max-width:760px) {
   .mainnav {
-    flex-wrap:nowrap;
-    overflow-x:auto;
+    flex-wrap:wrap;
+    overflow-x:visible;
+    justify-content:space-between;
+    gap:4px;
     padding-bottom:9px;
-    scrollbar-width:thin;
   }
 
   .navbtn {
     flex:none;
-    padding:8px 10px;
+    padding:8px;
+    font-size:14px;
+  }
+
+  .icon-nav-btn,
+  .wk-nav-btn,
+  .pomo-nav-btn {
+    width:38px;
+    min-width:38px;
   }
 
   .today-hero {
