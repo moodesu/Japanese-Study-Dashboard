@@ -2305,6 +2305,12 @@ html[data-theme="dark"] .wk-mini-stats > div {
   border:1px solid var(--line);
 }
 
+html[data-theme="dark"] .today-summary {
+  background:#111c28;
+  border-color:var(--line);
+  color:var(--ink);
+}
+
 html[data-theme="dark"] :is(.programme-card,.programme-card.active-programme) {
   background:var(--card);
   border-color:var(--line);
