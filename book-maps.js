@@ -253,6 +253,57 @@ window.BOOK_MAPS["tobira-kanji-power"] = {
   projects:[]
 };
 
+// QUARTET course maps: two six-lesson textbooks and their aligned workbooks.
+// All ranges are printed-page ranges verified from the supplied PDFs.
+const QUARTET_I_LESSONS = [
+  {n:1,title:"日本を代表する有名人",pages:"1–30",readings:["アニメ映画監督 宮崎駿","ノーベル賞を取った研究者 山中伸弥教授"],topic:"私が尊敬する有名人／新しい出会い／アメリカ人留学生から見た日本",skills:{reading:"2–15",writing:"16–17",speaking:"18–28",listening:"29–30"},workbook:{pages:"9–20",reading:"9–12",basic:"13–16",summary:"17–19",oral:"20"}},
+  {n:2,title:"メールと手紙",pages:"31–66",readings:["留学生からのメール","先生への手紙"],topic:"お礼の手紙／先生とのやりとり／フランス人留学生から見た日本",skills:{reading:"32–49",writing:"50–51",speaking:"52–63",listening:"64–66"},workbook:{pages:"21–32",reading:"21–24",basic:"25–28",summary:"29–31",oral:"32"}},
+  {n:3,title:"日本を楽しむ",pages:"67–98",readings:["留学生のための富士登山ガイド","居酒屋 ～日本らしさが感じられる場所～"],topic:"私の好きな町／友人との集まり／イタリア人留学生から見た日本",skills:{reading:"68–81",writing:"82–83",speaking:"84–96",listening:"97–98"},workbook:{pages:"33–44",reading:"33–36",basic:"37–40",summary:"41–43",oral:"44"}},
+  {n:4,title:"外国での経験",pages:"99–132",readings:["座談会 ～留学を語る～","留学生の日本体験"],topic:"座談会の記事／困った時には／ドイツ人留学生から見た日本",skills:{reading:"100–115",writing:"116–117",speaking:"118–129",listening:"130–132"},workbook:{pages:"45–56",reading:"45–48",basic:"49–52",summary:"53–55",oral:"56"}},
+  {n:5,title:"和食のすすめ",pages:"133–168",readings:["回転ずし入門","肉じゃがの作り方"],topic:"私のおすすめ料理／週末の予定／韓国人留学生から見た日本",skills:{reading:"134–148",writing:"149–151",speaking:"152–165",listening:"166–168"},workbook:{pages:"57–68",reading:"57–60",basic:"61–64",summary:"65–67",oral:"68"}},
+  {n:6,title:"日本社会への声",pages:"169–204",readings:["投書文を読む","大学生の声"],topic:"投書文を書く／寮生活でのトラブル／中国人留学生から見た日本",skills:{reading:"170–187",writing:"188–189",speaking:"190–201",listening:"202–204"},workbook:{pages:"69–84",reading:"69–72",basic:"73–77",summary:"78–80",oral:"81–84"}}
+];
+
+const QUARTET_II_LESSONS = [
+  {n:7,title:"異文化での気づき",pages:"1–32",readings:["日本人学生の留学体験記","外国人留学生の思い"],topic:"経験からの学び／国際交流／異文化コミュニケーション",skills:{reading:"2–16",writing:"17–19",speaking:"20–30",listening:"31–32"},workbook:{pages:"9–20",reading:"9–12",basic:"13–17",summary:"18–20"}},
+  {n:8,title:"インタビューに見るプロ意識",pages:"33–64",readings:["「日本一の旅館」加賀屋の女将に聞く","Bentoで日本をもっと近く"],topic:"インタビュー記事／大切な物／温泉事情",skills:{reading:"34–48",writing:"49–51",speaking:"52–62",listening:"63–64"},workbook:{pages:"21–30",reading:"21–24",basic:"25–27",summary:"28–30"}},
+  {n:9,title:"小説・エッセイを通じて考える愛",pages:"65–96",readings:["夜中の汽笛について、あるいは物語の効用について","愛と恐怖"],topic:"小説や映画のレビュー／ある日の出来事／ペットに関する社会事情",skills:{reading:"66–81",writing:"82–83",speaking:"84–94",listening:"95–96"},workbook:{pages:"31–40",reading:"31–34",basic:"35–37",summary:"38–40"}},
+  {n:10,title:"データから考える社会",pages:"97–132",readings:["結婚・子育て、夢描きにくく","日本人が政府に期待するもの"],topic:"データ分析／学生生活／格差社会",skills:{reading:"98–116",writing:"117–119",speaking:"120–130",listening:"131–132"},workbook:{pages:"41–50",reading:"41–44",basic:"45–47",summary:"48–50"}},
+  {n:11,title:"言葉の裏にあるもの",pages:"133–162",readings:["よろしく―日本語 表と裏","二重人格者の会話―日本語の複雑"],topic:"日本語と母語の違い／コミュニケーションスタイル／若者のコミュニケーション",skills:{reading:"134–147",writing:"148–149",speaking:"150–160",listening:"161–162"},workbook:{pages:"51–60",reading:"51–54",basic:"55–57",summary:"58–60"}},
+  {n:12,title:"発想の転換",pages:"163–198",readings:["奇跡の職場 新幹線清掃チームの“働く誇り”","あらしのよるに"],topic:"小論文／やせ社会とのつながり／求められる人材",skills:{reading:"164–179",writing:"180–183",speaking:"184–196",listening:"197–198"},workbook:{pages:"61–74",reading:"61–64",basic:"65–69",summary:"70–74"}}
+];
+
+function quartetTextbookMap(bookId,title,volume,lessons,lessonPages,brushUp){
+  return {
+    bookId,title,series:"QUARTET",level:"Intermediate Japanese",status:"mapped",
+    sourceNote:`Mapped from the supplied QUARTET ${volume} textbook. The six core lessons occupy pp. ${lessonPages}; the four skill blocks and companion-workbook ranges are aligned lesson by lesson. Brush-up material begins on p. ${brushUp}.`,
+    lessonMapNote:"Exact printed-page ranges for reading, writing, speaking and listening, plus the aligned workbook lesson range.",
+    programmeNote:`Create a dedicated QUARTET ${volume} programme only when you choose this route. Its workbook is already aligned; the active Beginning Japanese II programme is unchanged.`,
+    structure:{units:1,unitLabel:"volume",lessons:6,lessonRange:`${lessons[0].n}–${lessons.at(-1).n}`,lessonPages,separateMaterials:[`Brush-up · from p. ${brushUp}`,"Listening answers and scripts","Grammar/expression and vocabulary indexes","Separate vocabulary and kanji lists"],projects:[]},
+    learningModel:["Reading","Writing","Speaking","Listening","Grammar and expression notes","Companion workbook practice","Brush-up grammar and kanji"],
+    lessons:lessons.map(l=>({...l,unit:`QUARTET ${volume}`,rangeDetails:[{label:"Reading",value:`pp. ${l.skills.reading}`},{label:"Writing",value:`pp. ${l.skills.writing}`},{label:"Speaking",value:`pp. ${l.skills.speaking}`},{label:"Listening",value:`pp. ${l.skills.listening}`},{label:"Workbook",value:`pp. ${l.workbook.pages}`}],components:["Reading","Writing","Speaking","Listening","Grammar/expressions"]})),
+    projects:[]
+  };
+}
+
+function quartetWorkbookMap(bookId,title,volume,lessons,lessonPages,brushUp){
+  return {
+    bookId,title,series:"QUARTET",level:"Intermediate Japanese",status:"mapped",
+    sourceNote:`Mapped from the supplied QUARTET Workbook ${volume}. It aligns directly with textbook Lessons ${lessons[0].n}–${lessons.at(-1).n}; lesson practice occupies pp. ${lessonPages} and brush-up work begins on p. ${brushUp}.`,
+    lessonMapNote:"Exact printed-page ranges for reading work and staged grammar/expression practice.",
+    programmeNote:`Use this workbook as the practice companion inside a future QUARTET ${volume} programme rather than as a separate active programme.`,
+    structure:{units:1,unitLabel:"companion",lessons:6,lessonRange:`${lessons[0].n}–${lessons.at(-1).n}`,lessonPages,separateMaterials:[`Brush-up · from p. ${brushUp}`],projects:[]},
+    learningModel:["Reading 1 work","Reading 2 work","Basic grammar practice","Summary practice",...(volume==="I"?["Oral practice"]:[]),"Brush-up grammar and kanji"],
+    lessons:lessons.map(l=>({n:l.n,title:l.title,unit:`QUARTET Workbook ${volume}`,pages:l.workbook.pages,rangeDetails:[{label:"Reading work",value:`pp. ${l.workbook.reading}`},{label:"Basic practice",value:`pp. ${l.workbook.basic}`},{label:"Summary practice",value:`pp. ${l.workbook.summary}`},...(l.workbook.oral?[{label:"Oral practice",value:`pp. ${l.workbook.oral}`}]:[])],components:["Reading work","Grammar/expressions",...(l.workbook.oral?["Oral practice"]:[])]})),
+    projects:[]
+  };
+}
+
+window.BOOK_MAPS["quartet-i"] = quartetTextbookMap("quartet-i","QUARTET I: Intermediate Japanese Across the Four Language Skills","I",QUARTET_I_LESSONS,"1–204","205");
+window.BOOK_MAPS["quartet-workbook-i"] = quartetWorkbookMap("quartet-workbook-i","QUARTET Workbook I","I",QUARTET_I_LESSONS,"9–84","85");
+window.BOOK_MAPS["quartet-ii"] = quartetTextbookMap("quartet-ii","QUARTET II: Intermediate Japanese Across the Four Language Skills","II",QUARTET_II_LESSONS,"1–198","199");
+window.BOOK_MAPS["quartet-workbook-ii"] = quartetWorkbookMap("quartet-workbook-ii","QUARTET Workbook II","II",QUARTET_II_LESSONS,"9–74","75");
+
 window.BOOKS = window.BOOKS || [];
 if (!window.BOOKS.some(b => b.id === "tobira-intermediate-i")) {
   window.BOOKS.push({
