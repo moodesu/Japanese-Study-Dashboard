@@ -2294,6 +2294,17 @@ html[data-theme="dark"] .wk-level-card {
   background:linear-gradient(145deg,#192634,#142a33);
 }
 
+html[data-theme="dark"] .wk-page-head {
+  background:linear-gradient(145deg,#192634,#142a33);
+  border-color:var(--line);
+  color:var(--ink);
+}
+
+html[data-theme="dark"] .wk-mini-stats > div {
+  background:#111c28;
+  border:1px solid var(--line);
+}
+
 html[data-theme="dark"] :is(.programme-card,.programme-card.active-programme) {
   background:var(--card);
   border-color:var(--line);
