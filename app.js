@@ -264,6 +264,7 @@ const consolidationLessons = w => w === 10 ? CURRICULUM.lessons.slice(0,5) : CUR
 const activeProgramme = () => (window.PROGRAMMES||[]).find(p=>p.id===state.programmeId) || (window.PROGRAMMES||[])[0];
 const activeBook = () => { const p=activeProgramme(); return (window.BOOKS||[]).find(b=>b.id===(p?.bookId || CURRICULUM.bookId || '')) || {title:CURRICULUM.book||'Active curriculum',level:'',series:''}; };
 const programmeCurriculum = p => p?.curriculumKey==='CURRICULUM' ? window.CURRICULUM : null;
+function updateBackToTop(){ const button=$('#backToTop'); if(button) button.hidden=window.scrollY<500||!state.user; }
 function selectProgramme(id){ const p=(window.PROGRAMMES||[]).find(x=>x.id===id); if(!p||p.status!=='active') return; state.programmeId=id; localStorage.setItem('activeProgrammeId',id); toast('Programme selected'); render(); }
 function programmeSummary(p){ const b=(window.BOOKS||[]).find(x=>x.id===p.bookId); return {book:b, ready:p.status==='active' && !!programmeCurriculum(p)}; }
 
@@ -574,10 +575,12 @@ function render(){
   $('#globalNotes').value=state.notes; $('#startDate').value=state.startDate; renderStatus();
   renderPomodoroSettings();
   renderPomodoro();
+  updateBackToTop();
 }
 function renderGate(){
   $('#appShell').hidden=true; $('#loginGate').hidden=false;
   const w=$('#pomodoroWidget'); if(w) w.hidden=true;
+  updateBackToTop();
   $('#gateStatus').textContent=hasSupabase?'Private study dashboard':'Supabase is not configured yet';
   $('#gateHint').textContent=hasSupabase?'Sign in to access your curriculum, progress and notes.':'Add your Supabase URL and publishable/anon key to supabase-config.js, then sign in.';
   $('#gateLogin').textContent='Login';
@@ -1217,6 +1220,8 @@ const pomoCycleLen=$('#pomoCycleLen'); if(pomoCycleLen) pomoCycleLen.onchange=e=
 $('#openLogin').onclick=()=>$('#authDialog').showModal();
 $('#gateLogin').onclick=()=>$('#authDialog').showModal();
 $('#closeLogin').onclick=()=>$('#authDialog').close();
+$('#backToTop').onclick=()=>window.scrollTo({top:0,behavior:'smooth'});
+window.addEventListener('scroll',updateBackToTop,{passive:true});
 $('#loginForm').onsubmit=async e=>{
   e.preventDefault();
   if(!db){toast('Add Supabase values to supabase-config.js first.');return;}

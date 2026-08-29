@@ -2130,3 +2130,48 @@ summary:focus-visible {
     height:280px;
   }
 }
+
+/* Back to top */
+.back-to-top[hidden] {
+  display:none;
+}
+
+.back-to-top {
+  position:fixed;
+  left:18px;
+  bottom:18px;
+  z-index:39;
+  width:44px;
+  height:44px;
+  display:grid;
+  place-items:center;
+  border:1px solid var(--line);
+  border-radius:50%;
+  background:var(--ink);
+  color:#fff;
+  box-shadow:0 10px 26px rgba(25,39,55,.22);
+  font-size:22px;
+  line-height:1;
+  cursor:pointer;
+  transition:background .16s ease,transform .16s ease,box-shadow .16s ease;
+}
+
+.back-to-top:hover {
+  background:#223650;
+  transform:translateY(-2px);
+  box-shadow:0 13px 30px rgba(25,39,55,.26);
+}
+
+.back-to-top:focus-visible {
+  outline:3px solid rgba(22,117,141,.24);
+  outline-offset:3px;
+}
+
+@media(max-width:760px) {
+  .back-to-top {
+    left:12px;
+    bottom:12px;
+    width:42px;
+    height:42px;
+  }
+}
