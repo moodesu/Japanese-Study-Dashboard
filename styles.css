@@ -8,7 +8,78 @@
 /* Learning hub */
 .library-hero{background:linear-gradient(145deg,#fffdf8,#eef5f4);border:1px solid var(--line);border-radius:18px;padding:24px;box-shadow:var(--shadow);margin-top:18px}.library-hero h1{font-size:clamp(28px,4vw,42px);margin:5px 0}.library-hero p{max-width:760px;color:var(--muted);font-size:15px;line-height:1.6}.library-section{margin-top:18px}.library-section h2{margin:0 0 4px}.book-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:12px}.book-card,.resource-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:var(--shadow);display:flex;flex-direction:column}.book-card.active-book{border:2px solid var(--accent);padding:17px;background:linear-gradient(145deg,#fffdf8,#f1f7f6)}.book-card h3,.resource-card h3{margin:5px 0 7px;font-size:18px}.book-card p,.resource-card p{color:var(--muted);line-height:1.5;margin:0 0 14px}.book-card-top{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:10px}.book-status,.resource-type,.book-level{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;border-radius:999px;padding:4px 7px;background:var(--soft);color:var(--muted)}.book-status.active{background:#dcefe5;color:#246342}.book-status.available{background:#e4edf2;color:#285e73}.book-status.planned{background:#eeeae2;color:#777}.book-placeholder{margin-top:auto;border-top:1px solid var(--line);padding-top:12px;font-size:12px;color:var(--muted)}.resource-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:12px}.resource-card{min-height:150px}.architecture-note{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;box-shadow:var(--shadow)}.architecture-note p{color:var(--muted);max-width:800px}.hub-flow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:14px}.hub-flow span{background:var(--soft);border-radius:9px;padding:8px 10px;font-weight:750}.hub-flow b{color:var(--accent)}@media(max-width:900px){.book-grid,.resource-grid{grid-template-columns:1fr 1fr}}@media(max-width:760px){.library-hero{padding:18px}.book-grid,.resource-grid{grid-template-columns:1fr}.book-card,.resource-card{padding:15px}.book-card.active-book{padding:14px}.hub-flow{gap:6px}.hub-flow span{padding:7px 8px}}
 
-/* Task action spacing */
-.modal-related{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:16px;padding:2px 0 4px}
-.modal-related .smallbtn{margin:0}
-@media(max-width:760px){.modal-related{gap:10px;margin-top:16px;padding:2px 0 6px}.modal-related .smallbtn{width:100%;text-align:center}}
+/* Learning-hub programme cards */
+.program-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-top:12px}
+.program-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:var(--shadow);display:flex;flex-direction:column}
+.program-card.active-program{border:2px solid var(--accent);padding:17px;background:linear-gradient(145deg,#fffdf8,#eef6f5)}
+.program-card h3{margin:5px 0 7px;font-size:19px}
+.program-card p{color:var(--muted);line-height:1.55;margin:0 0 14px}
+.program-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:auto;margin-bottom:12px;font-size:11px;color:var(--muted)}
+.program-meta span{background:var(--soft);border-radius:999px;padding:5px 8px}
+@media(max-width:900px){.program-grid{grid-template-columns:1fr}}
+@media(max-width:760px){.program-card{padding:15px}.program-card.active-program{padding:14px}}
+
+/* Adaptive study dashboard */
+.today-card .focuslist{margin-top:12px}
+.focusitem.review-focus{border-left:3px solid var(--accent,#d08b3e)}
+.flag-count{font-size:.78rem;font-weight:700;padding:6px 9px;border-radius:999px;background:rgba(208,139,62,.12);white-space:nowrap}
+
+
+/* Cleaner workbook/resource task presentation */
+.lesson-column .component,
+.lesson-column [data-task].component{
+  border:1px solid var(--line);
+  border-radius:11px;
+  background:#fffefa;
+  padding:12px 13px;
+  box-shadow:0 1px 2px rgba(25,39,55,.03);
+  transition:border-color .15s ease,background .15s ease,transform .15s ease,box-shadow .15s ease;
+}
+.lesson-column .component + .component{margin-top:8px}
+.lesson-column .component:hover,
+.lesson-column [data-task].component:hover{
+  border-color:#a9bfc4;
+  background:#f7faf9;
+  transform:translateY(-1px);
+  box-shadow:0 5px 14px rgba(25,39,55,.05);
+}
+.lesson-column .component-top{
+  align-items:flex-start;
+}
+.lesson-column .component-title{
+  font-size:14px;
+  line-height:1.35;
+}
+.lesson-column .component-ref{
+  margin-top:5px;
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:5px;
+}
+.lesson-column .component-ref strong{
+  font-variant-numeric:tabular-nums;
+}
+.lesson-column .component-bottom{
+  margin-top:9px;
+  padding-top:8px;
+  color:var(--muted);
+}
+.lesson-column .booktag{
+  font-weight:700;
+}
+.lesson-column .status-label{
+  flex:none;
+}
+@media(max-width:760px){
+  .lesson-column .component{
+    padding:11px 12px;
+  }
+  .lesson-column .component-top{
+    display:flex;
+    gap:8px;
+  }
+  .lesson-column .status-label{
+    margin-top:0;
+  }
+}
