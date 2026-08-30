@@ -4,7 +4,7 @@ window.CURRICULUM = {
   lessons: [
     {
       n:11,title:"私に漢字の覚え方を教えてくれない？",english:"Can you teach me how to memorize kanji?",
-      textbook:{start:13,end:50,grammar:["の [indefinite pronoun]","noun modification clauses","～時 [when]","～みたい／よう [resemblance]","XはYことです","V-たから [after V-ing]","V-ます形 [method/manner]"],cando:["Describe and explain things and people around you in detail.","Draw comparisons to give easy-to-understand explanations.","Ask and answer how to use, make, and do things in everyday life."],note:"Extended use of XはYです",unit:"Unit 4 · 世界に飛び出す",pages:{conversation:"14–15",vocab:"16–20",kanji:"21–22",grammar:"23–34",talk:"35–37",reading:"48–49",listening:"49–50",readingAnchor:"48"},},
+      textbook:{start:13,end:50,grammar:["の [indefinite pronoun]","noun modification clauses","～時 [when]","～みたい／よう [resemblance]","XはYことです","V-てから [after V-ing]","V-ます形 [method/manner]"],cando:["Describe and explain things and people around you in detail.","Draw comparisons to give easy-to-understand explanations.","Ask and answer how to use, make, and do things in everyday life."],note:"Extended use of XはYです",unit:"Unit 4 · 世界に飛び出す",pages:{conversation:"14–15",vocab:"16–20",kanji:"21–22",grammar:"23–34",talk:"35–37",reading:"48–49",listening:"49–50",readingAnchor:"48"},},
       workbook2:{vocab:7,particle:8,grammar1:9,comp1:14,grammar2:15,comp2:19,listening:20}, workbook1:{kanji:7,reading:13,writing:14,review:15}
     },
     {
@@ -14,7 +14,7 @@ window.CURRICULUM = {
     },
     {
       n:13,title:"明日行ってみようと思います。",english:"I think I'll go tomorrow.",
-      textbook:{start:85,end:120,grammar:["volitional forms / V-よう","V-ようと思う [think I'll V]","～も [emphasis]","～ながら [simultaneous actions]","～そうだ [hearsay]","～てはいけない [prohibition]","～なくてはいけない [obligation]","～なくてもいい [lack of obligation]"],cando:["Talk about things you are planning on doing.","Report and share interesting/useful information you have heard or read.","Talk about things that are prohibited.","Talk about things you have or do not have an obligation to do."],unit:"Unit 4 · 世界に飛び出す",pages:{conversation:"86–87",vocab:"88–93",kanji:"94–95",grammar:"96–109",talk:"110–112",reading:"117–118",listening:"119–120",readingAnchor:"117"},},
+      textbook:{start:85,end:120,grammar:["volitional forms / V-ようと思う [think I'll V]","～も [emphasis]","～そうだ [hearsay]","～ながら [simultaneous actions]","～てはいけない [prohibition]","～なくてはいけない [obligation]","～なくてもいい [lack of obligation]"],cando:["Talk about things you are planning on doing.","Report and share interesting/useful information you have heard or read.","Talk about things that are prohibited.","Talk about things you have or do not have an obligation to do."],unit:"Unit 4 · 世界に飛び出す",pages:{conversation:"86–87",vocab:"88–93",kanji:"94–95",grammar:"96–109",talk:"110–112",reading:"117–118",listening:"119–120",readingAnchor:"117"},},
       workbook2:{vocab:34,particle:35,grammar1:36,comp1:39,grammar2:40,comp2:44,listening:45}, workbook1:{kanji:27,reading:33,writing:34,review:35}
     },
     {
@@ -34,12 +34,12 @@ window.CURRICULUM = {
     },
     {
       n:17,title:"お店を手伝わせていただけませんか。",english:"Won't you let me help out around the shop?",
-      textbook:{start:237,end:278,grammar:["～ので [reason]","causative forms and sentences","～か [embedded question]","～ば [conditional]","～といいですね／～といいんですが","～ために [purpose]","Vまで / Vまでに"],cando:["Politely express what you want to do and request permission.","Ask and answer about new experiences and discoveries.","Talk about future goals in detail."],note:"カタカナ語はおもしろい！",unit:"Unit 5 · 異文化を体験する",pages:{conversation:"238–239",vocab:"240–245",kanji:"246–247",grammar:"248–267",talk:"268–272",reading:"274–277",listening:"277–278",readingAnchor:"274"},},
+      textbook:{start:237,end:278,grammar:["～ので [reason]","causative forms and sentences","～か [embedded question]","～と [conditional]","～といいですね／～といいんですが","～ために [purpose]","Vまで / Vまでに"],cando:["Politely express what you want to do and request permission.","Ask and answer about new experiences and discoveries.","Talk about future goals in detail."],note:"カタカナ語はおもしろい！",unit:"Unit 5 · 異文化を体験する",pages:{conversation:"238–239",vocab:"240–245",kanji:"246–247",grammar:"248–267",talk:"268–272",reading:"274–277",listening:"277–278",readingAnchor:"274"},},
       workbook2:{vocab:87,particle:88,grammar1:89,comp1:93,grammar2:94,comp2:97,listening:98}, workbook1:{kanji:67,reading:73,writing:74,review:null}
     },
     {
       n:18,title:"好きなことをしなさい。",english:"Do what you like.",
-      textbook:{start:281,end:316,grammar:["～ても [even]","Vようになる [come to V]","Vことにする / Vことにしている","～なら [conditional]","～でしょう／だろう [conjecture]"],cando:["Talk about being forced to do something you did not like.","Talk about unexpected occurrences and feelings about them.","Encourage people close to you and show empathy.","Understand essays about personal experiences."],note:"日本語の歌を歌ってみよう",unit:"Unit 6 · 世界とつながる",pages:{conversation:"282–283",vocab:"284–289",kanji:"290–291",grammar:"292–307",talk:"308–310",reading:"311–313",listening:"314–316",readingAnchor:"311–312"},},
+      textbook:{start:281,end:316,grammar:["V-ますなさい [mild commands]","causative-passive sentences","まだ [still] / もう [no longer]","～のに","～はずだ [expectation]","～ば [conditional]"],cando:["Talk about being forced to do something you did not like.","Talk about unexpected occurrences and feelings about them.","Encourage people close to you and show empathy.","Understand essays about personal experiences."],note:"日本語の歌を歌ってみよう",unit:"Unit 6 · 世界とつながる",pages:{conversation:"282–283",vocab:"284–289",kanji:"290–291",grammar:"292–307",talk:"308–310",reading:"311–313",listening:"314–316",readingAnchor:"311–312"},},
       workbook2:{vocab:99,particle:100,grammar1:101,comp1:105,grammar2:105,comp2:109,listening:110}, workbook1:{kanji:77,reading:84,writing:86,review:null}
     },
     {

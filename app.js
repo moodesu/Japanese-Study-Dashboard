@@ -1060,6 +1060,18 @@ function audioPanelMarkup(n){
   </section>`;
 }
 
+async function signedLessonAudioUrl(track){
+  const cached=audioUrlCache.get(track.path);
+  if(cached?.expiresAt>Date.now()+60000) return cached.url;
+  if(!db||!state.user) throw new Error('Sign in to play private audio.');
+  const {data,error}=await db.storage.from(AUDIO_LIBRARY.bucket).createSignedUrl(track.path,3600);
+  if(error) throw error;
+  const signedUrl=data?.signedUrl;
+  if(!signedUrl) throw new Error('No playback URL was returned.');
+  audioUrlCache.set(track.path,{url:signedUrl,expiresAt:Date.now()+3600000});
+  return signedUrl;
+}
+
 function initLessonAudio(n){
   const lessonAudio=AUDIO_LIBRARY.lessons?.[n], player=$('#lessonAudioPlayer');
   if(!lessonAudio||!player) return;
@@ -1087,16 +1099,7 @@ function initLessonAudio(n){
     file.textContent=track.filename;
     status.textContent='Preparing private audio…';
     try{
-      const cached=audioUrlCache.get(track.path);
-      let signedUrl=cached?.expiresAt>Date.now()+60000?cached.url:null;
-      if(!signedUrl){
-        if(!db||!state.user) throw new Error('Sign in to play private audio.');
-        const {data,error}=await db.storage.from(AUDIO_LIBRARY.bucket).createSignedUrl(track.path,3600);
-        if(error) throw error;
-        signedUrl=data?.signedUrl;
-        if(!signedUrl) throw new Error('No playback URL was returned.');
-        audioUrlCache.set(track.path,{url:signedUrl,expiresAt:Date.now()+3600000});
-      }
+      const signedUrl=await signedLessonAudioUrl(track);
       player.src=signedUrl;
       player.playbackRate=Number(speed.value);
       audioPlaybackState.lastPath=track.path;
@@ -1141,6 +1144,111 @@ function initLessonAudio(n){
   if(rememberedIndex>=0) loadTrack(rememberedIndex,false);
 }
 
+function updateGuideTaskRecord(id,patch){
+  state.taskState[id]={...ts(id),...patch};
+  saveLocal();
+  cloudSave(id);
+}
+
+function initGuideAudio(n){
+  const lessonAudio=AUDIO_LIBRARY.lessons?.[n];
+  if(!lessonAudio) return;
+  const allBoxes=[...document.querySelectorAll('.guide-inline-audio')];
+  document.querySelectorAll('.guide-audio-toggle').forEach(toggle=>{
+    const workspace=toggle.closest('.guide-task-workspace');
+    const box=workspace?.querySelector('.guide-inline-audio');
+    if(!box) return;
+    const category=toggle.dataset.guideAudio;
+    const tracks=lessonAudio.groups?.[category]||[];
+    const player=box.querySelector('.guide-inline-player');
+    const selector=box.querySelector('.guide-audio-select');
+    const speed=box.querySelector('.guide-audio-speed');
+    const now=box.querySelector('.guide-audio-now');
+    const status=box.querySelector('.guide-audio-status');
+    const previous=box.querySelector('[data-audio-command="previous"]');
+    const next=box.querySelector('[data-audio-command="next"]');
+    let currentIndex=-1, lastSavedSecond=-1;
+
+    speed.value=String(audioPlaybackState.speed||1);
+    player.playbackRate=Number(speed.value);
+
+    function updateControls(){
+      selector.value=String(Math.max(0,currentIndex));
+      previous.disabled=currentIndex<=0;
+      next.disabled=currentIndex<0||currentIndex>=tracks.length-1;
+    }
+
+    async function loadTrack(index,autoplay=false){
+      const track=tracks[index]; if(!track) return;
+      document.querySelectorAll('.guide-inline-player').forEach(other=>{if(other!==player) other.pause();});
+      currentIndex=index; updateControls();
+      now.innerHTML=`<strong>${esc(track.title)}</strong><small>${esc(track.filename)}</small>`;
+      status.textContent='Preparing private audio…';
+      try{
+        const url=await signedLessonAudioUrl(track);
+        player.src=url;
+        player.playbackRate=Number(speed.value);
+        audioPlaybackState.lastPath=track.path;
+        saveAudioPlaybackState();
+        player.onloadedmetadata=()=>{
+          const saved=Number(audioPlaybackState.positions?.[track.path]||0);
+          if(saved>0&&saved<player.duration-2) player.currentTime=saved;
+          status.textContent=saved>0?`Resumed at ${Math.floor(saved/60)}:${String(Math.floor(saved%60)).padStart(2,'0')}.`:'Ready to play.';
+          if(autoplay) player.play().catch(()=>{});
+        };
+        player.onerror=()=>{status.textContent='Audio file unavailable. Check the expected Supabase object path.';};
+      }catch(error){
+        status.textContent=error?.message||'Unable to open this audio track.';
+      }
+    }
+
+    toggle.onclick=()=>{
+      allBoxes.forEach(other=>{
+        if(other!==box){other.hidden=true;other.querySelector('audio')?.pause();}
+      });
+      box.hidden=false;
+      const remembered=tracks.findIndex(track=>track.path===audioPlaybackState.lastPath);
+      loadTrack(remembered>=0?remembered:Math.max(0,currentIndex),true);
+      selector.focus({preventScroll:true});
+    };
+    box.querySelector('.guide-audio-close').onclick=()=>{player.pause();box.hidden=true;toggle.focus({preventScroll:true});};
+    selector.onchange=()=>loadTrack(Number(selector.value),true);
+    previous.onclick=()=>loadTrack(currentIndex-1,true);
+    next.onclick=()=>loadTrack(currentIndex+1,true);
+    box.querySelector('[data-audio-command="back"]').onclick=()=>{player.currentTime=Math.max(0,player.currentTime-10);};
+    box.querySelector('[data-audio-command="forward"]').onclick=()=>{player.currentTime=Math.min(player.duration||Infinity,player.currentTime+10);};
+    speed.onchange=()=>{
+      audioPlaybackState.speed=Number(speed.value);
+      player.playbackRate=audioPlaybackState.speed;
+      saveAudioPlaybackState();
+    };
+    player.ontimeupdate=()=>{
+      const track=tracks[currentIndex]; if(!track) return;
+      const second=Math.floor(player.currentTime||0);
+      if(second===lastSavedSecond||second%5!==0) return;
+      lastSavedSecond=second;
+      audioPlaybackState.positions={...(audioPlaybackState.positions||{}),[track.path]:second};
+      saveAudioPlaybackState();
+    };
+    player.onended=()=>{
+      const track=tracks[currentIndex];
+      if(track){audioPlaybackState.positions={...(audioPlaybackState.positions||{}),[track.path]:0};saveAudioPlaybackState();}
+      status.textContent=currentIndex<tracks.length-1?'Track complete. Choose Next to continue.':'This task’s audio is complete.';
+    };
+    updateControls();
+  });
+}
+
+function initGuideTaskWorkspaces(l){
+  document.querySelectorAll('[data-guide-notes]').forEach(input=>input.oninput=()=>updateGuideTaskRecord(input.dataset.guideNotes,{notes:input.value}));
+  document.querySelectorAll('[data-guide-mastery]').forEach(select=>select.onchange=()=>updateGuideTaskRecord(select.dataset.guideMastery,{mastery:select.value}));
+  document.querySelectorAll('[data-guide-confidence]').forEach(select=>select.onchange=()=>updateGuideTaskRecord(select.dataset.guideConfidence,{confidence:select.value?Number(select.value):null}));
+  document.querySelectorAll('[data-guide-step-nav]').forEach(button=>button.onclick=()=>{
+    document.getElementById(`guide-${button.dataset.guideStepNav}`)?.scrollIntoView({behavior:'smooth',block:'center'});
+  });
+  initGuideAudio(l.n);
+}
+
 function lessonVideosByType(l,type){
   return (state.lessonVideos||[])
     .filter(video=>Number(video.lesson)===l.n && video.video_type===type && safeYouTubeUrl(video.youtube_url))
@@ -1155,21 +1263,69 @@ function grammarPageFromVideos(rows,fallback){
   return `pp.${fallback}`;
 }
 
+function taskStudyChecklist(l,t){
+  if(t?.sectionSteps?.length) return t.sectionSteps;
+  const textbook=l?.textbook?.pages||{};
+  const page=t?.page?`${t.book} p.${t.page}`:t?.book||'the referenced resource';
+  const checks={
+    vocab:[`Complete Lesson ${l.n} vocabulary practice on ${page} without copying from the textbook.`,`Check errors against Textbook pp.${textbook.vocab} and identify why each answer was missed.`,'Read corrected words and example sentences aloud, then retrieve them once more without looking.'],
+    particle:[`Complete the Lesson ${l.n} particle practice on ${page}.`,`For every correction, explain what the chosen particle marks in that sentence.`,'Record recurring particle errors in this task’s notes.'],
+    grammar1:[`Complete Grammar practice 1 on ${page} after studying the matching Lesson ${l.n} grammar videos and explanations.`,'Produce your own answer before checking the model.','Return to the exact grammar point for every error rather than rereading the whole section.'],
+    grammar2:[`Complete Grammar practice 2 on ${page}, beginning with the least secure Lesson ${l.n} grammar points.`,'Answer without notes first, then check form and nuance.','Mark any grammar that still cannot be produced independently as Shaky or Review.'],
+    comp1:[`Attempt Comprehensive practice 1 on ${page} as a closed-book Lesson ${l.n} retrieval test.`,'Check every error against its exact textbook section.','Repeat missed items after a short delay before marking the task complete.'],
+    comp2:[`Attempt Comprehensive practice 2 on ${page} without notes.`,'Use mistakes to identify the final weak areas from Lesson '+l.n+'.','Update confidence and add a short note about anything requiring another pass.'],
+    listening:[`Play the Lesson ${l.n} listening audio without reading the script and complete ${page}.`,'Check the script only after the first attempt and identify what was not heard.','Replay difficult lines and shadow them before checking the final answer.'],
+    kanji:[`Complete the Lesson ${l.n} kanji practice on ${page} from memory.`,`Check readings and compounds against Textbook pp.${textbook.kanji}.`,'Retest missed kanji once before marking the task complete.'],
+    reading:[`Read the passage on ${page} once for overall meaning without stopping at every unknown word.`,`Answer the questions, then check important unknown language against Textbook pp.${textbook.reading}.`,'Give a brief spoken or written summary from memory.'],
+    writing:[`Complete the Lesson ${l.n} writing task on ${page} using the lesson’s target language.`,'Check accuracy and naturalness against the model without copying it.','Record one corrected sentence or recurring problem in the notes below.'],
+    review:[`Complete the Lesson ${l.n} review on ${page} as a retrieval check.`,'Revisit only items that are not yet automatic.','Update mastery honestly before finishing the lesson.']
+  };
+  return checks[t?.key]||[t?.desc||`Complete the referenced work on ${page}.`,'Check your work and record anything that needs another pass.'];
+}
+
+function guideAudioMarkup(l,step){
+  if(!step.audio) return '';
+  const tracks=AUDIO_LIBRARY.lessons?.[l.n]?.groups?.[step.audio]||[];
+  if(!tracks.length) return '<p class="guide-resource-note">No mapped audio tracks are available for this task.</p>';
+  const category=(AUDIO_LIBRARY.categories||[]).find(item=>item.key===step.audio)||{};
+  return `<div class="guide-audio-area">
+    <button type="button" class="guide-action guide-audio-toggle" data-guide-audio="${esc(step.audio)}">▶ Play ${esc(category.english||step.audio)} audio here</button>
+    <div class="guide-inline-audio" data-guide-audio-box="${esc(step.audio)}" hidden>
+      <div class="guide-inline-audio-head"><div><span>${esc(category.label||'')}</span><strong>${esc(category.english||step.audio)} · ${tracks.length} ${tracks.length===1?'track':'tracks'}</strong></div><button type="button" class="guide-audio-close" aria-label="Close inline audio">×</button></div>
+      ${category.guide?`<p>${esc(category.guide)}</p>`:''}
+      <label class="guide-audio-select-label">Track <select class="guide-audio-select">${tracks.map((track,index)=>`<option value="${index}">${esc(track.badge||String(index+1).padStart(2,'0'))} · ${esc(track.title)}</option>`).join('')}</select></label>
+      <div class="guide-audio-now"><strong>Choose a track</strong><small>Private Lesson ${l.n} audio</small></div>
+      <audio class="guide-inline-player" controls preload="metadata"></audio>
+      <div class="guide-inline-controls"><button type="button" data-audio-command="previous">← Previous</button><button type="button" data-audio-command="back">−10s</button><button type="button" data-audio-command="forward">+10s</button><button type="button" data-audio-command="next">Next →</button><label>Speed <select class="guide-audio-speed"><option value="0.75">0.75×</option><option value="1">1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label></div>
+      <div class="guide-audio-status">Ready to load inside this task.</div>
+    </div>
+  </div>`;
+}
+
+function guideMasteryOptions(value){
+  return [['not_started','Not started'],['studying','Studying'],['shaky','Shaky'],['mastered','Mastered'],['review','Review']]
+    .map(([key,label])=>`<option value="${key}" ${value===key?'selected':''}>${label}</option>`).join('');
+}
+
+function guideConfidenceOptions(value){
+  return `<option value="" ${value?'':'selected'}>Not rated</option>${[1,2,3,4,5].map(n=>`<option value="${n}" ${Number(value)===n?'selected':''}>${n}/5</option>`).join('')}`;
+}
+
 function lessonGuideSteps(l){
   const tasks=lessonTasks(l), task=key=>tasks.find(t=>t.key===key), steps=[];
   const addTask=(key,instruction,audio=null)=>{
     const t=task(key); if(!t) return;
-    steps.push({id:t.id,taskId:t.id,title:t.title,resource:t.book,page:`p.${t.page}`,instruction,audio});
+    steps.push({id:t.id,taskId:t.id,title:t.title,resource:t.book,page:`p.${t.page}`,instruction,audio,checklist:taskStudyChecklist(l,t)});
   };
   const addVideo=(type,title,instruction,rows)=>{
     if(!rows.length) return;
-    steps.push({id:`b2-l${l.n}-guide-video-${type}`,title,resource:'Publisher video',instruction,videos:rows});
+    steps.push({id:`b2-l${l.n}-guide-video-${type}`,title,resource:'Publisher video',instruction,videos:rows,checklist:['Watch once for overall meaning.','Replay in short sections and repeat aloud.','Continue only when the key language can be followed at a comfortable pace.']});
   };
 
   steps.push({
     id:`b2-l${l.n}-guide-goals`, title:'Review the Can-do goals', resource:'Textbook',
     page:`p.${l.textbook.start}`, instruction:'Read the lesson goals first. Keep them in mind as the practical outcomes for this lesson.',
-    details:l.textbook.cando
+    details:l.textbook.cando, checklist:['Read each Can-do goal before starting the lesson.','Identify which goal currently feels least secure.','Use the goals to judge mastery at the end rather than relying only on completed pages.']
   });
 
   const vocabVideos=lessonVideosByType(l,'vocabulary');
@@ -1186,6 +1342,9 @@ function lessonGuideSteps(l){
     steps.push({
       id:`b2-l${l.n}-guide-grammar-${item}`, title:`Grammar ${item}: ${name}`, resource:'Textbook',
       page:grammarPageFromVideos(videos,l.textbook.pages.grammar), videos,
+      checklist:videos.length
+        ? ['Watch every linked video part in order.','Read the matching textbook explanation and examples.','Complete and check the audio-icon exercise.','Say an original example aloud without copying the model.']
+        : ['Read the matching textbook explanation and examples.','Complete and check the audio-icon exercise.','Say an original example aloud without copying the model.'],
       instruction:videos.length
         ? 'Watch every linked part, read the textbook explanation, complete the audio-icon exercise, then say your own example aloud.'
         : 'Read the textbook explanation, complete the audio-icon exercise, then say your own example aloud. Add the publisher video link when available.'
@@ -1219,6 +1378,36 @@ function guideVideoLinks(videos=[]){
   }).join('');
 }
 
+function taskGoalFor(l,step){
+  const key=step.taskId?.split('-').at(-1)||'';
+  const goals=l.textbook.cando||[];
+  if(!goals.length) return '';
+  if(key.includes('reading')||key.includes('listening')||key==='writing') return goals.at(-1);
+  if(key.includes('conversation')||key.includes('talk')) return goals[Math.min(1,goals.length-1)];
+  return goals[0];
+}
+
+function guideTaskWorkspaceMarkup(l,step,index,steps,isNext){
+  const status=ts(step.id), goal=taskGoalFor(l,step);
+  const canRate=!!step.taskId||step.id.includes('-guide-grammar-');
+  const details=step.details?.length?`<div class="guide-workspace-section"><strong>Lesson outcomes</strong><ul>${step.details.map(item=>`<li>${esc(item)}</li>`).join('')}</ul></div>`:'';
+  const checklist=step.checklist?.length?`<div class="guide-workspace-section"><strong>Do this</strong><ol>${step.checklist.map(item=>`<li>${esc(item)}</li>`).join('')}</ol></div>`:'';
+  const videos=step.videos?.length?`<div class="guide-workspace-section"><strong>Publisher video${step.videos.length===1?'':'s'}</strong><div class="guide-actions">${guideVideoLinks(step.videos)}</div></div>`:'';
+  const previous=steps[index-1], next=steps[index+1];
+  return `<details class="guide-task-workspace" ${isNext?'open':''}>
+    <summary><span>${isNext?'Current task':'Task workspace'}</span><strong>Instructions · resources · notes</strong><b>Open</b></summary>
+    <div class="guide-workspace-body">
+      <div class="guide-lesson-context"><strong>Lesson ${l.n} · ${esc(l.english)}</strong>${goal?`<span>Can-do connection: ${esc(goal)}</span>`:''}</div>
+      ${details}${checklist}${videos}${guideAudioMarkup(l,step)}
+      <div class="guide-workspace-section guide-task-record"><strong>Task record</strong>
+        <label>Notes<textarea class="guide-task-notes" data-guide-notes="${esc(step.id)}" placeholder="Errors, useful examples, or what needs another pass…">${esc(status.notes||'')}</textarea></label>
+        ${canRate?`<div class="guide-rating-grid"><label>Mastery<select data-guide-mastery="${esc(step.id)}">${guideMasteryOptions(status.mastery)}</select></label><label>Confidence<select data-guide-confidence="${esc(step.id)}">${guideConfidenceOptions(status.confidence)}</select></label></div>`:''}
+      </div>
+      <nav class="guide-step-nav" aria-label="Guided lesson navigation">${previous?`<button type="button" data-guide-step-nav="${esc(previous.id)}">← Step ${index}</button>`:'<span></span>'}${next?`<button type="button" data-guide-step-nav="${esc(next.id)}">Step ${index+2} →</button>`:'<span></span>'}</nav>
+    </div>
+  </details>`;
+}
+
 function lessonGuideMarkup(l){
   const steps=lessonGuideSteps(l), done=steps.filter(step=>ts(step.id).completed).length;
   const nextIndex=steps.findIndex(step=>!ts(step.id).completed);
@@ -1229,10 +1418,9 @@ function lessonGuideMarkup(l){
     ${next?`<button type="button" class="guide-next" data-guide-scroll="${esc(next.id)}"><span>Continue with step ${nextIndex+1}</span><strong>${esc(next.title)}</strong><b>Go to next step ↓</b></button>`:`<div class="guide-complete">Lesson path complete. Use the mastery check to decide what needs another pass.</div>`}
     <div class="guide-list">${steps.map((step,index)=>{
       const status=ts(step.id), page=step.page?` · ${step.page}`:'';
-      const details=step.details?.length?`<ul class="guide-details">${step.details.map(item=>`<li>${esc(item)}</li>`).join('')}</ul>`:'';
       return `<article class="guide-step ${status.completed?'done':''}" id="guide-${esc(step.id)}" data-guide-task="${esc(step.taskId||step.id)}">
         <div class="guide-step-number">${status.completed?'✓':index+1}</div>
-        <div class="guide-step-main"><div class="guide-resource">${esc(step.resource)}${esc(page)}</div><h3>${esc(step.title)}</h3><p>${esc(step.instruction)}</p>${details}<div class="guide-actions">${guideVideoLinks(step.videos)}${step.audio?`<button type="button" class="guide-action" data-guide-audio="${esc(step.audio)}">Open ${esc(step.audio)} audio</button>`:''}${step.taskId?`<button type="button" class="guide-action" data-guide-open-task="${esc(step.taskId)}">Task details & notes</button>`:''}</div></div>
+        <div class="guide-step-main"><div class="guide-resource">${esc(step.resource)}${esc(page)}</div><h3>${esc(step.title)}</h3><p>${esc(step.instruction)}</p>${guideTaskWorkspaceMarkup(l,step,index,steps,index===nextIndex)}</div>
         <label class="guide-check"><input type="checkbox" data-guide-check="${esc(step.id)}" ${status.completed?'checked':''}><span>${status.completed?'Complete':'Mark complete'}</span></label>
       </article>`;
     }).join('')}</div>
@@ -1300,11 +1488,7 @@ function renderLesson(n){
   $('#mainContent').querySelectorAll('[data-guide-scroll]').forEach(button=>button.onclick=()=>{
     document.getElementById(`guide-${button.dataset.guideScroll}`)?.scrollIntoView({behavior:'smooth',block:'center'});
   });
-  $('#mainContent').querySelectorAll('[data-guide-open-task]').forEach(button=>button.onclick=()=>openTask(button.dataset.guideOpenTask));
-  $('#mainContent').querySelectorAll('[data-guide-audio]').forEach(button=>button.onclick=()=>{
-    const reference=$('#lessonReference'); if(reference) reference.open=true;
-    requestAnimationFrame(()=>document.getElementById(`audio-group-${button.dataset.guideAudio}`)?.scrollIntoView({behavior:'smooth',block:'start'}));
-  });
+  initGuideTaskWorkspaces(l);
   initLessonAudio(n);
   const lessonNoteKey=`lesson-${n}`;
   $('#lessonNotes').value=state.taskState[lessonNoteKey]?.notes||'';
@@ -1359,6 +1543,21 @@ if(!window.__studyHubTaskClickHandler) {
   window.__studyHubTaskClickHandler=true;
 }
 
+function taskModalLessonContext(t){
+  if(!t.lesson) return '';
+  const l=lessonByNumber(t.lesson); if(!l) return '';
+  const guide=lessonGuideSteps(l), index=guide.findIndex(step=>step.taskId===t.id);
+  const checklist=taskStudyChecklist(l,t);
+  const goal=taskGoalFor(l,{taskId:t.id});
+  const grammarRelated=['textbook_grammar','particle','grammar1','grammar2','comp1','comp2'].includes(t.key);
+  return `<div class="task-lesson-brief">
+    <div class="task-lesson-brief-head"><div><span>Lesson ${l.n}${index>=0?` · Guided step ${index+1} of ${guide.length}`:''}</span><strong>${esc(l.title)}</strong><small>${esc(l.english)}</small></div></div>
+    ${goal?`<div class="task-goal"><strong>Can-do connection</strong><span>${esc(goal)}</span></div>`:''}
+    <div class="task-workflow"><strong>Complete this task</strong><ol>${checklist.map(item=>`<li>${esc(item)}</li>`).join('')}</ol></div>
+    ${grammarRelated?`<div class="task-items"><strong>Lesson ${l.n} grammar</strong><ul>${l.textbook.grammar.map((item,i)=>`<li><span>${i+1}.</span> ${esc(item)}</li>`).join('')}</ul></div>`:''}
+  </div>`;
+}
+
 function openTask(id){
   const tasks=[...allCoreTasks(),...Array.from({length:12},(_,w)=>Array.from({length:7},(_,d)=>habits(w,d)).flat())];
   let t=tasks.find(x=>x.id===id);
@@ -1373,9 +1572,9 @@ function openTask(id){
   const timeLine=secs?`<div class="time-stat">⏱ ${fmtDuration(secs)} studied on this task</div>`:'';
   const isActive=state.pomodoro.taskId===id && state.pomodoro.status==='running';
   const pomoBtn=`<button type="button" class="smallbtn primary" id="startTaskPomo">${isActive?'Timer running for this task':'Start pomodoro for this task'}</button><button type="button" class="smallbtn" id="focusTask">Focus mode</button>`;
-  const workflow=t.sectionSteps?.length?`<div class="task-workflow"><strong>Suggested study sequence</strong><ol>${t.sectionSteps.map(x=>`<li>${esc(x)}</li>`).join('')}</ol></div>`:'';
   const items=t.sectionItems?.length?`<div class="task-items"><strong>Content in this section</strong><ul>${t.sectionItems.map(x=>`<li>${esc(x.label)}</li>`).join('')}</ul></div>`:'';
-  $('#modalDesc').innerHTML=`${pageLink}${timeLine}<div class="task-purpose"><strong>Why this task?</strong><span>${esc(taskPurpose(t))}</span></div><p>${esc(t.desc)}</p>${items}${workflow}${t.lesson?'<p><strong>Study rule:</strong> Work through this section. If you already know it, do a small representative check and move on rather than grinding repetitive questions.</p>':''}<div class="modal-related">${lessonLink}${pomoBtn}</div>`;
+  const lessonContext=taskModalLessonContext(t);
+  $('#modalDesc').innerHTML=`${lessonContext}${pageLink}${timeLine}<div class="task-purpose"><strong>Why this task?</strong><span>${esc(taskPurpose(t))}</span></div>${t.lesson?'':`<p>${esc(t.desc)}</p>`}${items}<div class="modal-related">${lessonLink}${pomoBtn}</div>`;
   $('#modalDone').checked=s.completed; $('#modalDone').onchange=()=>toggle(id);
   $('#mastery').value=s.mastery; $('#mastery').onchange=e=>setTask(id,{mastery:e.target.value});
   $('#confidence').value=s.confidence||''; $('#confidence').onchange=e=>setTask(id,{confidence:e.target.value?+e.target.value:null});
