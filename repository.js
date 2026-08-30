@@ -9,7 +9,8 @@ const repositoryState = {
   query: '',
   status: 'all',
   kind: 'all',
-  register: 'all'
+  register: 'all',
+  showFurigana: localStorage.getItem('repositoryShowFurigana')!=='false'
 };
 
 const REPOSITORY_STATUSES = ['reference','learning','review','known'];
@@ -36,9 +37,39 @@ function repositoryGrammarCatalogue(){
 }
 
 function repositoryEntrySearchText(entry){
-  return [entry.japanese,entry.english,entry.intent_english,entry.original_japanese,
+  return [entry.japanese,entry.japanese_furigana,entry.english,entry.intent_english,entry.original_japanese,entry.original_japanese_furigana,
     entry.explanation,entry.source_detail,entry.notes,...(entry.grammar_points||[]),
     ...(entry.tags||[]),...(entry.error_types||[])].filter(Boolean).join(' ').toLowerCase();
+}
+
+function renderRepositoryFurigana(notation,plain=''){
+  if(!repositoryState.showFurigana||!notation) return esc(plain||notation||'');
+  const source=String(notation), pattern=/\[([^\]|]+)\|([^\]]+)\]/g;
+  let html='',last=0,match;
+  while((match=pattern.exec(source))){
+    html+=esc(source.slice(last,match.index));
+    html+=`<ruby>${esc(match[1])}<rt>${esc(match[2])}</rt></ruby>`;
+    last=pattern.lastIndex;
+  }
+  return html+esc(source.slice(last));
+}
+
+function repositoryPlainFromFurigana(notation){
+  return String(notation||'').replace(/\[([^\]|]+)\|([^\]]+)\]/g,'$1');
+}
+
+function repositoryFuriganaMatches(plain,notation){
+  return !notation||repositoryPlainFromFurigana(notation)===String(plain||'');
+}
+
+function repositoryJapanese(entry,original=false){
+  const plain=original?entry.original_japanese:entry.japanese;
+  const notation=original?entry.original_japanese_furigana:entry.japanese_furigana;
+  return renderRepositoryFurigana(notation,plain);
+}
+
+function repositoryFuriganaToggle(){
+  return `<button type="button" class="smallbtn repo-furigana-toggle" id="repoFuriganaToggle" aria-pressed="${repositoryState.showFurigana}">${repositoryState.showFurigana?'振 Furigana on':'振 Furigana off'}</button>`;
 }
 
 function filteredRepositoryEntries(){
@@ -112,10 +143,11 @@ function repositoryGrammarLinks(entry){
 
 function repositoryCard(entry){
   const lead=entry.japanese||entry.original_japanese||entry.intent_english||'Untitled entry';
+  const leadMarkup=entry.japanese?repositoryJapanese(entry):renderRepositoryFurigana(entry.original_japanese_furigana,entry.original_japanese);
   const meaning=entry.english||entry.intent_english||'';
   return `<button type="button" class="repo-entry-card" data-repo-entry="${entry.id}">
     <span class="repo-entry-top"><span class="repo-kind">${entry.entry_type==='correction'?'Correction':'Sentence'}</span><span class="repo-status ${entry.status}">${repositoryStatusLabel(entry.status)}</span></span>
-    <strong lang="ja">${esc(lead)}</strong>${meaning?`<span>${esc(meaning)}</span>`:''}
+    <strong lang="ja">${entry.japanese||entry.original_japanese?leadMarkup:esc(lead)}</strong>${meaning?`<span>${esc(meaning)}</span>`:''}
     <small>${entry.lesson_number?`Lesson ${entry.lesson_number} · `:''}${esc(entry.register||'neutral')} · ${repositoryDate(entry.updated_at)}</small>
   </button>`;
 }
@@ -124,7 +156,7 @@ function repositoryBrowseMarkup(){
   const entries=filteredRepositoryEntries();
   const counts=REPOSITORY_STATUSES.map(status=>[status,repositoryState.entries.filter(x=>x.status===status).length]);
   return `<section class="repo-page">
-    <div class="repo-page-head"><div><div class="eyebrow">Personal Japanese knowledge</div><h1>Japanese Repository</h1><p>Keep the Japanese you encounter, attempt and actually want to use.</p></div><div class="repo-head-actions"><button class="smallbtn" id="repoImport">Import JSON</button><button class="smallbtn primary" id="repoAdd">＋ Capture</button></div></div>
+    <div class="repo-page-head"><div><div class="eyebrow">Personal Japanese knowledge</div><h1>Japanese Repository</h1><p>Keep the Japanese you encounter, attempt and actually want to use.</p></div><div class="repo-head-actions">${repositoryFuriganaToggle()}<button class="smallbtn" id="repoImport">Import JSON</button><button class="smallbtn primary" id="repoAdd">＋ Capture</button></div></div>
     <section class="repo-stats">${counts.map(([status,count])=>`<button type="button" data-repo-status-jump="${status}"><strong>${count}</strong><span>${repositoryStatusLabel(status)}</span></button>`).join('')}</section>
     <section class="repo-toolbar panel"><label class="repo-search"><span>Search</span><input id="repoSearch" type="search" value="${esc(repositoryState.query)}" placeholder="Japanese, English, grammar, tags or notes…"></label><label><span>Type</span><select id="repoKind"><option value="all">All</option><option value="sentence" ${repositoryState.kind==='sentence'?'selected':''}>Sentences</option><option value="correction" ${repositoryState.kind==='correction'?'selected':''}>Corrections</option></select></label><label><span>Status</span><select id="repoStatus"><option value="all">All</option>${REPOSITORY_STATUSES.map(x=>`<option value="${x}" ${repositoryState.status===x?'selected':''}>${repositoryStatusLabel(x)}</option>`).join('')}</select></label><label><span>Register</span><select id="repoRegister"><option value="all">All</option>${REPOSITORY_REGISTERS.map(x=>`<option value="${x}" ${repositoryState.register===x?'selected':''}>${x[0].toUpperCase()+x.slice(1)}</option>`).join('')}</select></label></section>
     <section class="repo-content-grid"><div><div class="repo-results-head"><strong>${entries.length} entr${entries.length===1?'y':'ies'}</strong><button type="button" class="textbtn" id="repoClearFilters">Clear filters</button></div><div class="repo-entry-list">${entries.length?entries.map(repositoryCard).join(''):`<div class="empty repo-empty"><strong>No matching sentences.</strong><span>Capture something you encountered, attempted or asked how to say.</span></div>`}</div></div>${repositoryPatternsMarkup()}</section>
@@ -142,12 +174,12 @@ function repositoryPatternsMarkup(){
 function repositoryDetailMarkup(entry){
   const revisions=repositoryState.revisions.filter(x=>x.repository_id===entry.id);
   return `<section class="repo-page repo-detail">
-    <div class="repo-detail-toolbar"><button class="smallbtn" id="repoBack">← Repository</button><div><button class="smallbtn" id="repoEdit">Edit</button><button class="smallbtn danger" id="repoDelete">Delete</button></div></div>
-    <section class="repo-detail-hero"><div class="repo-entry-top"><span class="repo-kind">${entry.entry_type==='correction'?'Personal correction':'Captured sentence'}</span><span class="repo-status ${entry.status}">${repositoryStatusLabel(entry.status)}</span></div><h1 lang="ja">${esc(entry.japanese||entry.original_japanese||'Untitled')}</h1>${entry.english?`<p>${esc(entry.english)}</p>`:''}<small>Updated ${repositoryDate(entry.updated_at)}</small></section>
-    ${entry.entry_type==='correction'?`<section class="repo-correction-flow"><article><span>1 · Intended meaning</span><p>${esc(entry.intent_english||'—')}</p></article><article><span>2 · My Japanese</span><p lang="ja">${esc(entry.original_japanese||'—')}</p></article><article class="corrected"><span>3 · Corrected Japanese</span><p lang="ja">${esc(entry.japanese||'—')}</p></article><article><span>4 · Why</span><p>${esc(entry.explanation||'—')}</p></article></section>`:''}
+    <div class="repo-detail-toolbar"><button class="smallbtn" id="repoBack">← Repository</button><div>${repositoryFuriganaToggle()}<button class="smallbtn" id="repoEdit">Edit</button><button class="smallbtn danger" id="repoDelete">Delete</button></div></div>
+    <section class="repo-detail-hero"><div class="repo-entry-top"><span class="repo-kind">${entry.entry_type==='correction'?'Personal correction':'Captured sentence'}</span><span class="repo-status ${entry.status}">${repositoryStatusLabel(entry.status)}</span></div><h1 lang="ja">${entry.japanese?repositoryJapanese(entry):renderRepositoryFurigana(entry.original_japanese_furigana,entry.original_japanese||'Untitled')}</h1>${entry.english?`<p>${esc(entry.english)}</p>`:''}<small>Updated ${repositoryDate(entry.updated_at)}</small></section>
+    ${entry.entry_type==='correction'?`<section class="repo-correction-flow"><article><span>1 · Intended meaning</span><p>${esc(entry.intent_english||'—')}</p></article><article><span>2 · My Japanese</span><p lang="ja">${entry.original_japanese?repositoryJapanese(entry,true):'—'}</p></article><article class="corrected"><span>3 · Corrected Japanese</span><p lang="ja">${entry.japanese?repositoryJapanese(entry):'—'}</p></article><article><span>4 · Why</span><p>${esc(entry.explanation||'—')}</p></article></section>`:''}
     <section class="repo-detail-grid"><article class="panel"><div class="eyebrow">Connections</div><h2>Grammar and lessons</h2><div class="repo-chip-row">${repositoryGrammarLinks(entry)||'<span class="subtitle">No grammar linked yet.</span>'}</div>${repositoryLessonButton(entry)}${entry.book_id?`<div class="repo-source-row"><span>Book</span><strong>${esc(entry.book_id)}</strong></div>`:''}</article><article class="panel"><div class="eyebrow">Context</div><h2>How this sentence is used</h2><dl class="repo-facts"><div><dt>Register</dt><dd>${esc(entry.register||'neutral')}</dd></div><div><dt>Source</dt><dd>${esc(entry.source_type||'personal')}${entry.source_detail?` · ${esc(entry.source_detail)}`:''}</dd></div></dl><div class="repo-chip-row">${(entry.tags||[]).map(tag=>`<span class="repo-chip">${esc(tag)}</span>`).join('')}</div>${entry.notes?`<p class="repo-notes">${esc(entry.notes)}</p>`:''}</article></section>
     ${entry.error_types?.length?`<section class="panel repo-errors"><div class="eyebrow">Correction labels</div><div class="repo-chip-row">${entry.error_types.map(x=>`<span class="repo-chip error">${esc(x)}</span>`).join('')}</div></section>`:''}
-    <details class="panel repo-history"><summary>Correction history (${revisions.length})</summary>${revisions.length?revisions.map(row=>`<article><strong>${repositoryDate(row.created_at)}</strong><span lang="ja">${esc(row.japanese||row.original_japanese||'')}</span><small>${esc(row.change_note||'Previous saved version')}</small></article>`).join(''):'<div class="empty">No earlier versions yet. A snapshot is added whenever this entry is edited.</div>'}</details>
+    <details class="panel repo-history"><summary>Correction history (${revisions.length})</summary>${revisions.length?revisions.map(row=>`<article><strong>${repositoryDate(row.created_at)}</strong><span lang="ja">${row.japanese?repositoryJapanese(row):repositoryJapanese(row,true)}</span><small>${esc(row.change_note||'Previous saved version')}</small></article>`).join(''):'<div class="empty">No earlier versions yet. A snapshot is added whenever this entry is edited.</div>'}</details>
   </section>`;
 }
 
@@ -163,8 +195,10 @@ function repositoryFormMarkup(entry={}){
     <div class="repo-correction-fields wide" id="repoCorrectionFields">
       ${repositoryField('What I intended to say',`<textarea name="intent_english" placeholder="The meaning you wanted to express">${esc(entry.intent_english||'')}</textarea>`,true)}
       ${repositoryField('My original Japanese',`<textarea name="original_japanese" lang="ja" placeholder="Your attempt before correction">${esc(entry.original_japanese||'')}</textarea>`,true)}
+      ${repositoryField('Original Japanese with furigana',`<input name="original_japanese_furigana" class="repo-furigana-input" value="${esc(entry.original_japanese_furigana||'')}" placeholder="Example: [日本語|にほんご]"><small>Use [漢字|かんじ] notation. Leave kana and punctuation outside the brackets.</small><div class="repo-furigana-preview" data-furigana-preview="original"></div>`,true)}
     </div>
     ${repositoryField(type==='correction'?'Corrected Japanese':'Japanese',`<textarea name="japanese" lang="ja" required placeholder="Natural Japanese sentence">${esc(entry.japanese||'')}</textarea>`,true)}
+    ${repositoryField('Japanese with furigana',`<input name="japanese_furigana" class="repo-furigana-input" value="${esc(entry.japanese_furigana||'')}" placeholder="Example: いいよ！[何時|なんじ]がいい？"><small>Use [漢字|かんじ] notation. The visible Japanese must exactly match the plain sentence.</small><div class="repo-furigana-preview" data-furigana-preview="corrected"></div>`,true)}
     ${repositoryField('English meaning',`<textarea name="english" placeholder="Clear meaning in context">${esc(entry.english||'')}</textarea>`,true)}
     ${repositoryField('Explanation',`<textarea name="explanation" placeholder="Why this wording or correction works">${esc(entry.explanation||'')}</textarea>`,true)}
     ${repositoryField('Grammar links',`<input name="grammar_points" list="repoGrammarList" value="${esc((entry.grammar_points||[]).join(', '))}" placeholder="Comma-separated grammar points"><datalist id="repoGrammarList">${grammar.map(x=>`<option value="${esc(x.label)}">Lesson ${x.lesson}</option>`).join('')}</datalist>`,true)}
@@ -181,7 +215,7 @@ function repositoryFormMarkup(entry={}){
 }
 
 function repositoryImportMarkup(){
-  const example=JSON.stringify([{entry_type:'correction',intent_english:'What I wanted to say',original_japanese:'私の文',japanese:'自然な日本語',english:'Natural English meaning',explanation:'Why it changed',grammar_points:['〜ように'],tags:['chat'],register:'casual',status:'learning',error_types:['Naturalness'],source_type:'personal',source_detail:'ChatGPT'}],null,2);
+  const example=JSON.stringify([{entry_type:'correction',intent_english:'Sure! What time is good for you?',original_japanese:'いいです！何時はいいですか？',original_japanese_furigana:'いいです！[何時|なんじ]はいいですか？',japanese:'いいよ！何時がいい？',japanese_furigana:'いいよ！[何時|なんじ]がいい？',english:'Sure! What time is good for you?',explanation:'A natural casual reply to a friend.',grammar_points:[],tags:['friends','messages'],register:'casual',status:'learning',error_types:['Particles','Register','Naturalness'],source_type:'personal',source_detail:'ChatGPT'}],null,2);
   return `<section class="repo-page repo-form-page"><div class="repo-detail-toolbar"><button class="smallbtn" id="repoCancel">← Cancel</button></div><section class="repo-form-head"><div class="eyebrow">Chat capture</div><h1>Import repository entries</h1><p>Paste one JSON object or an array of objects produced from a chat. You can review the preview before saving.</p></section><section class="panel repo-import"><label><span>JSON</span><textarea id="repoImportJson" spellcheck="false" placeholder="Paste JSON here…">${esc(example)}</textarea></label><div id="repoImportPreview" class="repo-import-preview"></div><div class="repo-form-actions"><button class="smallbtn" id="repoPreviewImport" type="button">Preview</button><button class="smallbtn primary" id="repoRunImport" type="button" disabled>Import entries</button></div></section></section>`;
 }
 
@@ -213,10 +247,25 @@ function bindRepositoryEvents(selected){
   $('#repoBack')?.addEventListener('click',back); $('#repoCancel')?.addEventListener('click',back); $('#repoCancelBottom')?.addEventListener('click',back);
   $('#repoEdit')?.addEventListener('click',()=>{repositoryState.mode='form';renderRepository();});
   $('#repoDelete')?.addEventListener('click',()=>deleteRepositoryEntry(selected));
+  $('#repoFuriganaToggle')?.addEventListener('click',()=>{
+    repositoryState.showFurigana=!repositoryState.showFurigana;
+    localStorage.setItem('repositoryShowFurigana',String(repositoryState.showFurigana));
+    renderRepository();
+  });
   $('#repositoryForm')?.addEventListener('submit',saveRepositoryEntry);
   const type=$('#repoEntryType');
   const syncType=()=>{const correction=type?.value==='correction';$('#repoCorrectionFields')?.classList.toggle('is-hidden',!correction);$('#repoErrorFields')?.classList.toggle('is-hidden',!correction);};
   type?.addEventListener('change',syncType); syncType();
+  const updateFuriganaPreviews=()=>{
+    const form=$('#repositoryForm'); if(!form)return;
+    const corrected=form.elements.japanese_furigana?.value||'', original=form.elements.original_japanese_furigana?.value||'';
+    const correctedPreview=document.querySelector('[data-furigana-preview="corrected"]');
+    const originalPreview=document.querySelector('[data-furigana-preview="original"]');
+    if(correctedPreview) correctedPreview.innerHTML=corrected?renderRepositoryFurigana(corrected,form.elements.japanese?.value):'<span>Preview appears here</span>';
+    if(originalPreview) originalPreview.innerHTML=original?renderRepositoryFurigana(original,form.elements.original_japanese?.value):'<span>Preview appears here</span>';
+  };
+  document.querySelectorAll('.repo-furigana-input,[name="japanese"],[name="original_japanese"]').forEach(input=>input.addEventListener('input',updateFuriganaPreviews));
+  updateFuriganaPreviews();
   $('#repoPreviewImport')?.addEventListener('click',previewRepositoryImport);
   $('#repoRunImport')?.addEventListener('click',runRepositoryImport);
 }
@@ -225,8 +274,8 @@ function repositoryPayload(form){
   const data=new FormData(form), lesson=data.get('lesson_number');
   return {
     entry_type:data.get('entry_type')||'sentence', status:data.get('status')||'learning',
-    intent_english:String(data.get('intent_english')||'').trim(), original_japanese:String(data.get('original_japanese')||'').trim(),
-    japanese:String(data.get('japanese')||'').trim(), english:String(data.get('english')||'').trim(), explanation:String(data.get('explanation')||'').trim(),
+    intent_english:String(data.get('intent_english')||'').trim(), original_japanese:String(data.get('original_japanese')||'').trim(), original_japanese_furigana:String(data.get('original_japanese_furigana')||'').trim(),
+    japanese:String(data.get('japanese')||'').trim(), japanese_furigana:String(data.get('japanese_furigana')||'').trim(), english:String(data.get('english')||'').trim(), explanation:String(data.get('explanation')||'').trim(),
     grammar_points:repositoryArray(data.get('grammar_points')), tags:repositoryArray(data.get('tags')),
     lesson_number:lesson?Number(lesson):null, book_id:String(data.get('book_id')||'')||null,
     register:data.get('register')||'neutral', source_type:data.get('source_type')||'personal', source_detail:String(data.get('source_detail')||'').trim(),
@@ -238,12 +287,14 @@ async function saveRepositoryEntry(event){
   event.preventDefault();
   const form=event.currentTarget, button=event.submitter, id=new FormData(form).get('id'), payload=repositoryPayload(form);
   if(!payload.japanese){toast('Add the Japanese sentence first.');return;}
+  if(!repositoryFuriganaMatches(payload.japanese,payload.japanese_furigana)){toast('The furigana notation does not match the plain Japanese sentence.');return;}
+  if(!repositoryFuriganaMatches(payload.original_japanese,payload.original_japanese_furigana)){toast('The original-sentence furigana does not match the plain Japanese.');return;}
   if(button) button.disabled=true;
   try{
     if(id){
       const previous=repositoryState.entries.find(x=>x.id===id);
       if(previous){
-        const {error:revisionError}=await db.from('japanese_repository_revisions').insert({user_id:state.user.id,repository_id:id,original_japanese:previous.original_japanese||'',japanese:previous.japanese||'',english:previous.english||'',explanation:previous.explanation||'',change_note:'Saved before editing'});
+        const {error:revisionError}=await db.from('japanese_repository_revisions').insert({user_id:state.user.id,repository_id:id,original_japanese:previous.original_japanese||'',original_japanese_furigana:previous.original_japanese_furigana||'',japanese:previous.japanese||'',japanese_furigana:previous.japanese_furigana||'',english:previous.english||'',explanation:previous.explanation||'',change_note:'Saved before editing'});
         if(revisionError) throw revisionError;
       }
       const {data,error}=await db.from('japanese_repository').update(payload).eq('id',id).eq('user_id',state.user.id).select().single();
@@ -274,7 +325,7 @@ function normaliseRepositoryImport(raw){
   const rows=Array.isArray(raw)?raw:[raw];
   return rows.map(row=>({
     entry_type:row.entry_type==='correction'?'correction':'sentence', status:REPOSITORY_STATUSES.includes(row.status)?row.status:'learning',
-    intent_english:String(row.intent_english||''), original_japanese:String(row.original_japanese||''), japanese:String(row.japanese||''),
+    intent_english:String(row.intent_english||''), original_japanese:String(row.original_japanese||''), original_japanese_furigana:String(row.original_japanese_furigana||''), japanese:String(row.japanese||''), japanese_furigana:String(row.japanese_furigana||''),
     english:String(row.english||''), explanation:String(row.explanation||''), grammar_points:repositoryArray(row.grammar_points), tags:repositoryArray(row.tags),
     lesson_number:(Number(row.lesson_number)>=11&&Number(row.lesson_number)<=20)?Number(row.lesson_number):null,
     book_id:row.book_id||null, register:REPOSITORY_REGISTERS.includes(row.register)?row.register:'neutral', source_type:row.source_type||'personal',
@@ -287,7 +338,9 @@ function previewRepositoryImport(){
   try{
     pendingRepositoryImport=normaliseRepositoryImport(JSON.parse($('#repoImportJson').value));
     if(!pendingRepositoryImport.length) throw new Error('No entries with a Japanese sentence were found.');
-    $('#repoImportPreview').innerHTML=`<strong>${pendingRepositoryImport.length} entr${pendingRepositoryImport.length===1?'y':'ies'} ready</strong>${pendingRepositoryImport.slice(0,5).map(x=>`<span lang="ja">${esc(x.japanese)}</span>`).join('')}`;
+    const mismatch=pendingRepositoryImport.find(row=>!repositoryFuriganaMatches(row.japanese,row.japanese_furigana)||!repositoryFuriganaMatches(row.original_japanese,row.original_japanese_furigana));
+    if(mismatch) throw new Error(`Furigana does not match the plain Japanese: ${mismatch.japanese}`);
+    $('#repoImportPreview').innerHTML=`<strong>${pendingRepositoryImport.length} entr${pendingRepositoryImport.length===1?'y':'ies'} ready</strong>${pendingRepositoryImport.slice(0,5).map(x=>`<span lang="ja">${repositoryJapanese(x)}</span>`).join('')}`;
     $('#repoRunImport').disabled=false;
   }catch(error){pendingRepositoryImport=[];$('#repoImportPreview').innerHTML=`<span class="repo-import-error">${esc(error.message)}</span>`;$('#repoRunImport').disabled=true;}
 }

@@ -16,6 +16,14 @@ entry saves its previous wording in correction history. The correction-pattern
 panel counts recurring error labels; it becomes useful as corrected sentences
 accumulate.
 
+Repository furigana uses safe bracket notation rather than stored HTML:
+`[日本語|にほんご]を[勉強|べんきょう]しています。`. Keep the plain sentence in
+`japanese` and put the annotated version in `japanese_furigana`. Corrections may
+also include `original_japanese_furigana`. The app validates that removing the
+readings exactly reproduces the corresponding plain Japanese, preventing
+duplicated or mismatched text. Use **振 Furigana on/off** to control display;
+the setting is remembered on the device.
+
 ## Security setup
 
 1. Revoke the WaniKani token that was previously stored in
