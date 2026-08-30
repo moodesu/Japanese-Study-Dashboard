@@ -1,5 +1,21 @@
 # Japanese Learning Hub
 
+## Japanese Repository (v1.1)
+
+The **文** navigation button opens the sentence-first personal repository. It
+stores useful or encountered sentences, personal Japanese corrections, context,
+grammar links, lesson/resource links, learning status and correction labels.
+
+Before using it, run `migrations/20260830_japanese_repository.sql` separately in
+the Supabase SQL Editor. The migration adds two user-owned tables with Row Level
+Security and does not change the existing v1.0 curriculum or progress tables.
+
+Use **Capture** for manual entries. Use **Import JSON** to paste one object or an
+array of sentence/correction objects from a ChatGPT conversation. Editing an
+entry saves its previous wording in correction history. The correction-pattern
+panel counts recurring error labels; it becomes useful as corrected sentences
+accumulate.
+
 ## Security setup
 
 1. Revoke the WaniKani token that was previously stored in

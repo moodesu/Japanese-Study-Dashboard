@@ -1,0 +1,301 @@
+const repositoryState = {
+  entries: [],
+  revisions: [],
+  loaded: false,
+  loading: false,
+  error: '',
+  selectedId: null,
+  mode: 'browse',
+  query: '',
+  status: 'all',
+  kind: 'all',
+  register: 'all'
+};
+
+const REPOSITORY_STATUSES = ['reference','learning','review','known'];
+const REPOSITORY_REGISTERS = ['neutral','casual','polite','formal','written'];
+const REPOSITORY_ERROR_TYPES = [
+  'Particles','Verb form','Word choice','Word order','Register','Omission',
+  'Grammar pattern','Naturalness','Kanji / spelling','Other'
+];
+
+function repositoryArray(value){
+  if(Array.isArray(value)) return value.filter(Boolean).map(String);
+  if(typeof value!=='string') return [];
+  return value.split(',').map(x=>x.trim()).filter(Boolean);
+}
+
+function repositoryGrammarCatalogue(){
+  const rows=[];
+  for(const lesson of (window.CURRICULUM?.lessons||[])){
+    for(const grammar of (lesson.textbook?.grammar||[])){
+      if(!rows.some(row=>row.label===grammar)) rows.push({label:grammar,lesson:lesson.n});
+    }
+  }
+  return rows;
+}
+
+function repositoryEntrySearchText(entry){
+  return [entry.japanese,entry.english,entry.intent_english,entry.original_japanese,
+    entry.explanation,entry.source_detail,entry.notes,...(entry.grammar_points||[]),
+    ...(entry.tags||[]),...(entry.error_types||[])].filter(Boolean).join(' ').toLowerCase();
+}
+
+function filteredRepositoryEntries(){
+  const q=repositoryState.query.trim().toLowerCase();
+  return repositoryState.entries.filter(entry=>{
+    if(repositoryState.status!=='all' && entry.status!==repositoryState.status) return false;
+    if(repositoryState.kind!=='all' && entry.entry_type!==repositoryState.kind) return false;
+    if(repositoryState.register!=='all' && entry.register!==repositoryState.register) return false;
+    return !q || repositoryEntrySearchText(entry).includes(q);
+  });
+}
+
+function repositoryDate(value){
+  const d=new Date(value);
+  return Number.isNaN(d.getTime())?'':d.toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'});
+}
+
+function repositoryStatusLabel(status){
+  return ({reference:'Reference',learning:'Learning',review:'Review',known:'Known'})[status]||status;
+}
+
+async function loadRepositoryData(force=false){
+  if(!db||!state.user||repositoryState.loading) return;
+  if(repositoryState.loaded&&!force) return;
+  repositoryState.loading=true; repositoryState.error='';
+  try{
+    const [{data:entries,error},{data:revisions,error:revisionError}]=await Promise.all([
+      db.from('japanese_repository').select('*').eq('user_id',state.user.id).order('updated_at',{ascending:false}),
+      db.from('japanese_repository_revisions').select('*').eq('user_id',state.user.id).order('created_at',{ascending:false})
+    ]);
+    if(error) throw error;
+    if(revisionError) throw revisionError;
+    repositoryState.entries=entries||[];
+    repositoryState.revisions=revisions||[];
+    repositoryState.loaded=true;
+  }catch(error){
+    repositoryState.error=error?.message||'The Japanese Repository could not be loaded.';
+  }finally{
+    repositoryState.loading=false;
+    if(state.view==='repository') renderRepository();
+  }
+}
+
+function resetRepositorySession(){
+  repositoryState.entries=[]; repositoryState.revisions=[]; repositoryState.loaded=false;
+  repositoryState.loading=false; repositoryState.error=''; repositoryState.selectedId=null;
+  repositoryState.mode='browse';
+}
+
+function openRepositoryEntry(id){
+  repositoryState.selectedId=id;
+  repositoryState.mode='detail';
+  state.view='repository';
+  render();
+  scrollTo({top:0,behavior:'smooth'});
+}
+
+function repositoryLessonButton(entry){
+  if(!entry.lesson_number) return '';
+  const lesson=window.CURRICULUM?.lessons?.find(x=>Number(x.n)===Number(entry.lesson_number));
+  return `<button type="button" class="repo-link" data-repo-lesson="${entry.lesson_number}"><span>Lesson ${entry.lesson_number}</span><strong>${esc(lesson?.title||'Open lesson')}</strong></button>`;
+}
+
+function repositoryGrammarLinks(entry){
+  const catalogue=repositoryGrammarCatalogue();
+  return (entry.grammar_points||[]).map(grammar=>{
+    const match=catalogue.find(x=>x.label===grammar);
+    return match?`<button type="button" class="repo-chip grammar" data-repo-lesson="${match.lesson}">${esc(grammar)} · L${match.lesson}</button>`:`<span class="repo-chip grammar">${esc(grammar)}</span>`;
+  }).join('');
+}
+
+function repositoryCard(entry){
+  const lead=entry.japanese||entry.original_japanese||entry.intent_english||'Untitled entry';
+  const meaning=entry.english||entry.intent_english||'';
+  return `<button type="button" class="repo-entry-card" data-repo-entry="${entry.id}">
+    <span class="repo-entry-top"><span class="repo-kind">${entry.entry_type==='correction'?'Correction':'Sentence'}</span><span class="repo-status ${entry.status}">${repositoryStatusLabel(entry.status)}</span></span>
+    <strong lang="ja">${esc(lead)}</strong>${meaning?`<span>${esc(meaning)}</span>`:''}
+    <small>${entry.lesson_number?`Lesson ${entry.lesson_number} · `:''}${esc(entry.register||'neutral')} · ${repositoryDate(entry.updated_at)}</small>
+  </button>`;
+}
+
+function repositoryBrowseMarkup(){
+  const entries=filteredRepositoryEntries();
+  const counts=REPOSITORY_STATUSES.map(status=>[status,repositoryState.entries.filter(x=>x.status===status).length]);
+  return `<section class="repo-page">
+    <div class="repo-page-head"><div><div class="eyebrow">Personal Japanese knowledge</div><h1>Japanese Repository</h1><p>Keep the Japanese you encounter, attempt and actually want to use.</p></div><div class="repo-head-actions"><button class="smallbtn" id="repoImport">Import JSON</button><button class="smallbtn primary" id="repoAdd">＋ Capture</button></div></div>
+    <section class="repo-stats">${counts.map(([status,count])=>`<button type="button" data-repo-status-jump="${status}"><strong>${count}</strong><span>${repositoryStatusLabel(status)}</span></button>`).join('')}</section>
+    <section class="repo-toolbar panel"><label class="repo-search"><span>Search</span><input id="repoSearch" type="search" value="${esc(repositoryState.query)}" placeholder="Japanese, English, grammar, tags or notes…"></label><label><span>Type</span><select id="repoKind"><option value="all">All</option><option value="sentence" ${repositoryState.kind==='sentence'?'selected':''}>Sentences</option><option value="correction" ${repositoryState.kind==='correction'?'selected':''}>Corrections</option></select></label><label><span>Status</span><select id="repoStatus"><option value="all">All</option>${REPOSITORY_STATUSES.map(x=>`<option value="${x}" ${repositoryState.status===x?'selected':''}>${repositoryStatusLabel(x)}</option>`).join('')}</select></label><label><span>Register</span><select id="repoRegister"><option value="all">All</option>${REPOSITORY_REGISTERS.map(x=>`<option value="${x}" ${repositoryState.register===x?'selected':''}>${x[0].toUpperCase()+x.slice(1)}</option>`).join('')}</select></label></section>
+    <section class="repo-content-grid"><div><div class="repo-results-head"><strong>${entries.length} entr${entries.length===1?'y':'ies'}</strong><button type="button" class="textbtn" id="repoClearFilters">Clear filters</button></div><div class="repo-entry-list">${entries.length?entries.map(repositoryCard).join(''):`<div class="empty repo-empty"><strong>No matching sentences.</strong><span>Capture something you encountered, attempted or asked how to say.</span></div>`}</div></div>${repositoryPatternsMarkup()}</section>
+  </section>`;
+}
+
+function repositoryPatternsMarkup(){
+  const corrections=repositoryState.entries.filter(x=>x.entry_type==='correction');
+  const counts=new Map();
+  for(const entry of corrections) for(const error of (entry.error_types||[])) counts.set(error,(counts.get(error)||0)+1);
+  const patterns=[...counts.entries()].sort((a,b)=>b[1]-a[1]);
+  return `<aside class="panel repo-patterns"><div class="eyebrow">Correction patterns</div><h2>What keeps recurring</h2><p class="subtitle">Built from the error labels attached to your corrections.</p>${patterns.length?`<div class="repo-pattern-list">${patterns.slice(0,8).map(([name,count])=>`<button type="button" data-repo-pattern="${esc(name)}"><span>${esc(name)}</span><strong>${count}</strong></button>`).join('')}</div>`:`<div class="empty">Patterns will appear after corrected sentences have error labels.</div>`}</aside>`;
+}
+
+function repositoryDetailMarkup(entry){
+  const revisions=repositoryState.revisions.filter(x=>x.repository_id===entry.id);
+  return `<section class="repo-page repo-detail">
+    <div class="repo-detail-toolbar"><button class="smallbtn" id="repoBack">← Repository</button><div><button class="smallbtn" id="repoEdit">Edit</button><button class="smallbtn danger" id="repoDelete">Delete</button></div></div>
+    <section class="repo-detail-hero"><div class="repo-entry-top"><span class="repo-kind">${entry.entry_type==='correction'?'Personal correction':'Captured sentence'}</span><span class="repo-status ${entry.status}">${repositoryStatusLabel(entry.status)}</span></div><h1 lang="ja">${esc(entry.japanese||entry.original_japanese||'Untitled')}</h1>${entry.english?`<p>${esc(entry.english)}</p>`:''}<small>Updated ${repositoryDate(entry.updated_at)}</small></section>
+    ${entry.entry_type==='correction'?`<section class="repo-correction-flow"><article><span>1 · Intended meaning</span><p>${esc(entry.intent_english||'—')}</p></article><article><span>2 · My Japanese</span><p lang="ja">${esc(entry.original_japanese||'—')}</p></article><article class="corrected"><span>3 · Corrected Japanese</span><p lang="ja">${esc(entry.japanese||'—')}</p></article><article><span>4 · Why</span><p>${esc(entry.explanation||'—')}</p></article></section>`:''}
+    <section class="repo-detail-grid"><article class="panel"><div class="eyebrow">Connections</div><h2>Grammar and lessons</h2><div class="repo-chip-row">${repositoryGrammarLinks(entry)||'<span class="subtitle">No grammar linked yet.</span>'}</div>${repositoryLessonButton(entry)}${entry.book_id?`<div class="repo-source-row"><span>Book</span><strong>${esc(entry.book_id)}</strong></div>`:''}</article><article class="panel"><div class="eyebrow">Context</div><h2>How this sentence is used</h2><dl class="repo-facts"><div><dt>Register</dt><dd>${esc(entry.register||'neutral')}</dd></div><div><dt>Source</dt><dd>${esc(entry.source_type||'personal')}${entry.source_detail?` · ${esc(entry.source_detail)}`:''}</dd></div></dl><div class="repo-chip-row">${(entry.tags||[]).map(tag=>`<span class="repo-chip">${esc(tag)}</span>`).join('')}</div>${entry.notes?`<p class="repo-notes">${esc(entry.notes)}</p>`:''}</article></section>
+    ${entry.error_types?.length?`<section class="panel repo-errors"><div class="eyebrow">Correction labels</div><div class="repo-chip-row">${entry.error_types.map(x=>`<span class="repo-chip error">${esc(x)}</span>`).join('')}</div></section>`:''}
+    <details class="panel repo-history"><summary>Correction history (${revisions.length})</summary>${revisions.length?revisions.map(row=>`<article><strong>${repositoryDate(row.created_at)}</strong><span lang="ja">${esc(row.japanese||row.original_japanese||'')}</span><small>${esc(row.change_note||'Previous saved version')}</small></article>`).join(''):'<div class="empty">No earlier versions yet. A snapshot is added whenever this entry is edited.</div>'}</details>
+  </section>`;
+}
+
+function repositoryField(label,control,wide=false){ return `<label class="${wide?'wide':''}"><span>${label}</span>${control}</label>`; }
+
+function repositoryFormMarkup(entry={}){
+  const editing=!!entry.id, type=entry.entry_type||'sentence';
+  const grammar=repositoryGrammarCatalogue();
+  return `<section class="repo-page repo-form-page"><div class="repo-detail-toolbar"><button class="smallbtn" id="repoCancel">← Cancel</button></div><section class="repo-form-head"><div class="eyebrow">${editing?'Update entry':'New capture'}</div><h1>${editing?'Edit Japanese':'Capture useful Japanese'}</h1><p>Save something you encountered, attempted or asked how to express.</p></section><form id="repositoryForm" class="repo-form panel">
+    <input type="hidden" name="id" value="${esc(entry.id||'')}">
+    ${repositoryField('Entry type',`<select name="entry_type" id="repoEntryType"><option value="sentence" ${type==='sentence'?'selected':''}>Encountered / useful sentence</option><option value="correction" ${type==='correction'?'selected':''}>My Japanese correction</option></select>`)}
+    ${repositoryField('Status',`<select name="status">${REPOSITORY_STATUSES.map(x=>`<option value="${x}" ${(entry.status||'learning')===x?'selected':''}>${repositoryStatusLabel(x)}</option>`).join('')}</select>`)}
+    <div class="repo-correction-fields wide" id="repoCorrectionFields">
+      ${repositoryField('What I intended to say',`<textarea name="intent_english" placeholder="The meaning you wanted to express">${esc(entry.intent_english||'')}</textarea>`,true)}
+      ${repositoryField('My original Japanese',`<textarea name="original_japanese" lang="ja" placeholder="Your attempt before correction">${esc(entry.original_japanese||'')}</textarea>`,true)}
+    </div>
+    ${repositoryField(type==='correction'?'Corrected Japanese':'Japanese',`<textarea name="japanese" lang="ja" required placeholder="Natural Japanese sentence">${esc(entry.japanese||'')}</textarea>`,true)}
+    ${repositoryField('English meaning',`<textarea name="english" placeholder="Clear meaning in context">${esc(entry.english||'')}</textarea>`,true)}
+    ${repositoryField('Explanation',`<textarea name="explanation" placeholder="Why this wording or correction works">${esc(entry.explanation||'')}</textarea>`,true)}
+    ${repositoryField('Grammar links',`<input name="grammar_points" list="repoGrammarList" value="${esc((entry.grammar_points||[]).join(', '))}" placeholder="Comma-separated grammar points"><datalist id="repoGrammarList">${grammar.map(x=>`<option value="${esc(x.label)}">Lesson ${x.lesson}</option>`).join('')}</datalist>`,true)}
+    ${repositoryField('Lesson',`<select name="lesson_number"><option value="">Not linked</option>${(window.CURRICULUM?.lessons||[]).map(x=>`<option value="${x.n}" ${Number(entry.lesson_number)===Number(x.n)?'selected':''}>Lesson ${x.n} · ${esc(x.title)}</option>`).join('')}</select>`)}
+    ${repositoryField('Book / resource',`<select name="book_id"><option value="">Not linked</option>${(window.BOOKS||[]).map(x=>`<option value="${esc(x.id)}" ${entry.book_id===x.id?'selected':''}>${esc(x.title)}</option>`).join('')}</select>`)}
+    ${repositoryField('Register',`<select name="register">${REPOSITORY_REGISTERS.map(x=>`<option value="${x}" ${(entry.register||'neutral')===x?'selected':''}>${x[0].toUpperCase()+x.slice(1)}</option>`).join('')}</select>`)}
+    ${repositoryField('Source type',`<select name="source_type"><option value="personal">Personal / ChatGPT</option><option value="book" ${entry.source_type==='book'?'selected':''}>Book</option><option value="conversation" ${entry.source_type==='conversation'?'selected':''}>Conversation</option><option value="media" ${entry.source_type==='media'?'selected':''}>Media</option><option value="other" ${entry.source_type==='other'?'selected':''}>Other</option></select>`)}
+    ${repositoryField('Source detail',`<input name="source_detail" value="${esc(entry.source_detail||'')}" placeholder="Chat, page, episode, situation…">`,true)}
+    ${repositoryField('Tags',`<input name="tags" value="${esc((entry.tags||[]).join(', '))}" placeholder="travel, daily life, work…">`,true)}
+    <fieldset class="repo-error-fields wide" id="repoErrorFields"><legend>What was corrected?</legend><div>${REPOSITORY_ERROR_TYPES.map(x=>`<label><input type="checkbox" name="error_types" value="${esc(x)}" ${(entry.error_types||[]).includes(x)?'checked':''}> ${esc(x)}</label>`).join('')}</div></fieldset>
+    ${repositoryField('Private notes',`<textarea name="notes" placeholder="Nuance, alternatives, reminders…">${esc(entry.notes||'')}</textarea>`,true)}
+    <div class="repo-form-actions wide"><button type="button" class="smallbtn" id="repoCancelBottom">Cancel</button><button type="submit" class="smallbtn primary">${editing?'Save changes':'Save to repository'}</button></div>
+  </form></section>`;
+}
+
+function repositoryImportMarkup(){
+  const example=JSON.stringify([{entry_type:'correction',intent_english:'What I wanted to say',original_japanese:'私の文',japanese:'自然な日本語',english:'Natural English meaning',explanation:'Why it changed',grammar_points:['〜ように'],tags:['chat'],register:'casual',status:'learning',error_types:['Naturalness'],source_type:'personal',source_detail:'ChatGPT'}],null,2);
+  return `<section class="repo-page repo-form-page"><div class="repo-detail-toolbar"><button class="smallbtn" id="repoCancel">← Cancel</button></div><section class="repo-form-head"><div class="eyebrow">Chat capture</div><h1>Import repository entries</h1><p>Paste one JSON object or an array of objects produced from a chat. You can review the preview before saving.</p></section><section class="panel repo-import"><label><span>JSON</span><textarea id="repoImportJson" spellcheck="false" placeholder="Paste JSON here…">${esc(example)}</textarea></label><div id="repoImportPreview" class="repo-import-preview"></div><div class="repo-form-actions"><button class="smallbtn" id="repoPreviewImport" type="button">Preview</button><button class="smallbtn primary" id="repoRunImport" type="button" disabled>Import entries</button></div></section></section>`;
+}
+
+function renderRepository(){
+  $('#hero').hidden=true; $('#bottomArea').hidden=true; $('#weekView').hidden=true; $('#mainContent').hidden=false;
+  if(repositoryState.loading&&!repositoryState.loaded){ $('#mainContent').innerHTML='<section class="repo-page"><div class="panel repo-loading">Loading your Japanese Repository…</div></section>'; return; }
+  if(repositoryState.error&&!repositoryState.loaded){ $('#mainContent').innerHTML=`<section class="repo-page"><div class="panel repo-setup"><h1>Repository setup needed</h1><p>${esc(repositoryState.error)}</p><p>Run <code>migrations/20260830_japanese_repository.sql</code> in the Supabase SQL Editor, then reload.</p><button class="smallbtn" id="repoRetry">Retry</button></div></section>`; $('#repoRetry').onclick=()=>loadRepositoryData(true); return; }
+  const selected=repositoryState.entries.find(x=>x.id===repositoryState.selectedId);
+  if(repositoryState.mode==='form') $('#mainContent').innerHTML=repositoryFormMarkup(selected||{});
+  else if(repositoryState.mode==='import') $('#mainContent').innerHTML=repositoryImportMarkup();
+  else if(repositoryState.mode==='detail'&&selected) $('#mainContent').innerHTML=repositoryDetailMarkup(selected);
+  else { repositoryState.mode='browse'; $('#mainContent').innerHTML=repositoryBrowseMarkup(); }
+  bindRepositoryEvents(selected);
+}
+
+function bindRepositoryEvents(selected){
+  document.querySelectorAll('[data-repo-entry]').forEach(x=>x.onclick=()=>openRepositoryEntry(x.dataset.repoEntry));
+  document.querySelectorAll('[data-repo-lesson]').forEach(x=>x.onclick=()=>{state.lesson=Number(x.dataset.repoLesson);state.view='lesson';render();scrollTo({top:0,behavior:'smooth'});});
+  document.querySelectorAll('[data-repo-status-jump]').forEach(x=>x.onclick=()=>{repositoryState.status=x.dataset.repoStatusJump;renderRepository();});
+  document.querySelectorAll('[data-repo-pattern]').forEach(x=>x.onclick=()=>{repositoryState.query=x.dataset.repoPattern;repositoryState.kind='correction';renderRepository();});
+  $('#repoSearch')?.addEventListener('input',e=>{repositoryState.query=e.target.value;renderRepository();$('#repoSearch')?.focus();});
+  $('#repoKind')?.addEventListener('change',e=>{repositoryState.kind=e.target.value;renderRepository();});
+  $('#repoStatus')?.addEventListener('change',e=>{repositoryState.status=e.target.value;renderRepository();});
+  $('#repoRegister')?.addEventListener('change',e=>{repositoryState.register=e.target.value;renderRepository();});
+  $('#repoClearFilters')?.addEventListener('click',()=>{repositoryState.query='';repositoryState.kind='all';repositoryState.status='all';repositoryState.register='all';renderRepository();});
+  $('#repoAdd')?.addEventListener('click',()=>{repositoryState.selectedId=null;repositoryState.mode='form';renderRepository();});
+  $('#repoImport')?.addEventListener('click',()=>{repositoryState.mode='import';renderRepository();});
+  const back=()=>{repositoryState.mode='browse';repositoryState.selectedId=null;renderRepository();};
+  $('#repoBack')?.addEventListener('click',back); $('#repoCancel')?.addEventListener('click',back); $('#repoCancelBottom')?.addEventListener('click',back);
+  $('#repoEdit')?.addEventListener('click',()=>{repositoryState.mode='form';renderRepository();});
+  $('#repoDelete')?.addEventListener('click',()=>deleteRepositoryEntry(selected));
+  $('#repositoryForm')?.addEventListener('submit',saveRepositoryEntry);
+  const type=$('#repoEntryType');
+  const syncType=()=>{const correction=type?.value==='correction';$('#repoCorrectionFields')?.classList.toggle('is-hidden',!correction);$('#repoErrorFields')?.classList.toggle('is-hidden',!correction);};
+  type?.addEventListener('change',syncType); syncType();
+  $('#repoPreviewImport')?.addEventListener('click',previewRepositoryImport);
+  $('#repoRunImport')?.addEventListener('click',runRepositoryImport);
+}
+
+function repositoryPayload(form){
+  const data=new FormData(form), lesson=data.get('lesson_number');
+  return {
+    entry_type:data.get('entry_type')||'sentence', status:data.get('status')||'learning',
+    intent_english:String(data.get('intent_english')||'').trim(), original_japanese:String(data.get('original_japanese')||'').trim(),
+    japanese:String(data.get('japanese')||'').trim(), english:String(data.get('english')||'').trim(), explanation:String(data.get('explanation')||'').trim(),
+    grammar_points:repositoryArray(data.get('grammar_points')), tags:repositoryArray(data.get('tags')),
+    lesson_number:lesson?Number(lesson):null, book_id:String(data.get('book_id')||'')||null,
+    register:data.get('register')||'neutral', source_type:data.get('source_type')||'personal', source_detail:String(data.get('source_detail')||'').trim(),
+    error_types:data.getAll('error_types'), notes:String(data.get('notes')||'').trim()
+  };
+}
+
+async function saveRepositoryEntry(event){
+  event.preventDefault();
+  const form=event.currentTarget, button=event.submitter, id=new FormData(form).get('id'), payload=repositoryPayload(form);
+  if(!payload.japanese){toast('Add the Japanese sentence first.');return;}
+  if(button) button.disabled=true;
+  try{
+    if(id){
+      const previous=repositoryState.entries.find(x=>x.id===id);
+      if(previous){
+        const {error:revisionError}=await db.from('japanese_repository_revisions').insert({user_id:state.user.id,repository_id:id,original_japanese:previous.original_japanese||'',japanese:previous.japanese||'',english:previous.english||'',explanation:previous.explanation||'',change_note:'Saved before editing'});
+        if(revisionError) throw revisionError;
+      }
+      const {data,error}=await db.from('japanese_repository').update(payload).eq('id',id).eq('user_id',state.user.id).select().single();
+      if(error) throw error;
+      repositoryState.entries=repositoryState.entries.map(x=>x.id===id?data:x);
+      repositoryState.revisions=[]; await loadRepositoryData(true);
+      repositoryState.selectedId=id; repositoryState.mode='detail'; toast('Repository entry updated');
+    }else{
+      const {data,error}=await db.from('japanese_repository').insert({...payload,user_id:state.user.id}).select().single();
+      if(error) throw error;
+      repositoryState.entries.unshift(data); repositoryState.selectedId=data.id; repositoryState.mode='detail'; toast('Saved to Japanese Repository');
+    }
+    renderRepository();
+  }catch(error){toast(error?.message||'Unable to save repository entry.');}
+  finally{if(button)button.disabled=false;}
+}
+
+async function deleteRepositoryEntry(entry){
+  if(!entry||!confirm('Delete this repository entry and its correction history?')) return;
+  const {error}=await db.from('japanese_repository').delete().eq('id',entry.id).eq('user_id',state.user.id);
+  if(error){toast(error.message);return;}
+  repositoryState.entries=repositoryState.entries.filter(x=>x.id!==entry.id);
+  repositoryState.revisions=repositoryState.revisions.filter(x=>x.repository_id!==entry.id);
+  repositoryState.selectedId=null;repositoryState.mode='browse';renderRepository();toast('Repository entry deleted');
+}
+
+function normaliseRepositoryImport(raw){
+  const rows=Array.isArray(raw)?raw:[raw];
+  return rows.map(row=>({
+    entry_type:row.entry_type==='correction'?'correction':'sentence', status:REPOSITORY_STATUSES.includes(row.status)?row.status:'learning',
+    intent_english:String(row.intent_english||''), original_japanese:String(row.original_japanese||''), japanese:String(row.japanese||''),
+    english:String(row.english||''), explanation:String(row.explanation||''), grammar_points:repositoryArray(row.grammar_points), tags:repositoryArray(row.tags),
+    lesson_number:(Number(row.lesson_number)>=11&&Number(row.lesson_number)<=20)?Number(row.lesson_number):null,
+    book_id:row.book_id||null, register:REPOSITORY_REGISTERS.includes(row.register)?row.register:'neutral', source_type:row.source_type||'personal',
+    source_detail:String(row.source_detail||'ChatGPT import'), error_types:repositoryArray(row.error_types).filter(x=>REPOSITORY_ERROR_TYPES.includes(x)), notes:String(row.notes||'')
+  })).filter(row=>row.japanese);
+}
+
+let pendingRepositoryImport=[];
+function previewRepositoryImport(){
+  try{
+    pendingRepositoryImport=normaliseRepositoryImport(JSON.parse($('#repoImportJson').value));
+    if(!pendingRepositoryImport.length) throw new Error('No entries with a Japanese sentence were found.');
+    $('#repoImportPreview').innerHTML=`<strong>${pendingRepositoryImport.length} entr${pendingRepositoryImport.length===1?'y':'ies'} ready</strong>${pendingRepositoryImport.slice(0,5).map(x=>`<span lang="ja">${esc(x.japanese)}</span>`).join('')}`;
+    $('#repoRunImport').disabled=false;
+  }catch(error){pendingRepositoryImport=[];$('#repoImportPreview').innerHTML=`<span class="repo-import-error">${esc(error.message)}</span>`;$('#repoRunImport').disabled=true;}
+}
+
+async function runRepositoryImport(){
+  if(!pendingRepositoryImport.length)return;
+  const button=$('#repoRunImport');button.disabled=true;
+  const {data,error}=await db.from('japanese_repository').insert(pendingRepositoryImport.map(x=>({...x,user_id:state.user.id}))).select();
+  if(error){toast(error.message);button.disabled=false;return;}
+  repositoryState.entries=[...(data||[]),...repositoryState.entries];pendingRepositoryImport=[];repositoryState.mode='browse';renderRepository();toast(`${data.length} repository entr${data.length===1?'y':'ies'} imported`);
+}

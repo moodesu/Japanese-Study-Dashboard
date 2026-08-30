@@ -28,6 +28,7 @@ function clearPrivateSessionCaches(){
   audioUrlCache.clear();
   waniKaniState={status:'idle',data:null,error:null,fetchedAt:null};
   waniKaniDetailState={status:'idle',data:null,error:null,fetchedAt:null};
+  if(typeof resetRepositorySession==='function') resetRepositorySession();
 }
 function countAvailableReviews(summary){
   const now=Date.now();
@@ -604,6 +605,10 @@ function render(){
       loadWaniKani().then(()=>loadWaniKaniDetail()).catch(()=>{});
     }
   }
+  else if(state.view==='repository') {
+    renderRepository();
+    if(!repositoryState.loaded&&!repositoryState.loading) loadRepositoryData();
+  }
   else if(state.view==='library' && state.libraryItem) renderBookMap(state.libraryItem);
   else renderLibrary();
   $('#globalNotes').value=state.notes; $('#startDate').value=state.startDate; renderStatus();
@@ -632,7 +637,7 @@ function renderHeader(){
   $('#progressBar').style.width=(p.total?p.done/p.total*100:0)+'%';
 }
 function renderNav(){
-  $('#mainNav').innerHTML=`<button class="navbtn icon-nav-btn home-nav-btn ${state.view==='dashboard'?'active':''}" data-view="dashboard" title="Home" aria-label="Home">⌂</button><button class="navbtn ${state.view==='plan'?'active':''}" data-view="plan">Plan</button><button class="navbtn ${state.view==='lesson'?'active':''}" data-view="lesson">Lessons</button><button class="navbtn ${state.view==='library'?'active':''}" data-view="library">Hub</button><button class="navbtn icon-nav-btn" id="searchNavBtn" type="button" title="Search" aria-label="Search">⌕</button><button class="navbtn wk-nav-btn ${state.view==='wanikani'?'active':''}" data-view="wanikani" title="WaniKani" aria-label="WaniKani">漢</button><button class="navbtn pomo-nav-btn" id="pomoNavBtn" type="button" title="Pomodoro" aria-label="Open Pomodoro">🍅</button>`;
+  $('#mainNav').innerHTML=`<button class="navbtn icon-nav-btn home-nav-btn ${state.view==='dashboard'?'active':''}" data-view="dashboard" title="Home" aria-label="Home">⌂</button><button class="navbtn ${state.view==='plan'?'active':''}" data-view="plan">Plan</button><button class="navbtn ${state.view==='lesson'?'active':''}" data-view="lesson">Lessons</button><button class="navbtn ${state.view==='library'?'active':''}" data-view="library">Hub</button><button class="navbtn icon-nav-btn repo-nav-btn ${state.view==='repository'?'active':''}" data-view="repository" title="Japanese Repository" aria-label="Japanese Repository">文</button><button class="navbtn icon-nav-btn" id="searchNavBtn" type="button" title="Search" aria-label="Search">⌕</button><button class="navbtn wk-nav-btn ${state.view==='wanikani'?'active':''}" data-view="wanikani" title="WaniKani" aria-label="WaniKani">漢</button><button class="navbtn pomo-nav-btn" id="pomoNavBtn" type="button" title="Pomodoro" aria-label="Open Pomodoro">🍅</button>`;
   $('#mainNav').querySelectorAll('.navbtn[data-view]').forEach(b=>b.onclick=()=>{state.view=b.dataset.view;if(state.view==='lesson'&&!lessonByNumber(state.lesson))state.lesson=11;render();scrollTo({top:0,behavior:'smooth'});});
   $('#searchNavBtn')?.addEventListener('click',openSearch);
   const pomoNav=$('#pomoNavBtn');
@@ -912,7 +917,8 @@ function searchIndex(q){
   for(const l of CURRICULUM.lessons) rows.push({type:'Lesson',title:`Lesson ${l.n}: ${l.title}`,meta:l.english||'',id:`lesson-${l.n}`,score:(l.title+' '+(l.english||'')).toLowerCase().includes(q)?2:1});
   for(const b of (window.BOOKS||[])) rows.push({type:'Book',title:b.title,meta:`${b.series} · ${b.level}`,id:b.id,score:(b.title+' '+b.series+' '+b.level+' '+(b.description||'')).toLowerCase().includes(q)?2:1});
   const noteRows=Object.entries(state.taskState).filter(([id,v])=>v.notes&&v.notes.toLowerCase().includes(q)).map(([id,v])=>({type:'Note',title:v.notes.slice(0,90),meta:`${findTaskById(id)?.title||id}`,id,score:3}));
-  return [...rows.filter(x=>(x.title+' '+x.meta).toLowerCase().includes(q)),...noteRows].sort((a,b)=>b.score-a.score).slice(0,20);
+  const repositoryRows=(typeof repositoryState!=='undefined'?repositoryState.entries:[]).filter(entry=>repositoryEntrySearchText(entry).includes(q)).map(entry=>({type:'Sentence',title:entry.japanese||entry.original_japanese,meta:entry.english||entry.intent_english||'Japanese Repository',id:entry.id,score:4}));
+  return [...rows.filter(x=>(x.title+' '+x.meta).toLowerCase().includes(q)),...noteRows,...repositoryRows].sort((a,b)=>b.score-a.score).slice(0,40);
 }
 function renderSearchResults(q){
   const box=$('#searchResults'); if(!box)return; const rows=searchIndex(q);
@@ -920,7 +926,9 @@ function renderSearchResults(q){
   box.querySelectorAll('.search-result').forEach(b=>b.onclick=()=>{
     const type=b.dataset.searchType,id=b.dataset.searchId;
     $('#searchDialog').close();
-    if(type==='Lesson' || (type==='Note' && id.startsWith('lesson-'))){
+    if(type==='Sentence'){
+      openRepositoryEntry(id);
+    }else if(type==='Lesson' || (type==='Note' && id.startsWith('lesson-'))){
       state.view='lesson';
       state.lesson=Number(id.replace('lesson-',''));
       render();
@@ -1606,6 +1614,7 @@ async function loadCloud(){
     state.sessions=[...sessions.map(s=>({...s,synced:true})),...unsynced];
     saveSessions();
   }
+  if(typeof loadRepositoryData==='function') await loadRepositoryData(true);
   saveLocal();
 }
 function renderStatus(){
