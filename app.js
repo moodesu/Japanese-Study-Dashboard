@@ -256,6 +256,9 @@ const state = {
     taskId: null, cycle: 0, endAt: null, startedAt: null
   },
   sessions: JSON.parse(localStorage.getItem('pomodoroSessions') || '[]'),
+  lessonVideos: [],
+  lessonVideosLoaded: false,
+  lessonVideosError: false,
   pomoOpen: localStorage.getItem('pomodoroOpen') === 'true',
   focusMode: false,
   searchOpen: false
@@ -996,6 +999,43 @@ function saveAudioPlaybackState(){
   localStorage.setItem('lessonAudioPlayback',JSON.stringify(audioPlaybackState));
 }
 
+function safeYouTubeUrl(value){
+  try{
+    const url=new URL(value);
+    const host=url.hostname.toLowerCase().replace(/^www\./,'');
+    return url.protocol==='https:' && ['youtube.com','youtu.be'].includes(host) ? url.href : null;
+  }catch(e){ return null; }
+}
+
+function lessonVideoPanelMarkup(l){
+  const videos=(state.lessonVideos||[]).filter(video=>Number(video.lesson)===l.n);
+  const typeDefinitions=[
+    {key:'vocabulary',label:'Vocabulary practice',guide:'Repeat aloud at a good tempo, then check the vocabulary and particles in the textbook.'},
+    {key:'grammar',label:'Grammar instruction',guide:'For each item: watch the video, read the textbook explanation, then complete and check its audio exercise.'},
+    {key:'dialogue',label:'Dialogue practice',guide:'Watch and speak along, then read the opening dialogue aloud with its audio.'}
+  ];
+  let body='';
+  if(!state.lessonVideosLoaded){
+    body='<div class="video-empty">Loading private video links…</div>';
+  }else if(state.lessonVideosError){
+    body='<div class="video-empty">Video links are unavailable. Check that the updated Supabase schema has been run.</div>';
+  }else if(!videos.length){
+    body='<div class="video-empty">No videos are mapped for this lesson yet. Import the completed CSV in Supabase to add them.</div>';
+  }else{
+    body=typeDefinitions.map(type=>{
+      const rows=videos.filter(video=>video.video_type===type.key).sort((a,b)=>Number(a.sort_order)-Number(b.sort_order));
+      if(!rows.length) return '';
+      return `<div class="video-group"><div class="video-group-heading"><div><strong>${esc(type.label)}</strong><p>${esc(type.guide)}</p></div><span>${rows.length} ${rows.length===1?'video':'videos'}</span></div><div class="video-link-list">${rows.map(video=>{
+        const url=safeYouTubeUrl(video.youtube_url);
+        if(!url) return '';
+        const grammarTarget=type.key==='grammar' && video.grammar_index ? l.textbook.grammar[Number(video.grammar_index)-1] : '';
+        return `<a class="video-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer"><span>${type.key==='grammar'&&video.grammar_index?`Grammar ${esc(video.grammar_index)}`:esc(type.label)}</span><strong>${esc(video.title)}</strong>${grammarTarget?`<small>${esc(grammarTarget)}</small>`:''}<b>Open on YouTube ↗</b></a>`;
+      }).join('')}</div></div>`;
+    }).join('');
+  }
+  return `<section class="panel lesson-video-panel"><div class="panelhead"><div><div class="eyebrow">Private video links</div><h2>Tobira lesson videos</h2><p class="subtitle">Follow the publisher's self-study sequence without storing video files in the app.</p></div><span class="audio-private-badge">Authenticated</span></div><div class="video-groups">${body}</div></section>`;
+}
+
 function audioPanelMarkup(n){
   const lessonAudio=AUDIO_LIBRARY.lessons?.[n];
   if(!lessonAudio) return '';
@@ -1122,6 +1162,7 @@ function renderLesson(n){
     <section class="lessonhero"><div class="eyebrow">${esc(CURRICULUM.book)} · Lesson ${l.n}</div><h1>${esc(l.title)}</h1><p>${esc(l.english)}</p><div class="lessonhero-grid"><div><strong>${p.done}/${p.total}</strong><span>mapped tasks complete</span></div><div><strong>${p.mastered}/${p.total}</strong><span>currently marked mastered</span></div><div><strong>${Math.round(pct)}%</strong><span>lesson progress</span></div></div><div class="progress"><i style="width:${pct}%"></i></div></section>
     <section class="study-rule panel"><div><h3>Textbook first</h3><p>Work through the actual textbook lesson <strong>pp.${l.textbook.start}–${l.textbook.end}</strong>. Each section below now points to its own page range. If you already know a section, do a representative check and move on rather than grinding repetitive practice.</p></div><button class="smallbtn primary" id="lessonMastery">Optional mastery check</button></section>
     <section class="panel lesson-overview"><div class="overview-grid"><div><div class="eyebrow">Can-do goals</div><ul>${cando}</ul></div><div><div class="eyebrow">Target grammar</div><ul>${grammar}</ul></div></div>${l.textbook.note?`<p class="subtitle"><strong>Language / culture note:</strong> ${esc(l.textbook.note)}</p>`:''}</section>
+    ${lessonVideoPanelMarkup(l)}
     <section class="panel book-map-panel"><div class="section-heading"><div><div class="eyebrow">Textbook · pp.${l.textbook.start}–${l.textbook.end}</div><h2>Textbook content map</h2><p class="subtitle">Use this as the primary route through the physical book. Grammar points are listed inside the Grammar section.</p></div></div><div class="book-section-list">${textbookSections}</div></section>
     ${audioPanelMarkup(n)}
     <section class="lesson-grid">
@@ -1209,6 +1250,10 @@ function openTask(id){
 }
 async function loadCloud(){
   if(!db||!state.user)return;
+  const {data:videos,error:videoError}=await db.from('lesson_videos').select('lesson,video_type,grammar_index,title,youtube_url,sort_order').order('lesson').order('video_type').order('sort_order');
+  state.lessonVideos=videoError?[]:(videos||[]);
+  state.lessonVideosLoaded=true;
+  state.lessonVideosError=!!videoError;
   const {data,error}=await db.from('task_state').select('*').eq('user_id',state.user.id);
   if(!error&&data) data.forEach(r=>state.taskState[r.task_id]={completed:r.completed,mastery:r.mastery,confidence:r.confidence,notes:r.notes,completed_at:r.completed_at});
   const {data:n}=await db.from('app_notes').select('notes').eq('user_id',state.user.id).maybeSingle(); if(n)state.notes=n.notes||'';
@@ -1281,7 +1326,7 @@ $('#loginForm').onsubmit=async e=>{
     if(submit)submit.disabled=false;
   }
 };
-$('#logout').onclick=async()=>{if(db)await db.auth.signOut();clearPrivateSessionCaches();state.user=null;state.ready=true;render();};
+$('#logout').onclick=async()=>{if(db)await db.auth.signOut();clearPrivateSessionCaches();state.lessonVideos=[];state.lessonVideosLoaded=false;state.lessonVideosError=false;state.user=null;state.ready=true;render();};
 const pomoToggle=$('#pomoToggle'); if(pomoToggle) pomoToggle.onclick=()=>{state.pomodoro.status==='running'?pausePomodoro():startPomodoro();};
 const pomoSkip=$('#pomoSkip'); if(pomoSkip) pomoSkip.onclick=()=>skipSession();
 const pomoReset=$('#pomoReset'); if(pomoReset) pomoReset.onclick=()=>resetSession();
