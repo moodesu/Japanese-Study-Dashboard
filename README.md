@@ -55,8 +55,9 @@ the public frontend source.
    CSV** and upload the completed CSV once.
 4. Do not add the generated `id` or `created_at` columns to the CSV. Supabase
    creates those values automatically.
-5. Reload the signed-in app. The lesson workspace groups the imported links as
-   Vocabulary practice, Grammar instruction and Dialogue practice.
+5. Reload the signed-in app. Imported links appear at the correct point in the
+   lesson's numbered Guided lesson path. The complete grouped video library is
+   also retained inside **Lesson reference**.
 
 For grammar videos, `grammar_index` is the one-based position of the grammar
 item in the lesson's Target grammar list. Leave `grammar_index` empty for
@@ -78,4 +79,13 @@ Supabase dashboard.
 
 ### Recommended daily flow
 
-**Dashboard → Start here → physical textbook/workbook → complete task → next task**. The app remains an organiser for the books rather than a replacement for the source material.
+**Dashboard → Open path → complete the next numbered lesson step → mark it
+complete → continue downward**. Each step presents its book/page, publisher
+video and private audio shortcut at the point where it is needed. The full
+Can-do list, video library, textbook map, audio browser and workbook maps remain
+available in the collapsed **Lesson reference** section.
+
+The weekly plan follows the same sequence: vocabulary, kanji, grammar,
+dialogue/speaking, reading/writing, listening/comprehensive practice, then
+catch-up and review. The app remains an organiser for the books rather than a
+replacement for the source material.

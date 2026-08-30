@@ -259,6 +259,7 @@ const state = {
   lessonVideos: [],
   lessonVideosLoaded: false,
   lessonVideosError: false,
+  guideTarget: null,
   pomoOpen: localStorage.getItem('pomodoroOpen') === 'true',
   focusMode: false,
   searchOpen: false
@@ -325,13 +326,13 @@ function weeklyTasks(w,d){
   if(w>=10) return consolidationTasks(w,d);
   const l=lessonForWeek(w);
   const schedule=[
-    ['textbook_conversation','textbook_vocab','vocab'],
-    ['textbook_kanji','kanji','writing'],
+    ['textbook_vocab','vocab'],
+    ['textbook_kanji','kanji'],
     ['textbook_grammar','particle','grammar1'],
-    ['textbook_talk','textbook_reading','reading'],
-    ['textbook_listening','listening','writing'],
-    ['comp1','grammar2','comp2'],
-    ['review']
+    ['textbook_conversation','textbook_talk'],
+    ['textbook_reading','reading','writing'],
+    ['textbook_listening','listening','comp1'],
+    ['grammar2','comp2','review']
   ][d];
   return schedule.map(k=>makeTask(l,k)).filter(Boolean);
 }
@@ -950,8 +951,8 @@ function renderDashboard(){
       <div class="today-summary"><strong>${today.length?today.length:0}</strong><span>${today.length?'core tasks remaining today':'core tasks remaining'}</span></div>
     </section>
     <section class="today-layout">
-      <article class="panel today-card"><div class="panelhead"><div><h2>Start here</h2><p class="subtitle">Open the first task, study from the referenced book, then move down the list.</p></div><span class="today-complete">${todayPct}%</span></div>
-        ${today.length?`<div class="focuslist">${today.map((t,i)=>{const s=ts(t.id);return `<article class="focusitem"><span class="focus-number">${i+1}</span><div class="focusmain"><strong>${esc(t.title)}</strong><small>${esc(t.book)}${t.page?' · p.'+esc(t.page):''} · ${esc(t.duration)}</small><span>${esc(taskPurpose(t))}</span></div><button class="smallbtn primary" data-today-task="${esc(t.id)}">Start</button></article>`}).join('')}</div>`:'<div class="empty success-empty">Today’s core work is complete. Use the review queue below or stop for the day.</div>'}
+      <article class="panel today-card"><div class="panelhead"><div><h2>Start here</h2><p class="subtitle">Open the guided lesson path and continue from the matching numbered step.</p></div><span class="today-complete">${todayPct}%</span></div>
+        ${today.length?`<div class="focuslist">${today.map((t,i)=>{const s=ts(t.id),action=t.lesson?`data-guided-task="${esc(t.id)}" data-guided-lesson="${esc(t.lesson)}">Open path`:`data-today-task="${esc(t.id)}">Start`;return `<article class="focusitem"><span class="focus-number">${i+1}</span><div class="focusmain"><strong>${esc(t.title)}</strong><small>${esc(t.book)}${t.page?' · p.'+esc(t.page):''} · ${esc(t.duration)}</small><span>${esc(taskPurpose(t))}</span></div><button class="smallbtn primary" ${action}</button></article>`}).join('')}</div>`:'<div class="empty success-empty">Today’s core work is complete. Use the review queue below or stop for the day.</div>'}
         <div class="today-actions"><button class="smallbtn" id="openWeekToday">Open today in Study Plan</button>${next?'<button class="smallbtn" id="openNextTask">Next incomplete</button>':''}</div>
       </article>
       <article class="panel review-card"><div class="panelhead"><div><h2>Review queue</h2><p class="subtitle">Completed work returns here after an interval, with flagged or low-confidence items returning sooner.</p></div><span class="flag-count">${reviews.length} due</span></div>
@@ -967,8 +968,8 @@ function renderDashboard(){
     <section class="dashboard-lower"><article class="panel"><div class="panelhead"><div><h3>Needs attention</h3><p class="subtitle">Optional flags and notes from your study tasks.</p></div></div>${attention.length?`<div class="attentionlist">${attention.map(x=>`<button class="attention" data-task="${esc(x.t.id)}"><span class="status-dot ${x.s.mastery}"></span><span><strong>${esc(x.t.title)}</strong><small>L${x.t.lesson} · ${esc(x.t.book)} · p.${x.t.page}</small></span></button>`).join('')}</div>`:'<div class="empty">Nothing flagged yet.</div>'}</article>
     <article class="panel"><div class="panelhead"><div><h3>Study time by activity</h3><p class="subtitle">Immersion and habit time logged through Pomodoro.</p></div></div><div class="timebars">${activityRows.map(a=>`<div class="timebar-row"><span>${esc(a.label)}</span><div class="timebar-track"><i style="width:${a.secs?Math.min(100,a.secs/maxActivity*100):0}%"></i></div><strong>${fmtDuration(a.secs)}</strong></div>`).join('')}</div></article></section>`;
   $('#resumeWeek')?.addEventListener('click',()=>{state.view='plan';state.week=w;render();});
-  $('#openNext')?.addEventListener('click',()=>{state.week=next.week;state.view='plan';render();setTimeout(()=>openTask(next.task.id),50);});
-  $('#openNextTask')?.addEventListener('click',()=>{state.week=next.week;state.view='plan';render();setTimeout(()=>openTask(next.task.id),50);});
+  $('#openNext')?.addEventListener('click',()=>{next.task.lesson?openGuidedLesson(next.task.lesson,next.task.id):(state.week=next.week,state.view='plan',render(),setTimeout(()=>openTask(next.task.id),50));});
+  $('#openNextTask')?.addEventListener('click',()=>{next.task.lesson?openGuidedLesson(next.task.lesson,next.task.id):(state.week=next.week,state.view='plan',render(),setTimeout(()=>openTask(next.task.id),50));});
   $('#openWeekToday')?.addEventListener('click',()=>{state.view='plan';state.week=w;render();});
 }
 
@@ -1042,7 +1043,7 @@ function audioPanelMarkup(n){
   const groups=(AUDIO_LIBRARY.categories||[]).map(category=>{
     const tracks=lessonAudio.groups?.[category.key]||[];
     if(!tracks.length) return '';
-    return `<div class="audio-group"><div class="audio-group-heading"><strong>${esc(category.label)}</strong><span>${esc(category.english)} · ${tracks.length}</span></div>${category.guide?`<p class="audio-group-guide">${esc(category.guide)}</p>`:''}<div class="audio-track-list">${tracks.map(track=>`<button type="button" class="audio-track" data-audio-path="${esc(track.path)}"><span>${esc(track.badge||String(track.number).padStart(2,'0'))}</span><strong>${esc(track.title)}</strong></button>`).join('')}</div></div>`;
+    return `<div class="audio-group" id="audio-group-${esc(category.key)}"><div class="audio-group-heading"><strong>${esc(category.label)}</strong><span>${esc(category.english)} · ${tracks.length}</span></div>${category.guide?`<p class="audio-group-guide">${esc(category.guide)}</p>`:''}<div class="audio-track-list">${tracks.map(track=>`<button type="button" class="audio-track" data-audio-path="${esc(track.path)}"><span>${esc(track.badge||String(track.number).padStart(2,'0'))}</span><strong>${esc(track.title)}</strong></button>`).join('')}</div></div>`;
   }).join('');
   return `<section class="panel lesson-audio-panel">
     <div class="panelhead"><div><div class="eyebrow">Private lesson audio</div><h2>Listen and shadow</h2><p class="subtitle">会話 · 単語リスト · 話しましょう · 読みましょう · 聞きましょう</p></div><span class="audio-private-badge">Authenticated</span></div>
@@ -1140,6 +1141,114 @@ function initLessonAudio(n){
   if(rememberedIndex>=0) loadTrack(rememberedIndex,false);
 }
 
+function lessonVideosByType(l,type){
+  return (state.lessonVideos||[])
+    .filter(video=>Number(video.lesson)===l.n && video.video_type===type && safeYouTubeUrl(video.youtube_url))
+    .sort((a,b)=>Number(a.sort_order)-Number(b.sort_order));
+}
+
+function grammarPageFromVideos(rows,fallback){
+  for(const row of rows){
+    const match=String(row.title||'').match(/\((pp?\.\s*[^)]+)\)/i);
+    if(match) return match[1].replace(/\s+/g,'');
+  }
+  return `pp.${fallback}`;
+}
+
+function lessonGuideSteps(l){
+  const tasks=lessonTasks(l), task=key=>tasks.find(t=>t.key===key), steps=[];
+  const addTask=(key,instruction,audio=null)=>{
+    const t=task(key); if(!t) return;
+    steps.push({id:t.id,taskId:t.id,title:t.title,resource:t.book,page:`p.${t.page}`,instruction,audio});
+  };
+  const addVideo=(type,title,instruction,rows)=>{
+    if(!rows.length) return;
+    steps.push({id:`b2-l${l.n}-guide-video-${type}`,title,resource:'Publisher video',instruction,videos:rows});
+  };
+
+  steps.push({
+    id:`b2-l${l.n}-guide-goals`, title:'Review the Can-do goals', resource:'Textbook',
+    page:`p.${l.textbook.start}`, instruction:'Read the lesson goals first. Keep them in mind as the practical outcomes for this lesson.',
+    details:l.textbook.cando
+  });
+
+  const vocabVideos=lessonVideosByType(l,'vocabulary');
+  addVideo('vocabulary','Watch the vocabulary practice video','Repeat every item aloud at a natural tempo before opening the vocabulary list.',vocabVideos);
+  addTask('textbook_vocab','Study the vocabulary in context, check particles and retrieve the words without looking.','vocabulary');
+  addTask('vocab','Complete the matching vocabulary exercises, checking mistakes against the textbook.');
+  addTask('textbook_kanji','Learn recognition, readings and example compounds before practising writing.');
+  addTask('kanji','Practise the lesson kanji from memory; use WaniKani only as reinforcement.');
+
+  const grammarVideos=lessonVideosByType(l,'grammar');
+  (l.textbook.grammar||[]).forEach((name,index)=>{
+    const item=index+1;
+    const videos=grammarVideos.filter(video=>parseInt(String(video.grammar_index),10)===item);
+    steps.push({
+      id:`b2-l${l.n}-guide-grammar-${item}`, title:`Grammar ${item}: ${name}`, resource:'Textbook',
+      page:grammarPageFromVideos(videos,l.textbook.pages.grammar), videos,
+      instruction:videos.length
+        ? 'Watch every linked part, read the textbook explanation, complete the audio-icon exercise, then say your own example aloud.'
+        : 'Read the textbook explanation, complete the audio-icon exercise, then say your own example aloud. Add the publisher video link when available.'
+    });
+  });
+  addTask('textbook_grammar','Finish any remaining textbook grammar exercises and mark uncertain points for review.');
+  addTask('particle','Complete the particle practice and explain why each answer works.');
+  addTask('grammar1','Complete Grammar practice 1 without copying the model answers.');
+  addTask('grammar2','Complete Grammar practice 2 where present, focusing on the points that were least secure.');
+
+  const dialogueVideos=lessonVideosByType(l,'dialogue');
+  addVideo('dialogue','Watch and speak along with the dialogue','Follow the dialogue once for meaning, then replay and speak with the characters.',dialogueVideos);
+  addTask('textbook_conversation','Listen once for the situation, read with the book, then repeat the conversation aloud.','conversation');
+  addTask('textbook_talk','Complete the speaking activities aloud using the target language.','speaking');
+  addTask('textbook_reading','Read once for overall meaning, then reread for detail and give a short summary.','reading');
+  addTask('reading','Complete the workbook reading as a comprehension check.');
+  addTask('writing','Complete the writing task and compare carefully with the model.');
+  addTask('textbook_listening','Listen without the script first, diagnose misses, then replay and shadow.','listening');
+  addTask('listening','Complete the workbook listening practice without reading the script on the first pass.','listening');
+  addTask('comp1','Use Comprehensive practice 1 as a closed-book retrieval test.');
+  addTask('comp2','Use Comprehensive practice 2 as the final application check.');
+  addTask('review','Finish with the kanji review only if it exists for this lesson.');
+  return steps;
+}
+
+function guideVideoLinks(videos=[]){
+  return videos.map((video,index)=>{
+    const url=safeYouTubeUrl(video.youtube_url); if(!url) return '';
+    const part=videos.length>1?` · Part ${index+1}`:'';
+    return `<a class="guide-action guide-video-action" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Watch video${part} ↗</a>`;
+  }).join('');
+}
+
+function lessonGuideMarkup(l){
+  const steps=lessonGuideSteps(l), done=steps.filter(step=>ts(step.id).completed).length;
+  const nextIndex=steps.findIndex(step=>!ts(step.id).completed);
+  const next=nextIndex>=0?steps[nextIndex]:null;
+  return `<section class="panel lesson-guide" id="lessonGuide">
+    <div class="lesson-guide-head"><div><div class="eyebrow">Guided lesson path</div><h2>Work from top to bottom</h2><p class="subtitle">One route through the textbook, publisher videos, private audio and both workbooks.</p></div><div class="guide-progress"><strong>${done}/${steps.length}</strong><span>steps complete</span></div></div>
+    <div class="progress"><i style="width:${steps.length?done/steps.length*100:0}%"></i></div>
+    ${next?`<button type="button" class="guide-next" data-guide-scroll="${esc(next.id)}"><span>Continue with step ${nextIndex+1}</span><strong>${esc(next.title)}</strong><b>Go to next step ↓</b></button>`:`<div class="guide-complete">Lesson path complete. Use the mastery check to decide what needs another pass.</div>`}
+    <div class="guide-list">${steps.map((step,index)=>{
+      const status=ts(step.id), page=step.page?` · ${step.page}`:'';
+      const details=step.details?.length?`<ul class="guide-details">${step.details.map(item=>`<li>${esc(item)}</li>`).join('')}</ul>`:'';
+      return `<article class="guide-step ${status.completed?'done':''}" id="guide-${esc(step.id)}" data-guide-task="${esc(step.taskId||step.id)}">
+        <div class="guide-step-number">${status.completed?'✓':index+1}</div>
+        <div class="guide-step-main"><div class="guide-resource">${esc(step.resource)}${esc(page)}</div><h3>${esc(step.title)}</h3><p>${esc(step.instruction)}</p>${details}<div class="guide-actions">${guideVideoLinks(step.videos)}${step.audio?`<button type="button" class="guide-action" data-guide-audio="${esc(step.audio)}">Open ${esc(step.audio)} audio</button>`:''}${step.taskId?`<button type="button" class="guide-action" data-guide-open-task="${esc(step.taskId)}">Task details & notes</button>`:''}</div></div>
+        <label class="guide-check"><input type="checkbox" data-guide-check="${esc(step.id)}" ${status.completed?'checked':''}><span>${status.completed?'Complete':'Mark complete'}</span></label>
+      </article>`;
+    }).join('')}</div>
+  </section>`;
+}
+
+function focusGuideTarget(){
+  const target=state.guideTarget; if(!target) return;
+  state.guideTarget=null;
+  requestAnimationFrame(()=>document.getElementById(`guide-${target}`)?.scrollIntoView({behavior:'smooth',block:'center'}));
+}
+
+function openGuidedLesson(lesson,taskId=null){
+  state.lesson=Number(lesson); state.view='lesson'; state.guideTarget=taskId; render();
+}
+
 function renderLesson(n){
   const l=lessonByNumber(n); if(!l)return;
   $('#hero').hidden=true; $('#bottomArea').hidden=true; $('#weekView').hidden=true; $('#mainContent').hidden=false;
@@ -1160,26 +1269,47 @@ function renderLesson(n){
   $('#mainContent').innerHTML=`
     <div class="lesson-toolbar"><button class="smallbtn" id="backDashboard">← Dashboard</button><button class="smallbtn" id="backPlan">Week ${w+1} plan</button><div class="lesson-select"><button class="smallbtn" id="prevLesson" ${n===11?'disabled':''}>← L${n-1}</button><button class="smallbtn" id="nextLesson" ${n===20?'disabled':''}>L${n+1} →</button></div></div>
     <section class="lessonhero"><div class="eyebrow">${esc(CURRICULUM.book)} · Lesson ${l.n}</div><h1>${esc(l.title)}</h1><p>${esc(l.english)}</p><div class="lessonhero-grid"><div><strong>${p.done}/${p.total}</strong><span>mapped tasks complete</span></div><div><strong>${p.mastered}/${p.total}</strong><span>currently marked mastered</span></div><div><strong>${Math.round(pct)}%</strong><span>lesson progress</span></div></div><div class="progress"><i style="width:${pct}%"></i></div></section>
-    <section class="study-rule panel"><div><h3>Textbook first</h3><p>Work through the actual textbook lesson <strong>pp.${l.textbook.start}–${l.textbook.end}</strong>. Each section below now points to its own page range. If you already know a section, do a representative check and move on rather than grinding repetitive practice.</p></div><button class="smallbtn primary" id="lessonMastery">Optional mastery check</button></section>
-    <section class="panel lesson-overview"><div class="overview-grid"><div><div class="eyebrow">Can-do goals</div><ul>${cando}</ul></div><div><div class="eyebrow">Target grammar</div><ul>${grammar}</ul></div></div>${l.textbook.note?`<p class="subtitle"><strong>Language / culture note:</strong> ${esc(l.textbook.note)}</p>`:''}</section>
-    ${lessonVideoPanelMarkup(l)}
-    <section class="panel book-map-panel"><div class="section-heading"><div><div class="eyebrow">Textbook · pp.${l.textbook.start}–${l.textbook.end}</div><h2>Textbook content map</h2><p class="subtitle">Use this as the primary route through the physical book. Grammar points are listed inside the Grammar section.</p></div></div><div class="book-section-list">${textbookSections}</div></section>
-    ${audioPanelMarkup(n)}
-    <section class="lesson-grid">
-      <div class="lesson-column"><div class="section-heading"><div><div class="eyebrow">Workbook 2</div><h2>Vocabulary · grammar · listening</h2><p class="subtitle">Complete these after the corresponding textbook work.</p></div></div><div class="book-section-list">${wb2Rows}</div></div>
-      <div class="lesson-column"><div class="section-heading"><div><div class="eyebrow">Workbook 1</div><h2>Kanji · reading · writing</h2><p class="subtitle">Use as reinforcement for the same lesson, especially where a section is weak.</p></div></div><div class="book-section-list">${wb1Rows}</div></div>
-    </section>
+    ${lessonGuideMarkup(l)}
+    <details class="lesson-reference" id="lessonReference">
+      <summary><span><strong>Lesson reference</strong><small>Can-do goals · all videos · textbook map · audio player · workbook maps</small></span><b>Open reference</b></summary>
+      <div class="lesson-reference-body">
+        <section class="study-rule panel"><div><h3>Textbook first</h3><p>Work through the actual textbook lesson <strong>pp.${l.textbook.start}–${l.textbook.end}</strong>. If you already know a section, do a representative check and move on rather than grinding repetitive practice.</p></div><button class="smallbtn primary" id="lessonMastery">Optional mastery check</button></section>
+        <section class="panel lesson-overview"><div class="overview-grid"><div><div class="eyebrow">Can-do goals</div><ul>${cando}</ul></div><div><div class="eyebrow">Target grammar</div><ul>${grammar}</ul></div></div>${l.textbook.note?`<p class="subtitle"><strong>Language / culture note:</strong> ${esc(l.textbook.note)}</p>`:''}</section>
+        ${lessonVideoPanelMarkup(l)}
+        <section class="panel book-map-panel"><div class="section-heading"><div><div class="eyebrow">Textbook · pp.${l.textbook.start}–${l.textbook.end}</div><h2>Textbook content map</h2><p class="subtitle">Use this when you need the full section map rather than the guided route.</p></div></div><div class="book-section-list">${textbookSections}</div></section>
+        ${audioPanelMarkup(n)}
+        <section class="lesson-grid">
+          <div class="lesson-column"><div class="section-heading"><div><div class="eyebrow">Workbook 2</div><h2>Vocabulary · grammar · listening</h2><p class="subtitle">Complete these after the corresponding textbook work.</p></div></div><div class="book-section-list">${wb2Rows}</div></div>
+          <div class="lesson-column"><div class="section-heading"><div><div class="eyebrow">Workbook 1</div><h2>Kanji · reading · writing</h2><p class="subtitle">Use as reinforcement for the same lesson, especially where a section is weak.</p></div></div><div class="book-section-list">${wb1Rows}</div></div>
+        </section>
+        <section class="panel page-map"><div class="panelhead"><div><h3>Cross-reference</h3><p class="subtitle">Every scheduled component identifies the physical book and page.</p></div></div><div class="page-map-grid">${tasks.map(t=>`<button class="page-chip" data-task="${esc(t.id)}"><span>${esc(t.title)}</span><strong>${esc(t.book)} · ${t.page?`p.${esc(t.page)}`:'—'}${t.section?` · ${esc(t.section)}`:''}</strong></button>`).join('')}</div></section>
+      </div>
+    </details>
     <section class="panel lesson-notes-panel"><div class="panelhead"><div><h3>Lesson notes</h3><p class="subtitle">Overall observations; individual task notes stay attached to their task.</p></div><span class="flag-count">${flagged.length} flagged</span></div><textarea id="lessonNotes" class="notes" placeholder="What was easy? What keeps tripping you up? Useful example sentences..."></textarea></section>
-    <section class="panel page-map"><div class="panelhead"><div><h3>Cross-reference</h3><p class="subtitle">Every scheduled component now identifies the physical book and page.</p></div></div><div class="page-map-grid">${tasks.map(t=>`<button class="page-chip" data-task="${esc(t.id)}"><span>${esc(t.title)}</span><strong>${esc(t.book)} · ${t.page?`p.${esc(t.page)}`:'—'}${t.section?` · ${esc(t.section)}`:''}</strong></button>`).join('')}</div></section>`;
+    `;
   $('#backDashboard').onclick=()=>{state.view='dashboard';render();};
   $('#backPlan').onclick=()=>{state.week=w;state.view='plan';render();};
   $('#prevLesson').onclick=()=>{if(n>11){state.lesson=n-1;render();}};
   $('#nextLesson').onclick=()=>{if(n<20){state.lesson=n+1;render();}};
   $('#lessonMastery').onclick=()=>openLessonMastery(l);
+  $('#mainContent').querySelectorAll('[data-guide-check]').forEach(input=>input.onchange=()=>{
+    const steps=lessonGuideSteps(l), index=steps.findIndex(step=>step.id===input.dataset.guideCheck);
+    state.guideTarget=steps[index+1]?.id||input.dataset.guideCheck;
+    toggle(input.dataset.guideCheck);
+  });
+  $('#mainContent').querySelectorAll('[data-guide-scroll]').forEach(button=>button.onclick=()=>{
+    document.getElementById(`guide-${button.dataset.guideScroll}`)?.scrollIntoView({behavior:'smooth',block:'center'});
+  });
+  $('#mainContent').querySelectorAll('[data-guide-open-task]').forEach(button=>button.onclick=()=>openTask(button.dataset.guideOpenTask));
+  $('#mainContent').querySelectorAll('[data-guide-audio]').forEach(button=>button.onclick=()=>{
+    const reference=$('#lessonReference'); if(reference) reference.open=true;
+    requestAnimationFrame(()=>document.getElementById(`audio-group-${button.dataset.guideAudio}`)?.scrollIntoView({behavior:'smooth',block:'start'}));
+  });
   initLessonAudio(n);
   const lessonNoteKey=`lesson-${n}`;
   $('#lessonNotes').value=state.taskState[lessonNoteKey]?.notes||'';
   $('#lessonNotes').oninput=e=>{state.taskState[lessonNoteKey]={...ts(lessonNoteKey),notes:e.target.value};saveLocal();cloudSave(lessonNoteKey);};
+  focusGuideTarget();
 }
 function openLessonMastery(l){
   const tasks=lessonTasks(l), rows=tasks.map(t=>{const s=ts(t.id);return `<div class="mastery-row"><div><strong>${esc(t.title)}</strong><small>${esc(t.book)} · p.${t.page}</small></div><select data-mastery-task="${esc(t.id)}"><option value="not_started" ${s.mastery==='not_started'?'selected':''}>Not started</option><option value="studying" ${s.mastery==='studying'?'selected':''}>Studying</option><option value="shaky" ${s.mastery==='shaky'?'selected':''}>Shaky</option><option value="mastered" ${s.mastery==='mastered'?'selected':''}>Mastered</option><option value="review" ${s.mastery==='review'?'selected':''}>Review</option></select></div>`}).join('');
@@ -1210,6 +1340,13 @@ if(!window.__studyHubTaskClickHandler) {
   document.addEventListener('click', e => {
     const check=e.target.closest('[data-check]');
     if(check) return; // the change handler owns completion checkboxes
+    const guided=e.target.closest('[data-guided-task]');
+    if(guided){
+      e.preventDefault();
+      e.stopPropagation();
+      openGuidedLesson(guided.dataset.guidedLesson,guided.dataset.guidedTask);
+      return;
+    }
     const trigger=e.target.closest('[data-today-task],[data-review-task],[data-task]');
     if(!trigger) return;
     const id=trigger.dataset.todayTask || trigger.dataset.reviewTask || trigger.dataset.task;
@@ -1243,7 +1380,7 @@ function openTask(id){
   $('#mastery').value=s.mastery; $('#mastery').onchange=e=>setTask(id,{mastery:e.target.value});
   $('#confidence').value=s.confidence||''; $('#confidence').onchange=e=>setTask(id,{confidence:e.target.value?+e.target.value:null});
   $('#taskNotes').value=s.notes||''; $('#taskNotes').oninput=e=>{state.taskState[id]={...ts(id),notes:e.target.value};saveLocal();cloudSave(id);};
-  if($('#openRelatedLesson')) $('#openRelatedLesson').onclick=()=>{state.lesson=t.lesson;state.view='lesson';$('#modal').close();render();};
+  if($('#openRelatedLesson')) $('#openRelatedLesson').onclick=()=>{$('#modal').close();openGuidedLesson(t.lesson,t.id);};
   $('#startTaskPomo').onclick=()=>{startPomodoro(id);toast('Pomodoro started for this task');$('#startTaskPomo').textContent='Timer running for this task';};
   $('#focusTask').onclick=()=>{state.focusMode=true;document.body.classList.add('focus-mode');$('#modal').classList.add('focus-modal');};
   resetTaskModal(); $('#modal').showModal();
