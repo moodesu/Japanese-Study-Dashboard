@@ -10,6 +10,7 @@ const repositoryState = {
   status: 'all',
   kind: 'all',
   register: 'all',
+  migaku: 'all',
   showFurigana: localStorage.getItem('repositoryShowFurigana')!=='false'
 };
 
@@ -78,6 +79,8 @@ function filteredRepositoryEntries(){
     if(repositoryState.status!=='all' && entry.status!==repositoryState.status) return false;
     if(repositoryState.kind!=='all' && entry.entry_type!==repositoryState.kind) return false;
     if(repositoryState.register!=='all' && entry.register!==repositoryState.register) return false;
+    if(repositoryState.migaku==='pending' && entry.migaku_exported_at) return false;
+    if(repositoryState.migaku==='exported' && !entry.migaku_exported_at) return false;
     return !q || repositoryEntrySearchText(entry).includes(q);
   });
 }
@@ -146,7 +149,7 @@ function repositoryCard(entry){
   const leadMarkup=entry.japanese?repositoryJapanese(entry):renderRepositoryFurigana(entry.original_japanese_furigana,entry.original_japanese);
   const meaning=entry.english||entry.intent_english||'';
   return `<button type="button" class="repo-entry-card" data-repo-entry="${entry.id}">
-    <span class="repo-entry-top"><span class="repo-kind">${entry.entry_type==='correction'?'Correction':'Sentence'}</span><span class="repo-status ${entry.status}">${repositoryStatusLabel(entry.status)}</span></span>
+    <span class="repo-entry-top"><span class="repo-kind">${entry.entry_type==='correction'?'Correction':'Sentence'}${entry.migaku_exported_at?' · Migaku ✓':''}</span><span class="repo-status ${entry.status}">${repositoryStatusLabel(entry.status)}</span></span>
     <strong lang="ja">${entry.japanese||entry.original_japanese?leadMarkup:esc(lead)}</strong>${meaning?`<span>${esc(meaning)}</span>`:''}
     <small>${entry.lesson_number?`Lesson ${entry.lesson_number} · `:''}${esc(entry.register||'neutral')} · ${repositoryDate(entry.updated_at)}</small>
   </button>`;
@@ -156,9 +159,9 @@ function repositoryBrowseMarkup(){
   const entries=filteredRepositoryEntries();
   const counts=REPOSITORY_STATUSES.map(status=>[status,repositoryState.entries.filter(x=>x.status===status).length]);
   return `<section class="repo-page">
-    <div class="repo-page-head"><div><div class="eyebrow">Personal Japanese knowledge</div><h1>Japanese Repository</h1><p>Keep the Japanese you encounter, attempt and actually want to use.</p></div><div class="repo-head-actions">${repositoryFuriganaToggle()}<button class="smallbtn" id="repoImport">Import JSON</button><button class="smallbtn primary" id="repoAdd">＋ Capture</button></div></div>
+    <div class="repo-page-head"><div><div class="eyebrow">Personal Japanese knowledge</div><h1>Japanese Repository</h1><p>Keep the Japanese you encounter, attempt and actually want to use.</p></div><div class="repo-head-actions">${repositoryFuriganaToggle()}<button class="smallbtn" id="repoMigakuBulk" ${entries.length?'':'disabled'}>Export filtered TSV</button><button class="smallbtn" id="repoImport">Import JSON</button><button class="smallbtn primary" id="repoAdd">＋ Capture</button></div></div>
     <section class="repo-stats">${counts.map(([status,count])=>`<button type="button" data-repo-status-jump="${status}"><strong>${count}</strong><span>${repositoryStatusLabel(status)}</span></button>`).join('')}</section>
-    <section class="repo-toolbar panel"><label class="repo-search"><span>Search</span><input id="repoSearch" type="search" value="${esc(repositoryState.query)}" placeholder="Japanese, English, grammar, tags or notes…"></label><label><span>Type</span><select id="repoKind"><option value="all">All</option><option value="sentence" ${repositoryState.kind==='sentence'?'selected':''}>Sentences</option><option value="correction" ${repositoryState.kind==='correction'?'selected':''}>Corrections</option></select></label><label><span>Status</span><select id="repoStatus"><option value="all">All</option>${REPOSITORY_STATUSES.map(x=>`<option value="${x}" ${repositoryState.status===x?'selected':''}>${repositoryStatusLabel(x)}</option>`).join('')}</select></label><label><span>Register</span><select id="repoRegister"><option value="all">All</option>${REPOSITORY_REGISTERS.map(x=>`<option value="${x}" ${repositoryState.register===x?'selected':''}>${x[0].toUpperCase()+x.slice(1)}</option>`).join('')}</select></label></section>
+    <section class="repo-toolbar panel"><label class="repo-search"><span>Search</span><input id="repoSearch" type="search" value="${esc(repositoryState.query)}" placeholder="Japanese, English, grammar, tags or notes…"></label><label><span>Type</span><select id="repoKind"><option value="all">All</option><option value="sentence" ${repositoryState.kind==='sentence'?'selected':''}>Sentences</option><option value="correction" ${repositoryState.kind==='correction'?'selected':''}>Corrections</option></select></label><label><span>Status</span><select id="repoStatus"><option value="all">All</option>${REPOSITORY_STATUSES.map(x=>`<option value="${x}" ${repositoryState.status===x?'selected':''}>${repositoryStatusLabel(x)}</option>`).join('')}</select></label><label><span>Register</span><select id="repoRegister"><option value="all">All</option>${REPOSITORY_REGISTERS.map(x=>`<option value="${x}" ${repositoryState.register===x?'selected':''}>${x[0].toUpperCase()+x.slice(1)}</option>`).join('')}</select></label><label><span>Migaku</span><select id="repoMigakuFilter"><option value="all">All</option><option value="pending" ${repositoryState.migaku==='pending'?'selected':''}>Not added</option><option value="exported" ${repositoryState.migaku==='exported'?'selected':''}>Added</option></select></label></section>
     <section class="repo-content-grid"><div><div class="repo-results-head"><strong>${entries.length} entr${entries.length===1?'y':'ies'}</strong><button type="button" class="textbtn" id="repoClearFilters">Clear filters</button></div><div class="repo-entry-list">${entries.length?entries.map(repositoryCard).join(''):`<div class="empty repo-empty"><strong>No matching sentences.</strong><span>Capture something you encountered, attempted or asked how to say.</span></div>`}</div></div>${repositoryPatternsMarkup()}</section>
   </section>`;
 }
@@ -174,13 +177,27 @@ function repositoryPatternsMarkup(){
 function repositoryDetailMarkup(entry){
   const revisions=repositoryState.revisions.filter(x=>x.repository_id===entry.id);
   return `<section class="repo-page repo-detail">
-    <div class="repo-detail-toolbar"><button class="smallbtn" id="repoBack">← Repository</button><div>${repositoryFuriganaToggle()}<button class="smallbtn" id="repoEdit">Edit</button><button class="smallbtn danger" id="repoDelete">Delete</button></div></div>
+    <div class="repo-detail-toolbar"><button class="smallbtn" id="repoBack">← Repository</button><div>${repositoryFuriganaToggle()}<button class="smallbtn migaku-btn" id="repoOpenMigaku">Migaku handoff</button><button class="smallbtn" id="repoEdit">Edit</button><button class="smallbtn danger" id="repoDelete">Delete</button></div></div>
     <section class="repo-detail-hero"><div class="repo-entry-top"><span class="repo-kind">${entry.entry_type==='correction'?'Personal correction':'Captured sentence'}</span><span class="repo-status ${entry.status}">${repositoryStatusLabel(entry.status)}</span></div><h1 lang="ja">${entry.japanese?repositoryJapanese(entry):renderRepositoryFurigana(entry.original_japanese_furigana,entry.original_japanese||'Untitled')}</h1>${entry.english?`<p>${esc(entry.english)}</p>`:''}<small>Updated ${repositoryDate(entry.updated_at)}</small></section>
     ${entry.entry_type==='correction'?`<section class="repo-correction-flow"><article><span>1 · Intended meaning</span><p>${esc(entry.intent_english||'—')}</p></article><article><span>2 · My Japanese</span><p lang="ja">${entry.original_japanese?repositoryJapanese(entry,true):'—'}</p></article><article class="corrected"><span>3 · Corrected Japanese</span><p lang="ja">${entry.japanese?repositoryJapanese(entry):'—'}</p></article><article><span>4 · Why</span><p>${esc(entry.explanation||'—')}</p></article></section>`:''}
     <section class="repo-detail-grid"><article class="panel"><div class="eyebrow">Connections</div><h2>Grammar and lessons</h2><div class="repo-chip-row">${repositoryGrammarLinks(entry)||'<span class="subtitle">No grammar linked yet.</span>'}</div>${repositoryLessonButton(entry)}${entry.book_id?`<div class="repo-source-row"><span>Book</span><strong>${esc(entry.book_id)}</strong></div>`:''}</article><article class="panel"><div class="eyebrow">Context</div><h2>How this sentence is used</h2><dl class="repo-facts"><div><dt>Register</dt><dd>${esc(entry.register||'neutral')}</dd></div><div><dt>Source</dt><dd>${esc(entry.source_type||'personal')}${entry.source_detail?` · ${esc(entry.source_detail)}`:''}</dd></div></dl><div class="repo-chip-row">${(entry.tags||[]).map(tag=>`<span class="repo-chip">${esc(tag)}</span>`).join('')}</div>${entry.notes?`<p class="repo-notes">${esc(entry.notes)}</p>`:''}</article></section>
     ${entry.error_types?.length?`<section class="panel repo-errors"><div class="eyebrow">Correction labels</div><div class="repo-chip-row">${entry.error_types.map(x=>`<span class="repo-chip error">${esc(x)}</span>`).join('')}</div></section>`:''}
+    ${repositoryMigakuMarkup(entry)}
     <details class="panel repo-history"><summary>Correction history (${revisions.length})</summary>${revisions.length?revisions.map(row=>`<article><strong>${repositoryDate(row.created_at)}</strong><span lang="ja">${row.japanese?repositoryJapanese(row):repositoryJapanese(row,true)}</span><small>${esc(row.change_note||'Previous saved version')}</small></article>`).join(''):'<div class="empty">No earlier versions yet. A snapshot is added whenever this entry is edited.</div>'}</details>
   </section>`;
+}
+
+function repositoryMigakuMarkup(entry){
+  const added=entry.migaku_exported_at;
+  return `<details class="panel repo-migaku" id="repoMigakuPanel">
+    <summary><span><strong>Migaku handoff</strong><small>${added?`Marked as added ${repositoryDate(added)}`:'Create the card in Migaku; the Hub keeps the source record.'}</small></span><b>${added?'Added ✓':'Open'}</b></summary>
+    <div class="repo-migaku-body">
+      <p class="subtitle">Use the Migaku browser extension on the clean Japanese below, copy the fields manually, or download a portable TSV row. Mark it as added only after the card exists in Migaku.</p>
+      <div class="repo-migaku-sentence" lang="ja">${esc(entry.japanese||entry.original_japanese||'')}</div>
+      <div class="repo-migaku-actions"><button type="button" class="smallbtn" id="repoCopyJapanese">Copy Japanese</button><button type="button" class="smallbtn" id="repoCopyMigaku">Copy all fields</button><button type="button" class="smallbtn" id="repoDownloadMigaku">Download TSV</button><button type="button" class="smallbtn ${added?'':'primary'}" id="repoMarkMigaku">${added?'Remove Migaku marker':'Mark added to Migaku'}</button></div>
+      <div class="repo-migaku-fields"><div><span>Meaning</span><p>${esc(entry.english||entry.intent_english||'—')}</p></div><div><span>Source</span><p>${esc([entry.source_type,entry.source_detail].filter(Boolean).join(' · ')||'Personal repository')}</p></div><div><span>Grammar</span><p>${esc((entry.grammar_points||[]).join(', ')||'—')}</p></div><div><span>Tags</span><p>${esc((entry.tags||[]).join(', ')||'—')}</p></div></div>
+    </div>
+  </details>`;
 }
 
 function repositoryField(label,control,wide=false){ return `<label class="${wide?'wide':''}"><span>${label}</span>${control}</label>`; }
@@ -231,6 +248,59 @@ function renderRepository(){
   bindRepositoryEvents(selected);
 }
 
+function cleanMigakuField(value){
+  return String(value??'').replace(/[\t\r\n]+/g,' ').replace(/\s{2,}/g,' ').trim();
+}
+
+function repositoryMigakuTsv(entries){
+  const headers=['Japanese','Furigana notation','English','Explanation','Grammar','Tags','Source','Repository ID'];
+  const rows=entries.map(entry=>[
+    entry.japanese||entry.original_japanese||'',entry.japanese_furigana||entry.original_japanese_furigana||'',
+    entry.english||entry.intent_english||'',entry.explanation||'',(entry.grammar_points||[]).join('; '),(entry.tags||[]).join('; '),
+    [entry.source_type,entry.source_detail].filter(Boolean).join(' · '),entry.id||''
+  ].map(cleanMigakuField));
+  return '\ufeff'+[headers,...rows].map(row=>row.join('\t')).join('\n');
+}
+
+function repositoryMigakuCopyText(entry){
+  return [
+    `Japanese\n${entry.japanese||entry.original_japanese||''}`,
+    entry.japanese_furigana||entry.original_japanese_furigana?`Furigana notation\n${entry.japanese_furigana||entry.original_japanese_furigana}`:'',
+    `English\n${entry.english||entry.intent_english||''}`,
+    entry.explanation?`Explanation\n${entry.explanation}`:'',
+    entry.grammar_points?.length?`Grammar\n${entry.grammar_points.join(', ')}`:'',
+    entry.tags?.length?`Tags\n${entry.tags.join(', ')}`:'',
+    entry.source_type||entry.source_detail?`Source\n${[entry.source_type,entry.source_detail].filter(Boolean).join(' · ')}`:''
+  ].filter(Boolean).join('\n\n');
+}
+
+async function copyRepositoryText(value,message){
+  try{
+    await navigator.clipboard.writeText(value);
+    toast(message);
+  }catch(error){
+    const area=document.createElement('textarea');area.value=value;area.style.position='fixed';area.style.opacity='0';document.body.append(area);area.select();
+    const copied=document.execCommand('copy');area.remove();toast(copied?message:'Copy failed. Select the text manually.');
+  }
+}
+
+function downloadRepositoryTsv(entries,filename='japanese-learning-hub-migaku.tsv'){
+  if(!entries.length){toast('No repository entries match the current filters.');return;}
+  const blob=new Blob([repositoryMigakuTsv(entries)],{type:'text/tab-separated-values;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');
+  link.href=url;link.download=filename;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  toast(`${entries.length} entr${entries.length===1?'y':'ies'} exported`);
+}
+
+async function markRepositoryMigaku(entry,exported){
+  if(!entry||!db||!state.user)return;
+  const value=exported?new Date().toISOString():null;
+  const {data,error}=await db.from('japanese_repository').update({migaku_exported_at:value}).eq('id',entry.id).eq('user_id',state.user.id).select().single();
+  if(error){toast(error.message);return;}
+  repositoryState.entries=repositoryState.entries.map(row=>row.id===entry.id?data:row);
+  repositoryState.selectedId=entry.id;repositoryState.mode='detail';renderRepository();toast(exported?'Marked as added to Migaku':'Migaku marker removed');
+  if(exported) requestAnimationFrame(()=>{const panel=$('#repoMigakuPanel');if(panel){panel.open=true;panel.scrollIntoView({block:'center'});}});
+}
+
 function bindRepositoryEvents(selected){
   document.querySelectorAll('[data-repo-entry]').forEach(x=>x.onclick=()=>openRepositoryEntry(x.dataset.repoEntry));
   document.querySelectorAll('[data-repo-lesson]').forEach(x=>x.onclick=()=>{state.lesson=Number(x.dataset.repoLesson);state.view='lesson';render();scrollTo({top:0,behavior:'smooth'});});
@@ -240,13 +310,20 @@ function bindRepositoryEvents(selected){
   $('#repoKind')?.addEventListener('change',e=>{repositoryState.kind=e.target.value;renderRepository();});
   $('#repoStatus')?.addEventListener('change',e=>{repositoryState.status=e.target.value;renderRepository();});
   $('#repoRegister')?.addEventListener('change',e=>{repositoryState.register=e.target.value;renderRepository();});
-  $('#repoClearFilters')?.addEventListener('click',()=>{repositoryState.query='';repositoryState.kind='all';repositoryState.status='all';repositoryState.register='all';renderRepository();});
+  $('#repoMigakuFilter')?.addEventListener('change',e=>{repositoryState.migaku=e.target.value;renderRepository();});
+  $('#repoClearFilters')?.addEventListener('click',()=>{repositoryState.query='';repositoryState.kind='all';repositoryState.status='all';repositoryState.register='all';repositoryState.migaku='all';renderRepository();});
+  $('#repoMigakuBulk')?.addEventListener('click',()=>downloadRepositoryTsv(filteredRepositoryEntries()));
   $('#repoAdd')?.addEventListener('click',()=>{repositoryState.selectedId=null;repositoryState.mode='form';renderRepository();});
   $('#repoImport')?.addEventListener('click',()=>{repositoryState.mode='import';renderRepository();});
   const back=()=>{repositoryState.mode='browse';repositoryState.selectedId=null;renderRepository();};
   $('#repoBack')?.addEventListener('click',back); $('#repoCancel')?.addEventListener('click',back); $('#repoCancelBottom')?.addEventListener('click',back);
   $('#repoEdit')?.addEventListener('click',()=>{repositoryState.mode='form';renderRepository();});
   $('#repoDelete')?.addEventListener('click',()=>deleteRepositoryEntry(selected));
+  $('#repoOpenMigaku')?.addEventListener('click',()=>{const panel=$('#repoMigakuPanel');if(panel){panel.open=true;panel.scrollIntoView({behavior:'smooth',block:'center'});}});
+  $('#repoCopyJapanese')?.addEventListener('click',()=>copyRepositoryText(selected?.japanese||selected?.original_japanese||'','Japanese copied'));
+  $('#repoCopyMigaku')?.addEventListener('click',()=>copyRepositoryText(repositoryMigakuCopyText(selected),'Migaku fields copied'));
+  $('#repoDownloadMigaku')?.addEventListener('click',()=>downloadRepositoryTsv(selected?[selected]:[],`learning-hub-${selected?.id||'sentence'}-migaku.tsv`));
+  $('#repoMarkMigaku')?.addEventListener('click',()=>markRepositoryMigaku(selected,!selected?.migaku_exported_at));
   $('#repoFuriganaToggle')?.addEventListener('click',()=>{
     repositoryState.showFurigana=!repositoryState.showFurigana;
     localStorage.setItem('repositoryShowFurigana',String(repositoryState.showFurigana));

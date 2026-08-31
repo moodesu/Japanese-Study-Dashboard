@@ -24,6 +24,20 @@ readings exactly reproduces the corresponding plain Japanese, preventing
 duplicated or mismatched text. Use **振 Furigana on/off** to control display;
 the setting is remembered on the device.
 
+### Migaku handoff
+
+The Repository remains the source record; Migaku remains the SRS. Open an entry
+and choose **Migaku handoff** to expose a clean, plain-Japanese sentence for the
+Migaku browser extension. The same panel can copy the Japanese, copy all card
+fields, or download a UTF-8 tab-separated row containing Japanese, furigana
+notation, English, explanation, grammar, tags, source and Repository ID.
+
+Use **Mark added to Migaku** only after the card exists in Migaku. This stores a
+timestamp in `migaku_exported_at`; it does not schedule reviews or claim that
+Migaku accepted a card. The Repository list can filter entries by **Not added**
+or **Added**, and **Export filtered TSV** downloads the current filtered result
+without automatically marking those rows as added.
+
 ## Security setup
 
 1. Revoke the WaniKani token that was previously stored in
