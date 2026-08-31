@@ -159,7 +159,7 @@ function repositoryBrowseMarkup(){
   const entries=filteredRepositoryEntries();
   const counts=REPOSITORY_STATUSES.map(status=>[status,repositoryState.entries.filter(x=>x.status===status).length]);
   return `<section class="repo-page">
-    <div class="repo-page-head"><div><div class="eyebrow">Personal Japanese knowledge</div><h1>Japanese Repository</h1><p>Keep the Japanese you encounter, attempt and actually want to use.</p></div><div class="repo-head-actions">${repositoryFuriganaToggle()}<button class="smallbtn" id="repoMigakuBulk" ${entries.length?'':'disabled'}>Export filtered TSV</button><button class="smallbtn" id="repoImport">Import JSON</button><button class="smallbtn primary" id="repoAdd">＋ Capture</button></div></div>
+    <div class="repo-page-head"><div><div class="eyebrow">Personal Japanese knowledge</div><h1>Japanese Repository</h1><p>Keep the Japanese you encounter, attempt and actually want to use.</p></div><div class="repo-head-actions">${repositoryFuriganaToggle()}<button class="smallbtn migaku-btn" id="repoAnkiBulk" ${entries.length?'':'disabled'}>Export filtered Anki</button><button class="smallbtn" id="repoMigakuBulk" ${entries.length?'':'disabled'}>Export filtered TSV</button><button class="smallbtn" id="repoImport">Import JSON</button><button class="smallbtn primary" id="repoAdd">＋ Capture</button></div></div>
     <section class="repo-stats">${counts.map(([status,count])=>`<button type="button" data-repo-status-jump="${status}"><strong>${count}</strong><span>${repositoryStatusLabel(status)}</span></button>`).join('')}</section>
     <section class="repo-toolbar panel"><label class="repo-search"><span>Search</span><input id="repoSearch" type="search" value="${esc(repositoryState.query)}" placeholder="Japanese, English, grammar, tags or notes…"></label><label><span>Type</span><select id="repoKind"><option value="all">All</option><option value="sentence" ${repositoryState.kind==='sentence'?'selected':''}>Sentences</option><option value="correction" ${repositoryState.kind==='correction'?'selected':''}>Corrections</option></select></label><label><span>Status</span><select id="repoStatus"><option value="all">All</option>${REPOSITORY_STATUSES.map(x=>`<option value="${x}" ${repositoryState.status===x?'selected':''}>${repositoryStatusLabel(x)}</option>`).join('')}</select></label><label><span>Register</span><select id="repoRegister"><option value="all">All</option>${REPOSITORY_REGISTERS.map(x=>`<option value="${x}" ${repositoryState.register===x?'selected':''}>${x[0].toUpperCase()+x.slice(1)}</option>`).join('')}</select></label><label><span>Migaku</span><select id="repoMigakuFilter"><option value="all">All</option><option value="pending" ${repositoryState.migaku==='pending'?'selected':''}>Not added</option><option value="exported" ${repositoryState.migaku==='exported'?'selected':''}>Added</option></select></label></section>
     <section class="repo-content-grid"><div><div class="repo-results-head"><strong>${entries.length} entr${entries.length===1?'y':'ies'}</strong><button type="button" class="textbtn" id="repoClearFilters">Clear filters</button></div><div class="repo-entry-list">${entries.length?entries.map(repositoryCard).join(''):`<div class="empty repo-empty"><strong>No matching sentences.</strong><span>Capture something you encountered, attempted or asked how to say.</span></div>`}</div></div>${repositoryPatternsMarkup()}</section>
@@ -194,7 +194,7 @@ function repositoryMigakuMarkup(entry){
     <div class="repo-migaku-body">
       <p class="subtitle">Use the Migaku browser extension on the clean Japanese below, copy the fields manually, or download a portable TSV row. Mark it as added only after the card exists in Migaku.</p>
       <div class="repo-migaku-sentence" lang="ja">${esc(entry.japanese||entry.original_japanese||'')}</div>
-      <div class="repo-migaku-actions"><button type="button" class="smallbtn" id="repoCopyJapanese">Copy Japanese</button><button type="button" class="smallbtn" id="repoCopyMigaku">Copy all fields</button><button type="button" class="smallbtn" id="repoDownloadMigaku">Download TSV</button><button type="button" class="smallbtn ${added?'':'primary'}" id="repoMarkMigaku">${added?'Remove Migaku marker':'Mark added to Migaku'}</button></div>
+      <div class="repo-migaku-actions"><button type="button" class="smallbtn" id="repoCopyJapanese">Copy Japanese</button><button type="button" class="smallbtn" id="repoCopyMigaku">Copy all fields</button><button type="button" class="smallbtn migaku-btn" id="repoDownloadAnki">Download Anki deck</button><button type="button" class="smallbtn" id="repoDownloadMigaku">Download TSV</button><button type="button" class="smallbtn ${added?'':'primary'}" id="repoMarkMigaku">${added?'Remove Migaku marker':'Mark added to Migaku'}</button></div>
       <div class="repo-migaku-fields"><div><span>Meaning</span><p>${esc(entry.english||entry.intent_english||'—')}</p></div><div><span>Source</span><p>${esc([entry.source_type,entry.source_detail].filter(Boolean).join(' · ')||'Personal repository')}</p></div><div><span>Grammar</span><p>${esc((entry.grammar_points||[]).join(', ')||'—')}</p></div><div><span>Tags</span><p>${esc((entry.tags||[]).join(', ')||'—')}</p></div></div>
     </div>
   </details>`;
@@ -262,6 +262,64 @@ function repositoryMigakuTsv(entries){
   return '\ufeff'+[headers,...rows].map(row=>row.join('\t')).join('\n');
 }
 
+function repositoryAnkiFurigana(notation,plain=''){
+  if(!notation) return esc(plain||'');
+  const source=String(notation),pattern=/\[([^\]|]+)\|([^\]]+)\]/g;
+  let html='',last=0,match;
+  while((match=pattern.exec(source))){
+    html+=esc(source.slice(last,match.index));
+    html+=`<ruby>${esc(match[1])}<rt>${esc(match[2])}</rt></ruby>`;
+    last=pattern.lastIndex;
+  }
+  return html+esc(source.slice(last));
+}
+
+function repositoryAnkiTag(value){
+  return String(value||'').trim().replace(/\s+/g,'_').replace(/[^\p{L}\p{N}_:.-]+/gu,'_').replace(/^_+|_+$/g,'').slice(0,80);
+}
+
+function repositoryAnkiEntries(entries){
+  return entries.map(entry=>{
+    const notes=[];
+    if(entry.notes) notes.push(esc(entry.notes).replace(/\n/g,'<br>'));
+    if(entry.original_japanese){
+      const original=entry.original_japanese_furigana?repositoryAnkiFurigana(entry.original_japanese_furigana,entry.original_japanese):esc(entry.original_japanese);
+      notes.push(`<b>My original Japanese:</b> ${original}`);
+    }
+    if(entry.error_types?.length) notes.push(`<b>Correction labels:</b> ${esc(entry.error_types.join(', '))}`);
+    if(entry.grammar_points?.length) notes.push(`<b>Grammar:</b> ${esc(entry.grammar_points.join(', '))}`);
+    const source=[entry.source_type,entry.source_detail].filter(Boolean).join(' · ');
+    return {
+      id:String(entry.id||''),
+      targetWord:'',
+      sentence:entry.japanese_furigana?repositoryAnkiFurigana(entry.japanese_furigana,entry.japanese):esc(entry.japanese||entry.original_japanese||''),
+      sentenceTranslation:esc(entry.english||entry.intent_english||''),
+      definition:esc(entry.explanation||'').replace(/\n/g,'<br>'),
+      notes:notes.join('<br>'),
+      sentenceAudio:'',
+      image:'',
+      source:esc([source,entry.id?`Repository ${entry.id}`:''].filter(Boolean).join(' · ')),
+      tags:['learning-hub',`repository::${entry.id}`,...(entry.tags||[]).map(repositoryAnkiTag),...(entry.grammar_points||[]).map(x=>`grammar::${repositoryAnkiTag(x)}`)].filter(Boolean)
+    };
+  });
+}
+
+async function downloadRepositoryAnki(entries,button){
+  if(!entries.length){toast('No repository entries match the current filters.');return;}
+  if(!window.AnkiPackageExporter?.buildDeck){toast('Anki exporter failed to load. Reload the page and try again.');return;}
+  const oldLabel=button?.textContent;if(button){button.disabled=true;button.textContent='Building deck…';}
+  try{
+    const bytes=await window.AnkiPackageExporter.buildDeck(repositoryAnkiEntries(entries));
+    const blob=new Blob([bytes],{type:'application/octet-stream'}),url=URL.createObjectURL(blob),link=document.createElement('a');
+    link.href=url;link.download='japanese-learning-hub.apkg';document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+    toast(`${entries.length}-card Anki deck exported`);
+  }catch(error){
+    console.error('Anki export failed',error);toast(error?.message||'Anki deck export failed.');
+  }finally{
+    if(button){button.disabled=false;button.textContent=oldLabel;}
+  }
+}
+
 function repositoryMigakuCopyText(entry){
   return [
     `Japanese\n${entry.japanese||entry.original_japanese||''}`,
@@ -313,6 +371,7 @@ function bindRepositoryEvents(selected){
   $('#repoMigakuFilter')?.addEventListener('change',e=>{repositoryState.migaku=e.target.value;renderRepository();});
   $('#repoClearFilters')?.addEventListener('click',()=>{repositoryState.query='';repositoryState.kind='all';repositoryState.status='all';repositoryState.register='all';repositoryState.migaku='all';renderRepository();});
   $('#repoMigakuBulk')?.addEventListener('click',()=>downloadRepositoryTsv(filteredRepositoryEntries()));
+  $('#repoAnkiBulk')?.addEventListener('click',e=>downloadRepositoryAnki(filteredRepositoryEntries(),e.currentTarget));
   $('#repoAdd')?.addEventListener('click',()=>{repositoryState.selectedId=null;repositoryState.mode='form';renderRepository();});
   $('#repoImport')?.addEventListener('click',()=>{repositoryState.mode='import';renderRepository();});
   const back=()=>{repositoryState.mode='browse';repositoryState.selectedId=null;renderRepository();};
@@ -323,6 +382,7 @@ function bindRepositoryEvents(selected){
   $('#repoCopyJapanese')?.addEventListener('click',()=>copyRepositoryText(selected?.japanese||selected?.original_japanese||'','Japanese copied'));
   $('#repoCopyMigaku')?.addEventListener('click',()=>copyRepositoryText(repositoryMigakuCopyText(selected),'Migaku fields copied'));
   $('#repoDownloadMigaku')?.addEventListener('click',()=>downloadRepositoryTsv(selected?[selected]:[],`learning-hub-${selected?.id||'sentence'}-migaku.tsv`));
+  $('#repoDownloadAnki')?.addEventListener('click',e=>downloadRepositoryAnki(selected?[selected]:[],e.currentTarget));
   $('#repoMarkMigaku')?.addEventListener('click',()=>markRepositoryMigaku(selected,!selected?.migaku_exported_at));
   $('#repoFuriganaToggle')?.addEventListener('click',()=>{
     repositoryState.showFurigana=!repositoryState.showFurigana;

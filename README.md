@@ -38,6 +38,35 @@ Migaku accepted a card. The Repository list can filter entries by **Not added**
 or **Added**, and **Export filtered TSV** downloads the current filtered result
 without automatically marking those rows as added.
 
+### Anki deck export for Migaku
+
+Use **Download Anki deck** on one Repository entry, or apply Repository filters
+and use **Export filtered Anki** to create `japanese-learning-hub.apkg`. Import
+that package as an Anki deck in Migaku. The export creates one recognition card
+per Repository entry; it does not add a second SRS or change the entry's Migaku
+marker.
+
+The package creates its own **Japanese Learning Hub** note type instead of
+trying to match a Migaku-selected Anki note type. Its fields are **Target
+Word**, **Sentence**, **Sentence Translation**, **Definition**, **Notes**,
+**Sentence Audio**, **Image** and **Source**. Target Word, Sentence Audio and
+Image are currently left empty because the Repository does not store those
+values yet.
+
+The card front shows the furigana-rendered Sentence when bracket notation is
+available, otherwise it shows plain Japanese. Sentence Translation receives
+the English meaning, Definition receives the explanation, Notes collects the
+personal notes, original Japanese, correction labels and grammar, and Source
+includes the source details and Repository ID. Repository tags and grammar
+tags are also included. Each note uses a stable ID derived from its Repository
+UUID so repeat-import behaviour can be tested without creating a new identity
+for the same sentence.
+
+Deck generation happens entirely in the browser using locally hosted MIT
+licensed Anki-package and SQLite WebAssembly components under `vendor/`; no
+sentence data is sent to another service during export. The TSV export remains
+available as a fallback.
+
 ## Security setup
 
 1. Revoke the WaniKani token that was previously stored in
