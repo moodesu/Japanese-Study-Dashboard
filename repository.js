@@ -1,6 +1,11 @@
 const repositoryState = {
   entries: [],
   revisions: [],
+  grammarGuides: [],
+  grammarLinks: [],
+  grammarLibraryReady: false,
+  grammarLibraryError: '',
+  grammarGuideId: null,
   loaded: false,
   loading: false,
   error: '',
@@ -100,21 +105,32 @@ async function loadRepositoryData(force=false){
   if(!db||!state.user||repositoryState.loading) return;
   if(repositoryState.loaded&&!force) return;
   repositoryState.loading=true; repositoryState.error='';
+  const userId=state.user.id;
   try{
-    const [{data:entries,error},{data:revisions,error:revisionError}]=await Promise.all([
+    const [{data:entries,error},{data:revisions,error:revisionError},guides,links]=await Promise.all([
       db.from('japanese_repository').select('*').eq('user_id',state.user.id).order('updated_at',{ascending:false}),
-      db.from('japanese_repository_revisions').select('*').eq('user_id',state.user.id).order('created_at',{ascending:false})
+      db.from('japanese_repository_revisions').select('*').eq('user_id',userId).order('created_at',{ascending:false}),
+      db.from('japanese_grammar_guides').select('*').eq('user_id',userId),
+      db.from('japanese_repository_grammar').select('*').eq('user_id',userId)
     ]);
+    if(state.user?.id!==userId) return;
     if(error) throw error;
     if(revisionError) throw revisionError;
     repositoryState.entries=entries||[];
     repositoryState.revisions=revisions||[];
+    repositoryState.grammarLibraryReady=!guides.error&&!links.error;
+    repositoryState.grammarLibraryError=guides.error?.message||links.error?.message||'';
+    repositoryState.grammarGuides=guides.data||[];
+    repositoryState.grammarLinks=links.data||[];
     repositoryState.loaded=true;
   }catch(error){
+    if(state.user?.id!==userId) return;
     repositoryState.error=error?.message||'The Japanese Repository could not be loaded.';
   }finally{
-    repositoryState.loading=false;
-    if(state.view==='repository') renderRepository();
+    if(state.user?.id===userId){
+      repositoryState.loading=false;
+      if(state.view==='repository') renderRepository();
+    }
   }
 }
 
@@ -123,6 +139,9 @@ function resetRepositorySession(){
   repositoryState.loading=false; repositoryState.error=''; repositoryState.selectedId=null;
   repositoryState.mode='browse';
   repositoryState.grammarLabel=''; repositoryState.grammarReturnScroll=0;
+  repositoryState.grammarGuides=[]; repositoryState.grammarLinks=[];
+  repositoryState.grammarLibraryReady=false; repositoryState.grammarLibraryError='';
+  repositoryState.grammarGuideId=null; pendingRepositoryImport=[]; repositoryImportSnapshot='';
 }
 
 function openRepositoryEntry(id){
@@ -149,15 +168,31 @@ function repositoryGrammarKey(label){
   return String(label||'').normalize('NFKC').trim().replace(/^[~〜～]+/u,'').replace(/\s+/gu,'').toLowerCase();
 }
 
-function repositoryGrammarGuide(label){
+function repositoryGrammarGuide(label,entry){
   const key=repositoryGrammarKey(label);
+  if(entry){
+    const link=repositoryState.grammarLinks.find(x=>x.repository_id===entry.id&&x.label===label);
+    const saved=repositoryState.grammarGuides.find(x=>x.id===(link?.grammar_id||repositoryState.grammarGuideId)&&x.grammar_key===key);
+    if(saved) return repositorySavedGuide(saved);
+    // An unlinked label cannot identify a meaning. Let the reader choose explicitly.
+    if(repositoryState.grammarGuides.some(x=>x.grammar_key===key)) return undefined;
+  }
   return (window.REPOSITORY_GRAMMAR_GUIDES||[]).find(guide=>guide.aliases.some(alias=>repositoryGrammarKey(alias)===key));
+}
+
+function repositorySavedGuide(guide){
+  const content=guide.content;
+  return {id:guide.id,title:guide.label,meaning:content.meaning,imported:true,sense:guide.sense,
+    forms:content.formation.map(pattern=>({pattern,meaning:''})),
+    sections:[{title:'Explanation',paragraphs:[content.explanation]}],
+    examples:content.examples.map(x=>({japanese:x.japanese_furigana||x.japanese,english:x.english,note:''})),sources:[]};
 }
 
 function openRepositoryGrammar(label){
   const entry=repositoryState.entries.find(row=>row.id===repositoryState.selectedId);
   if(!entry?.grammar_points?.includes(label)) return;
   repositoryState.grammarLabel=label;
+  repositoryState.grammarGuideId=null;
   repositoryState.grammarReturnScroll=window.scrollY||0;
   repositoryState.mode='grammar';
   renderRepository(); scrollTo({top:0,behavior:'smooth'});
@@ -172,7 +207,7 @@ function closeRepositoryGrammar(){
 }
 
 function repositoryGrammarMarkup(entry){
-  const label=repositoryState.grammarLabel, guide=repositoryGrammarGuide(label);
+  const label=repositoryState.grammarLabel, guide=repositoryGrammarGuide(label,entry);
   const key=repositoryGrammarKey(label);
   const lessons=repositoryGrammarCatalogue().filter(row=>repositoryGrammarKey(row.label)===key);
   const text=value=>renderRepositoryFurigana(value,repositoryPlainFromFurigana(value));
@@ -181,7 +216,7 @@ function repositoryGrammarMarkup(entry){
     <section class="panel"><h2>Formation</h2><dl class="repo-grammar-forms">${guide.forms.map(form=>`<div><dt>${text(form.pattern)}</dt><dd>${text(form.meaning)}</dd></div>`).join('')}</dl></section>
     ${guide.sections.map(section=>`<section class="panel"><h2>${esc(section.title)}</h2>${section.paragraphs.map(paragraph=>`<p>${text(paragraph)}</p>`).join('')}</section>`).join('')}
     <section class="panel"><h2>Examples</h2>${guide.examples.map(example=>`<article class="repo-grammar-example"><p lang="ja"><strong>${text(example.japanese)}</strong></p><p>${esc(example.english)}</p><small>${text(example.note)}</small></article>`).join('')}</section>
-    <section class="panel"><h2>Read more</h2><p>Learning Hub summary with original examples. Reference explanations:</p>${guide.sources.map(source=>`<a class="repo-link" href="${esc(source.url)}" target="_blank" rel="noopener noreferrer">${esc(source.title)} ↗</a>`).join('')}</section>
+    ${guide.imported?`<section class="panel"><h2>Imported grammar guide</h2><p>AI-generated · Unverified. Check important details against a trusted grammar reference.</p><small>Meaning ID: ${esc(guide.sense)}</small></section>`:`<section class="panel"><h2>Read more</h2><p>Learning Hub summary with original examples. Reference explanations:</p>${guide.sources.map(source=>`<a class="repo-link" href="${esc(source.url)}" target="_blank" rel="noopener noreferrer">${esc(source.title)} ↗</a>`).join('')}</section>`}
   `:`<section class="panel"><h2>Explanation not yet in the guide library</h2><p>This label does not yet have a standalone Learning Hub explanation. The saved sentence context below is not a substitute for a grammar reference.</p><a class="repo-link" href="https://www.google.com/search?q=${encodeURIComponent(label+' Japanese grammar explanation')}" target="_blank" rel="noopener noreferrer">Search grammar references ↗</a></section>`;
   return `<section class="repo-page repo-grammar-page">
     <div class="repo-detail-toolbar"><button type="button" class="smallbtn" id="repoGrammarBack">← Back to sentence</button>${repositoryFuriganaToggle()}</div>
@@ -189,6 +224,8 @@ function repositoryGrammarMarkup(entry){
     <div class="repo-grammar-content">
       <section class="panel"><h2>Your saved sentence</h2><p lang="ja"><strong>${repositoryJapanese(entry)}</strong></p>${entry.english?`<p>${esc(entry.english)}</p>`:''}${entry.explanation?`<h3>Saved sentence explanation</h3><p class="repo-grammar-context">${esc(entry.explanation)}</p>`:''}</section>
       ${body}
+      ${!guide&&repositoryState.grammarGuides.some(x=>x.grammar_key===key)?`<section class="panel"><h2>Choose the intended meaning</h2><p>This sentence has no saved meaning link. These guides share its grammar label; choose one to read, or re-import the sentence with its grammar explanation to save an exact link.</p>${repositoryState.grammarGuides.filter(x=>x.grammar_key===key).map(x=>`<button type="button" class="repo-link" data-repo-guide="${esc(x.id)}">${esc(x.content.meaning)} · ${esc(x.sense)}</button>`).join('')}</section>`:''}
+      ${!repositoryState.grammarLibraryReady?'<p class="subtitle">Saved grammar library unavailable. Apply the separate grammar migration if needed, then reload.</p>':''}
       ${lessons.length?`<section class="panel"><h2>Textbook connection</h2>${lessons.map(row=>`<button type="button" class="repo-link" data-repo-grammar-lesson="${row.lesson}" data-repo-grammar-index="${row.index}">Lesson ${row.lesson} · Grammar ${row.index}: ${esc(row.label)}</button>`).join('')}</section>`:''}
     </div>
   </section>`;
@@ -282,8 +319,8 @@ function repositoryFormMarkup(entry={}){
 }
 
 function repositoryImportMarkup(){
-  const example=JSON.stringify([{entry_type:'correction',intent_english:'Sure! What time is good for you?',original_japanese:'いいです！何時はいいですか？',original_japanese_furigana:'いいです！[何時|なんじ]はいいですか？',japanese:'いいよ！何時がいい？',japanese_furigana:'いいよ！[何時|なんじ]がいい？',english:'Sure! What time is good for you?',explanation:'A natural casual reply to a friend.',grammar_points:[],tags:['friends','messages'],register:'casual',status:'learning',error_types:['Particles','Register','Naturalness'],source_type:'personal',source_detail:'ChatGPT'}],null,2);
-  return `<section class="repo-page repo-form-page"><div class="repo-detail-toolbar"><button class="smallbtn" id="repoCancel">← Cancel</button></div><section class="repo-form-head"><div class="eyebrow">Chat capture</div><h1>Import repository entries</h1><p>Paste one JSON object or an array of objects produced from a chat. You can review the preview before saving.</p></section><section class="panel repo-import"><label><span>JSON</span><textarea id="repoImportJson" spellcheck="false" placeholder="Paste JSON here…">${esc(example)}</textarea></label><div id="repoImportPreview" class="repo-import-preview"></div><div class="repo-form-actions"><button class="smallbtn" id="repoPreviewImport" type="button">Preview</button><button class="smallbtn primary" id="repoRunImport" type="button" disabled>Import entries</button></div></section></section>`;
+  const example=JSON.stringify({japanese:'いいと思う。',japanese_furigana:'いいと[思|おも]う。',english:'I think it is good.',grammar_points:['〜と思う'],grammar_explanations:[{label:'〜と思う',sense:'expressing-an-opinion',meaning:'I think that…',formation:['Plain-form clause + と思う'],explanation:'と marks the content of a thought; 思う expresses what the speaker thinks. Nouns and な-adjectives usually take だ before と in affirmative non-past statements.',examples:[{japanese:'いいと思う。',japanese_furigana:'いいと[思|おも]う。',english:'I think it is good.'}]}],register:'casual',tags:['import-test'],source_type:'personal',source_detail:'ChatGPT'},null,2);
+  return `<section class="repo-page repo-form-page"><div class="repo-detail-toolbar"><button class="smallbtn" id="repoCancel">← Cancel</button></div><section class="repo-form-head"><div class="eyebrow">Chat capture</div><h1>Import repository entries</h1><p>Paste one JSON object or an array of objects produced from a chat. Preview before saving.</p><p>Keep grammar labels in <code>grammar_points</code>. Add <code>grammar_explanations</code> to create reusable grammar pages. Each explanation needs a stable <code>sense</code> ID to distinguish different meanings. Older JSON still imports without creating guides.</p><p>Readings must be supplied in <code>japanese_furigana</code> using <code>[漢字|かんじ]</code>. Imported grammar guides are labelled AI-generated and unverified.</p></section><section class="panel repo-import"><label><span>JSON</span><textarea id="repoImportJson" spellcheck="false" placeholder="Paste JSON here…">${esc(example)}</textarea></label><div id="repoImportPreview" class="repo-import-preview" role="status" aria-live="polite"></div><div class="repo-form-actions"><button class="smallbtn" id="repoPreviewImport" type="button">Preview</button><button class="smallbtn primary" id="repoRunImport" type="button" disabled>Import entries</button></div></section></section>`;
 }
 
 function renderRepository(){
@@ -414,6 +451,7 @@ function bindRepositoryEvents(selected){
   document.querySelectorAll('[data-repo-grammar]').forEach(button=>button.onclick=()=>openRepositoryGrammar(button.dataset.repoGrammar));
   document.querySelectorAll('[data-repo-grammar-lesson]').forEach(button=>button.onclick=()=>openGuidedLesson(Number(button.dataset.repoGrammarLesson),`b2-l${button.dataset.repoGrammarLesson}-guide-grammar-${button.dataset.repoGrammarIndex}`));
   $('#repoGrammarBack')?.addEventListener('click',closeRepositoryGrammar);
+  document.querySelectorAll('[data-repo-guide]').forEach(x=>x.onclick=()=>{repositoryState.grammarGuideId=x.dataset.repoGuide;renderRepository();});
   document.querySelectorAll('[data-repo-entry]').forEach(x=>x.onclick=()=>openRepositoryEntry(x.dataset.repoEntry));
   document.querySelectorAll('[data-repo-lesson]').forEach(x=>x.onclick=()=>{state.lesson=Number(x.dataset.repoLesson);state.view='lesson';render();scrollTo({top:0,behavior:'smooth'});});
   document.querySelectorAll('[data-repo-status-jump]').forEach(x=>x.onclick=()=>{repositoryState.status=x.dataset.repoStatusJump;renderRepository();});
@@ -459,6 +497,11 @@ function bindRepositoryEvents(selected){
   updateFuriganaPreviews();
   $('#repoPreviewImport')?.addEventListener('click',previewRepositoryImport);
   $('#repoRunImport')?.addEventListener('click',runRepositoryImport);
+  $('#repoImportJson')?.addEventListener('input',()=>{
+    pendingRepositoryImport=[]; repositoryImportSnapshot='';
+    $('#repoRunImport').disabled=true;
+    $('#repoImportPreview').textContent='JSON changed. Preview again before importing.';
+  });
 }
 
 function repositoryPayload(form){
@@ -525,21 +568,119 @@ function normaliseRepositoryImport(raw){
 }
 
 let pendingRepositoryImport=[];
+let repositoryImportSnapshot='';
+let repositoryImportRunning=false;
+
+function repositoryCanonical(value){
+  if(Array.isArray(value)) return '['+value.map(repositoryCanonical).join(',')+']';
+  if(value&&typeof value==='object') return '{'+Object.keys(value).sort().map(k=>JSON.stringify(k)+':'+repositoryCanonical(value[k])).join(',')+'}';
+  return JSON.stringify(value);
+}
+
+function repositoryValidateGuide(raw,entry){
+  const fail=message=>{throw new Error(`Grammar explanation: ${message}`);};
+  if(!raw||typeof raw!=='object'||Array.isArray(raw)) fail('expected an object.');
+  const allowed=['label','sense','meaning','formation','explanation','examples'];
+  if(Object.keys(raw).some(k=>!allowed.includes(k))) fail('unknown field; use label, sense, meaning, formation, explanation and examples.');
+  for(const k of ['label','sense','meaning','explanation']) if(typeof raw[k]!=='string'||!raw[k].trim()) fail(`${k} is required.`);
+  if(!repositoryGrammarKey(raw.label)) fail('label must contain a grammar pattern.');
+  if(!entry.grammar_points.includes(raw.label)) fail(`${raw.label} must also appear exactly in grammar_points.`);
+  if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(raw.sense)||raw.sense.length>100) fail('sense must be a stable lowercase meaning ID, such as expressing-an-opinion.');
+  if(!Array.isArray(raw.formation)||!raw.formation.length||raw.formation.some(x=>typeof x!=='string'||!x.trim())) fail('formation must be a non-empty array of strings.');
+  if(!Array.isArray(raw.examples)||!raw.examples.length) fail('at least one example is required.');
+  const examples=raw.examples.map(x=>{
+    if(!x||typeof x!=='object'||Array.isArray(x)||Object.keys(x).some(k=>!['japanese','japanese_furigana','english'].includes(k))) fail('invalid example fields.');
+    for(const k of ['japanese','english']) if(typeof x[k]!=='string'||!x[k].trim()) fail(`example ${k} is required.`);
+    if(x.japanese_furigana!==undefined&&typeof x.japanese_furigana!=='string') fail('example furigana must be a string.');
+    if(!repositoryFuriganaMatches(x.japanese,x.japanese_furigana)) fail(`example furigana does not match: ${x.japanese}`);
+    return {japanese:x.japanese,japanese_furigana:x.japanese_furigana||'',english:x.english};
+  });
+  return {label:raw.label,sense:raw.sense,content:{meaning:raw.meaning,formation:raw.formation,explanation:raw.explanation,examples}};
+}
+
+function repositoryPlanImport(raw){
+  const rows=Array.isArray(raw)?raw:[raw],warnings=[],conflicts=[],seen=new Map();
+  if(!rows.length||rows.length>100) throw new Error('Import between 1 and 100 entries at a time.');
+  const items=rows.map((row,index)=>{
+    if(!row||typeof row!=='object'||Array.isArray(row)||typeof row.japanese!=='string'||!row.japanese.trim()) throw new Error(`Entry ${index+1}: a Japanese sentence is required.`);
+    const entry=normaliseRepositoryImport(row)[0];
+    const unknown=Object.keys(row).filter(k=>!Object.hasOwn(entry,k)&&k!=='grammar_explanations');
+    if(unknown.length) warnings.push(`Entry ${index+1}: ignored fields ${unknown.join(', ')}. Use grammar_points, source_type and source_detail (not grammar or source).`);
+    if(!repositoryFuriganaMatches(entry.japanese,entry.japanese_furigana)||!repositoryFuriganaMatches(entry.original_japanese,entry.original_japanese_furigana)) throw new Error(`Furigana does not match the plain Japanese: ${entry.japanese}`);
+    if(!entry.japanese_furigana) warnings.push(`Entry ${index+1}: no japanese_furigana supplied. The app does not generate readings.`);
+    if(row.grammar_explanations!==undefined&&!Array.isArray(row.grammar_explanations)) throw new Error('grammar_explanations must be an array.');
+    const guides=(row.grammar_explanations||[]).map(x=>repositoryValidateGuide(x,entry));
+    if(new Set(guides.map(x=>x.label)).size!==guides.length) throw new Error('Supply only one explanation per grammar label in each entry.');
+    for(const label of entry.grammar_points) if(!guides.some(x=>x.label===label)) warnings.push(`Entry ${index+1}: ${label} has no imported explanation or saved meaning link.`);
+    for(const guide of guides){
+      const key=repositoryGrammarKey(guide.label)+'\u001f'+guide.sense;
+      const saved=repositoryState.grammarGuides.find(x=>x.grammar_key===repositoryGrammarKey(guide.label)&&x.sense===guide.sense);
+      const existing=saved||seen.get(key);
+      if(existing){
+        if(repositoryCanonical(existing.content)!==repositoryCanonical(guide.content)){
+          guide.conflict=conflicts.length;
+          conflicts.push({guide,existing,saved:!!saved});
+        }else guide.reused=true;
+      }
+      // Later entries always compare against the content that will actually be kept.
+      seen.set(key,existing||guide);
+      if(guide.content.examples.some(x=>!x.japanese_furigana)) warnings.push(`${guide.label}: an example has no furigana.`);
+    }
+    return {entry,guides};
+  });
+  return {items,warnings,conflicts};
+}
+
 function previewRepositoryImport(){
+  if(repositoryImportRunning) return;
   try{
-    pendingRepositoryImport=normaliseRepositoryImport(JSON.parse($('#repoImportJson').value));
-    if(!pendingRepositoryImport.length) throw new Error('No entries with a Japanese sentence were found.');
-    const mismatch=pendingRepositoryImport.find(row=>!repositoryFuriganaMatches(row.japanese,row.japanese_furigana)||!repositoryFuriganaMatches(row.original_japanese,row.original_japanese_furigana));
-    if(mismatch) throw new Error(`Furigana does not match the plain Japanese: ${mismatch.japanese}`);
-    $('#repoImportPreview').innerHTML=`<strong>${pendingRepositoryImport.length} entr${pendingRepositoryImport.length===1?'y':'ies'} ready</strong>${pendingRepositoryImport.slice(0,5).map(x=>`<span lang="ja">${repositoryJapanese(x)}</span>`).join('')}`;
-    $('#repoRunImport').disabled=false;
-  }catch(error){pendingRepositoryImport=[];$('#repoImportPreview').innerHTML=`<span class="repo-import-error">${esc(error.message)}</span>`;$('#repoRunImport').disabled=true;}
+    repositoryImportSnapshot=$('#repoImportJson').value;
+    if(new TextEncoder().encode(repositoryImportSnapshot).length>2097152) throw new Error('Import at most 2 MB at a time.');
+    const plan=repositoryPlanImport(JSON.parse(repositoryImportSnapshot));
+    if(plan.items.some(x=>x.guides.length)&&!repositoryState.grammarLibraryReady) throw new Error('The grammar library is unavailable. Apply migrations/20260903_repository_grammar_library.sql, then reload. Nothing has been imported.');
+    pendingRepositoryImport=plan.items;
+    const guides=plan.items.flatMap(x=>x.guides);
+    $('#repoImportPreview').innerHTML=`<strong>${plan.items.length} entries · ${guides.filter(x=>!x.reused&&x.conflict===undefined).length} new guides · ${guides.filter(x=>x.reused).length} reused links · ${plan.conflicts.length} conflicts</strong>${plan.items.slice(0,5).map(x=>`<span lang="ja">${repositoryJapanese(x.entry)}</span>`).join('')}${plan.warnings.map(x=>`<p>${esc(x)}</p>`).join('')}${plan.conflicts.map((x,i)=>`<section class="panel"><h3>${esc(x.guide.label)} · ${esc(x.guide.sense)}</h3><p>This meaning already has different content. It will not be overwritten.</p><details><summary>Compare explanations</summary><h4>${x.saved?'Saved':'First in this import'}</h4><pre>${esc(JSON.stringify(x.existing.content,null,2))}</pre><h4>Incoming</h4><pre>${esc(JSON.stringify(x.guide.content,null,2))}</pre></details><label><input type="checkbox" data-repo-conflict="${i}"> Use the ${x.saved?'saved':'first'} explanation for this sentence</label><p>Otherwise, cancel or correct the JSON. Use a different sense ID only for a genuinely different meaning.</p></section>`).join('')}`;
+    document.querySelectorAll('[data-repo-conflict]').forEach(input=>input.addEventListener('change',()=>{
+      const conflict=plan.conflicts[Number(input.dataset.repoConflict)];
+      if(input.checked) conflict.guide.expected_content=conflict.existing.content;
+      else delete conflict.guide.expected_content;
+      $('#repoRunImport').disabled=plan.conflicts.some(x=>!x.guide.expected_content);
+    }));
+    $('#repoRunImport').disabled=!!plan.conflicts.length;
+  }catch(error){pendingRepositoryImport=[];repositoryImportSnapshot='';$('#repoImportPreview').innerHTML=`<span class="repo-import-error">${esc(error.message)}</span>`;$('#repoRunImport').disabled=true;}
 }
 
 async function runRepositoryImport(){
-  if(!pendingRepositoryImport.length)return;
-  const button=$('#repoRunImport');button.disabled=true;
-  const {data,error}=await db.from('japanese_repository').insert(pendingRepositoryImport.map(x=>({...x,user_id:state.user.id}))).select();
-  if(error){toast(error.message);button.disabled=false;return;}
-  repositoryState.entries=[...(data||[]),...repositoryState.entries];pendingRepositoryImport=[];repositoryState.mode='browse';renderRepository();toast(`${data.length} repository entr${data.length===1?'y':'ies'} imported`);
+  if(repositoryImportRunning||!pendingRepositoryImport.length||!state.user) return;
+  if($('#repoImportJson')?.value!==repositoryImportSnapshot){toast('Preview the current JSON first.');return;}
+  if(pendingRepositoryImport.some(x=>x.guides.some(g=>g.conflict!==undefined&&!g.expected_content))) return;
+  const button=$('#repoRunImport'),userId=state.user.id;
+  const items=pendingRepositoryImport;
+  repositoryImportRunning=true; button.disabled=true;
+  const input=$('#repoImportJson'); if(input)input.disabled=true;
+  try{
+    let entries;
+    if(items.some(x=>x.guides.length)){
+      const payload=items.map(x=>({entry:x.entry,guides:x.guides.map(({label,sense,content,expected_content})=>({label,sense,content,...(expected_content?{expected_content}:{})}))}));
+      const {data,error}=await db.rpc('import_repository_with_grammar',{p_entries:payload});
+      if(error) throw error;
+      if(state.user?.id!==userId) return;
+      entries=data.entries;
+      repositoryState.grammarGuides=[...new Map([...repositoryState.grammarGuides,...data.guides].map(x=>[x.id,x])).values()];
+      repositoryState.grammarLinks=[...repositoryState.grammarLinks,...data.links];
+    }else{
+      const {data,error}=await db.from('japanese_repository').insert(items.map(x=>({...x.entry,user_id:userId}))).select();
+      if(error) throw error;
+      entries=data;
+    }
+    if(state.user?.id!==userId) return;
+    repositoryState.entries=[...entries,...repositoryState.entries];pendingRepositoryImport=[];repositoryImportSnapshot='';repositoryState.mode='browse';renderRepository();toast(`${entries.length} repository entries imported`);
+  }catch(error){
+    if(state.user?.id===userId) toast(`${error?.message||'Import failed.'} Reload and check your entries before retrying if the connection was interrupted.`);
+  }finally{
+    repositoryImportRunning=false;
+    if(input?.isConnected)input.disabled=false;
+    if(button.isConnected)button.disabled=!pendingRepositoryImport.length;
+  }
 }

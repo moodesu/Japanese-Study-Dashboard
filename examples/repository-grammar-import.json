@@ -1,0 +1,26 @@
+{
+  "japanese": "いいと思う。",
+  "japanese_furigana": "いいと[思|おも]う。",
+  "english": "I think it is good.",
+  "grammar_points": ["〜と思う"],
+  "grammar_explanations": [
+    {
+      "label": "〜と思う",
+      "sense": "expressing-an-opinion",
+      "meaning": "I think that…",
+      "formation": ["Plain-form clause + と思う"],
+      "explanation": "と marks the content of a thought; 思う expresses what the speaker thinks. Nouns and な-adjectives usually take だ before と in affirmative non-past statements.",
+      "examples": [
+        {
+          "japanese": "いいと思う。",
+          "japanese_furigana": "いいと[思|おも]う。",
+          "english": "I think it is good."
+        }
+      ]
+    }
+  ],
+  "register": "casual",
+  "tags": ["import-test"],
+  "source_type": "personal",
+  "source_detail": "ChatGPT"
+}
