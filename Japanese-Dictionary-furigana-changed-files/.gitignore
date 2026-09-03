@@ -1,0 +1,6 @@
+# Private dictionary data: never commit or deploy these files.
+/private-dictionary-data/
+/Japanese-Dictionary-private-data.zip
+/private-dictionary-readings/
+/Japanese-Dictionary-furigana-data.zip
+/upload/
