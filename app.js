@@ -1360,7 +1360,7 @@ function lessonGuideSteps(l){
     const item=index+1;
     const videos=grammarVideos.filter(video=>parseInt(String(video.grammar_index),10)===item);
     steps.push({
-      id:`b2-l${l.n}-guide-grammar-${item}`, title:`Grammar ${item}: ${name}`, resource:'Textbook',
+      id:`b2-l${l.n}-guide-grammar-${item}`, title:`Grammar ${item}: ${name}`, resource:'Textbook',grammarLabel:name,
       page:grammarPageFromVideos(videos,l.textbook.pages.grammar), videos,
       checklist:videos.length
         ? ['Watch every linked video part in order.','Read the matching textbook explanation and examples.','Complete and check the audio-icon exercise.','Say an original example aloud without copying the model.']
@@ -1447,6 +1447,7 @@ function guideTaskWorkspaceMarkup(l,step,index,steps,isNext,nextId){
     <div class="guide-workspace-body">
       <div class="guide-lesson-context"><strong>Lesson ${l.n} · ${esc(l.english)}</strong>${goal?`<span>Can-do connection: ${esc(goal)}</span>`:''}</div>
       ${details}${checklist}${videos}${guideAudioMarkup(l,step)}
+      ${step.grammarLabel?window.JLHNinjal?.panelMarkup(step.grammarLabel)||'':''}
       <div class="guide-workspace-section guide-task-record"><strong>Task record</strong>
         <label>Notes<textarea class="guide-task-notes" data-guide-notes="${esc(step.id)}" placeholder="Errors, useful examples, or what needs another pass…">${esc(status.notes||'')}</textarea></label>
         ${canRate?`<div class="guide-rating-grid"><label>Mastery<select data-guide-mastery="${esc(step.id)}">${guideMasteryOptions(status.mastery)}</select></label><label>Confidence<select data-guide-confidence="${esc(step.id)}">${guideConfidenceOptions(status.confidence)}</select></label></div>`:''}

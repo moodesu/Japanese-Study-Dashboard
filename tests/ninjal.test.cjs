@@ -1,0 +1,61 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
+const {parseHTML}=require(process.env.LINKEDOM_MODULE||'/tmp/jlh-dictionary-furigana/node_modules/linkedom');
+const root=path.resolve(__dirname,'..'),data=JSON.parse(fs.readFileSync(path.join(root,'assets/ninjal-bunkei.json'),'utf8'));
+const {document,window:dom}=parseHTML('<html><head><base href="https://hub.test/"></head><body></body></html>');
+let fetches=0,fail=true;
+const context={document,URL,console,fetch:async(url,options)=>{
+  fetches++;assert.equal(url,'https://hub.test/assets/ninjal-bunkei.json');assert.equal(options.credentials,'omit');
+  if(fail)return {ok:false};return {ok:true,json:async()=>data};
+}};
+context.window=context;vm.createContext(context);vm.runInContext(fs.readFileSync(path.join(root,'ninjal.js'),'utf8'),context);
+const api=context.JLHNinjal,ids=new Set(data.entries.map(e=>e.id));
+assert.equal(fetches,0,'Loading script must not fetch examples');
+assert.deepEqual(data.counts,{entries:800,senses:958,examples:9552});
+assert.equal(ids.size,800);
+for(const refs of Object.values(api.aliases))for(const id of refs)assert.ok(ids.has(id),`Unknown alias ${id}`);
+const find=q=>api.matchEntries(data,q);
+assert.deepEqual(Array.from(find('～そうだ [hearsay]').entries,e=>e.id),['〜そうだ（伝聞）']);
+assert.deepEqual(Array.from(find('～みたい／よう [resemblance]').entries,e=>e.id),['〜みたいだ（比喩）','〜ようだ（比喩）']);
+assert.equal(find('〜てくる').entries.length,2,'Movement and change must remain separate');
+assert.equal(find('〜そうだ').entries.length,2,'Do not guess appearance vs hearsay');
+assert.equal(find('の [indefinite pronoun]').entries.length,0,'Do not map pronoun の to explanatory の');
+assert.equal(find('noun modification clauses').entries.length,0);
+assert.equal(find('〜ば').entries.length,0,'Missing bare ば must not map to a suggestion form');
+assert.equal(find('Vないで').entries.length,0,'Do not map adverbial ないで to a request');
+assert.match(find('〜てたら').note,/Related reference/);
+assert.equal(api.matchEntries(data,'くる',false).entries.length,0);
+assert.ok(api.matchEntries(data,'くる',true).entries.length>0);
+assert.ok(api.matchEntries(data,'く',true).entries.length===0,'One-character partial search is not automatic');
+assert.ok(api.matchEntries(data,'ない',true).entries.length<=15);
+assert.ok(api.rich('〓食〔た〕べ｛てから｝').includes('<ruby>食<rt>た</rt></ruby>べ<strong>てから</strong>'));
+assert.equal(api.rich('V<s>ます</s>'),'V<s>ます</s>');
+const hostile=api.rich('<img src=x onerror=alert(1)>〓<script>〔&〕｛x');
+assert.ok(!hostile.includes('<img'));assert.ok(!hostile.includes('<script>'));assert.ok(hostile.endsWith('</strong>'));
+assert.equal(api.plain('〓食〔た〕べ｛てから｝'),'食べてから');
+const tick=()=>new Promise(resolve=>setImmediate(resolve));
+function addPanel(label){const host=document.createElement('div');host.innerHTML=api.panelMarkup(label);document.body.append(host);return host.querySelector('details');}
+// Linkedom does not emulate capture propagation for non-bubbling toggle events.
+async function open(panel){panel.open=true;panel.dispatchEvent(new dom.Event('toggle',{bubbles:true}));await tick();await tick();}
+(async()=>{
+  const panel=addPanel('〜てくる');await open(panel);
+  assert.equal(fetches,1);assert.ok(panel.querySelector('[data-ninjal-retry]'));
+  fail=false;panel.querySelector('[data-ninjal-retry]').dispatchEvent(new dom.Event('click',{bubbles:true}));await tick();await tick();
+  assert.equal(fetches,2);assert.equal(panel.querySelectorAll('.ninjal-entry').length,2);
+  assert.ok(panel.querySelectorAll('.ninjal-sense').length>2);
+  assert.equal(panel.querySelectorAll('.ninjal-sense[open]').length,0,'Reader explicitly chooses intended meaning');
+  assert.ok(panel.querySelector('ruby'));assert.match(panel.textContent,/No English translations added/);
+  assert.ok(panel.querySelector(`a[href="${data.license}"]`));
+  assert.ok(panel.querySelectorAll('ol[start="4"]').length>0,'More examples retain their formation grouping');
+  const checkbox=panel.querySelector('[data-ninjal-furigana]');checkbox.checked=false;checkbox.dispatchEvent(new dom.Event('change',{bubbles:true}));assert.ok(panel.classList.contains('ninjal-no-furigana'));
+  const form=panel.querySelector('form');form.querySelector('input').value='～そうだ [hearsay]';
+  const submit=new dom.Event('submit',{bubbles:true,cancelable:true});form.dispatchEvent(submit);
+  assert.ok(submit.defaultPrevented);assert.equal(panel.querySelectorAll('.ninjal-entry').length,1);assert.match(panel.textContent,/伝聞/);
+  assert.ok(panel.classList.contains('ninjal-no-furigana'));
+  assert.equal(fetches,2,'Search/filter stays local');
+  const second=addPanel('noun modification clauses');await open(second);assert.equal(fetches,2,'Shared cached data across panels');assert.match(second.textContent,/No exact reference/);
+  assert.ok(!second.querySelector('.ninjal-entry'));
+  const injected=addPanel('\"><img src=x onerror=x>');assert.ok(!injected.querySelector('img'));
+  for(const filename of ['app.js','repository.js'])assert.ok(fs.readFileSync(path.join(root,filename),'utf8').includes('JLHNinjal?.panelMarkup('),`Missing ${filename} hook`);
+  const html=fs.readFileSync(path.join(root,'index.html'),'utf8');assert.ok(html.includes('href="ninjal.css"'));assert.ok(html.indexOf('src="ninjal.js"')<html.indexOf('src="app.js"'));
+  console.log('PASS: NINJAL dataset counts, explicit aliases, ambiguity, safe ruby/strike/emphasis rendering, lazy shared load, retry, pattern search, furigana and source attribution.');
+})().catch(error=>{console.error(error);process.exitCode=1;});

@@ -4,12 +4,13 @@ const vm = require('node:vm');
 const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 const source = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
-const context = {state:{taskState:{},lessonVideos:[]},console};
+const context = {state:{taskState:{},lessonVideos:[]},console,URL,document:{baseURI:'https://hub.test/',addEventListener(){}}};
 context.window = context;
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(path.join(root, 'curriculum.js'), 'utf8'), context);
 vm.runInContext(fs.readFileSync(path.join(root, 'audio-map.js'), 'utf8'), context);
 context.AUDIO_LIBRARY=context.LESSON_AUDIO;
+vm.runInContext(fs.readFileSync(path.join(root, 'ninjal.js'), 'utf8'), context);
 // Exercise the real pure planning/rendering functions without booting auth.
 for (const name of ['defFor','pageFor','makeTask','lessonTasks','weeklyTasks','ts','taskStudyChecklist','lessonGuideSteps','flattenGuideSteps','guideAudioMarkup','guideMasteryOptions','guideConfidenceOptions','taskGoalFor','guideTaskWorkspaceMarkup','guideStepMarkup','lessonGuideMarkup','scrollToGuideActivity']) {
   const start=source.indexOf(`function ${name}(`);
@@ -62,6 +63,7 @@ for (const lesson of context.CURRICULUM.lessons) {
   assert.equal(grammar.support.filter(s=>s.id.includes('-guide-grammar-')).length,lesson.textbook.grammar.length);
   assert.ok(steps.find(s=>s.id.endsWith('-textbook_vocab')).support.some(s=>s.id.endsWith('-vocab')));
   const html=context.lessonGuideMarkup(lesson);
+  assert.equal(html.split('data-ninjal-label=').length-1,lesson.textbook.grammar.length,'One source panel per grammar point; none on vocabulary or shadowing');
   for(const id of ids) assert.equal(html.split(`id="guide-${id}"`).length-1,1,`Unique rendered target ${id}`);
 }
 assert.deepEqual(plain(context.weeklyTasks(10,2)),['unchanged-consolidation',10,2]);

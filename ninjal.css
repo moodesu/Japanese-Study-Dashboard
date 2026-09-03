@@ -1,0 +1,30 @@
+/* Scoped to the grammar resource panel; uses the Hub's light/dark tokens. */
+.ninjal-panel{border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);margin:16px 0;min-width:0;overflow-wrap:anywhere;font-size:1rem}
+.ninjal-panel summary{cursor:pointer;padding:14px;font-size:1rem;font-weight:650;line-height:1.7}
+.ninjal-panel summary:focus-visible,.ninjal-panel a:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.ninjal-body{padding:0 16px 16px}
+.ninjal-panel p{white-space:pre-line;line-height:2;margin:10px 0}
+.ninjal-panel a{color:var(--accent);text-underline-offset:3px}
+.ninjal-search{display:flex;align-items:end;gap:10px;flex-wrap:wrap;margin:12px 0}
+.ninjal-search label{display:grid;gap:6px;flex:1;min-width:min(220px,100%);font-size:.9rem}
+.ninjal-search input{width:100%;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);padding:10px;font-size:1rem}
+.ninjal-search button{font-size:.9rem}
+.ninjal-toggle{display:flex;gap:8px;align-items:center;font-size:.9rem}
+.ninjal-toggle input{width:auto;accent-color:var(--accent)}
+.ninjal-status,.ninjal-context,.ninjal-note,.ninjal-scene{color:var(--muted)}
+.ninjal-entry{border-top:1px solid var(--line);padding-top:16px;margin-top:16px}
+.ninjal-panel h4{font-size:1.15rem;margin:0 0 8px;line-height:2}
+.ninjal-panel h5{font-size:1rem;line-height:2;margin:14px 0 8px}
+.ninjal-sense{margin-top:12px;border:1px solid var(--line);border-radius:8px}
+.ninjal-sense-body{padding:0 14px 14px;min-width:0}
+.ninjal-connection{border-top:1px solid var(--line);margin-top:16px}
+.ninjal-panel ol{padding-left:24px;margin:8px 0}
+.ninjal-example{padding:8px 0;border-bottom:1px solid var(--line)}
+.ninjal-example:last-child{border-bottom:0}
+.ninjal-example p{margin:4px 0}
+.ninjal-example strong{color:var(--accent);font-weight:750}
+.ninjal-panel ruby{ruby-align:center}
+.ninjal-panel rt{font-size:.6em;font-weight:400}
+.ninjal-no-furigana rt{display:none}
+.ninjal-credit{font-size:.875rem;border-top:1px solid var(--line);padding-top:14px}
+@media(max-width:600px){.ninjal-body{padding:0 10px 12px}.ninjal-panel summary{padding:12px}.ninjal-sense-body{padding:0 10px 12px}.ninjal-search{align-items:stretch}.ninjal-search button{flex:0 0 auto}}

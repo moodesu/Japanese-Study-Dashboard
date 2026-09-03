@@ -227,6 +227,7 @@ function repositoryGrammarMarkup(entry){
     <div class="repo-grammar-content">
       ${entry.routeStandalone?'':`<section class="panel"><h2>Your saved sentence</h2><p lang="ja"><strong>${repositoryJapanese(entry)}</strong></p>${entry.english?`<p>${esc(entry.english)}</p>`:''}${entry.explanation?`<h3>Saved sentence explanation</h3><p class="repo-grammar-context">${esc(entry.explanation)}</p>`:''}</section>`}
       ${window.JLHDictionary?.referenceMarkup()||''}
+      ${window.JLHNinjal?.panelMarkup(label)||''}
       ${body}
       ${!guide&&repositoryState.grammarGuides.some(x=>x.grammar_key===key)?`<section class="panel"><h2>Choose the intended meaning</h2><p>This sentence has no saved meaning link. These guides share its grammar label; choose one to read, or re-import the sentence with its grammar explanation to save an exact link.</p>${repositoryState.grammarGuides.filter(x=>x.grammar_key===key).map(x=>`<button type="button" class="repo-link" data-repo-guide="${esc(x.id)}">${esc(x.content.meaning)} · ${esc(x.sense)}</button>`).join('')}</section>`:''}
       ${!repositoryState.grammarLibraryReady?'<p class="subtitle">Saved grammar library unavailable. Apply the separate grammar migration if needed, then reload.</p>':''}
