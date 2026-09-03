@@ -1273,6 +1273,14 @@ function grammarPageFromVideos(rows,fallback){
 }
 
 function taskStudyChecklist(l,t){
+  if(t?.key==='textbook_conversation_shadowing') return [
+    `Return to Lesson ${l.n} 会話 on Textbook pp.${l.textbook.pages.conversation}. Use the conversation audio in this workspace; allow 15–20 minutes.`,
+    'Listen once with the text and check the meaning of any unclear lines now that you have studied the vocabulary and grammar.',
+    'Choose a short, understood section of about 20–30 seconds. Listen, pause and repeat each line once or twice to prepare.',
+    'Replay that section and speak just behind the recording without pausing, following the text initially. Match the rhythm, pauses and intonation; use 0.75× if needed.',
+    'Repeat the section 3–5 times, looking away from the text when comfortable. Try a final pass at normal speed if manageable; use −10s or the audio seek bar to replay.',
+    'Note the track and lines practised, plus one difficult phrase. Mark complete after practising the selected section; you do not need to perfect the entire conversation.'
+  ];
   if(t?.key==='textbook_conversation') return ['Listen once for the situation and overall meaning.','Read the conversation with the audio; mark anything unclear without stopping to master every new form.','Continue to the illustrated vocabulary. You can revisit this conversation after grammar.'];
   if(t?.key==='textbook_vocab') return ['Find the vocabulary list after the illustrated vocabulary within the displayed combined page range.','Listen to the list audio and check readings and meanings.','Cover the meanings and retrieve useful words; then attempt the supporting workbook exercise.'];
   if(t?.sectionSteps?.length) return t.sectionSteps;
@@ -1299,11 +1307,12 @@ function guideAudioMarkup(l,step){
   const tracks=AUDIO_LIBRARY.lessons?.[l.n]?.groups?.[step.audio]||[];
   if(!tracks.length) return '<p class="guide-resource-note">No mapped audio tracks are available for this task.</p>';
   const category=(AUDIO_LIBRARY.categories||[]).find(item=>item.key===step.audio)||{};
+  const audioGuide=step.audioGuide||category.guide;
   return `<div class="guide-audio-area">
     <button type="button" class="guide-action guide-audio-toggle" data-guide-audio="${esc(step.audio)}">▶ Play ${esc(category.english||step.audio)} audio here</button>
     <div class="guide-inline-audio" data-guide-audio-box="${esc(step.audio)}" hidden>
       <div class="guide-inline-audio-head"><div><span>${esc(category.label||'')}</span><strong>${esc(category.english||step.audio)} · ${tracks.length} ${tracks.length===1?'track':'tracks'}</strong></div><button type="button" class="guide-audio-close" aria-label="Close inline audio">×</button></div>
-      ${category.guide?`<p>${esc(category.guide)}</p>`:''}
+      ${audioGuide?`<p>${esc(audioGuide)}</p>`:''}
       <label class="guide-audio-select-label">Track <select class="guide-audio-select">${tracks.map((track,index)=>`<option value="${index}">${esc(track.badge||String(index+1).padStart(2,'0'))} · ${esc(track.title)}</option>`).join('')}</select></label>
       <div class="guide-audio-now"><strong>Choose a track</strong><small>Private Lesson ${l.n} audio</small></div>
       <audio class="guide-inline-player" controls preload="metadata"></audio>
@@ -1369,6 +1378,7 @@ function lessonGuideSteps(l){
   const dialogueVideos=lessonVideosByType(l,'dialogue');
   addVideo('dialogue','Watch and speak along with the dialogue','Follow the dialogue once for meaning, then replay and speak with the characters.',dialogueVideos);
   addTask('textbook_conversation','Listen once for the situation, read with the book, then repeat the conversation aloud.','conversation');
+  addTask('textbook_conversation_shadowing',task('textbook_conversation_shadowing').desc,'conversation');
   addTask('textbook_talk','Complete the speaking activities aloud using the target language.','speaking');
   addTask('textbook_reading','Read once for overall meaning, then reread for detail and give a short summary.','reading');
   addTask('reading','Complete the workbook reading as a comprehension check.');
@@ -1386,6 +1396,7 @@ function lessonGuideSteps(l){
     const main=byKey(section.key)||toStep(task(section.key));
     main.support=section.support.map(byKey).filter(Boolean);
     if(section.key==='guide-goals') main.title='できるCheck · Review the Can-do goals';
+    if(section.key==='textbook_conversation_shadowing') main.audioGuide='Check the meaning with the text first, then shadow a short section just behind the recording. Use the seek bar or −10s to replay; change speed if needed.';
     if(section.key==='textbook_conversation'){
       main.title='会話 · Conversation — first pass';
       main.instruction='Start with the opening conversation. Listen and read for the situation; understanding every new grammar form is not required yet.';

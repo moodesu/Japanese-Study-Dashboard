@@ -111,12 +111,13 @@ window.B2_LESSON_FLOW = [
   {key:'textbook_vocab',day:1,support:['vocab']},
   {key:'textbook_kanji',day:2,support:['kanji']},
   {key:'textbook_grammar',day:3,support:['particle','grammar1','grammar2']},
+  {key:'textbook_conversation_shadowing',day:4,support:[]},
   {key:'textbook_talk',day:4,support:[]},
   {key:'textbook_reading',day:5,support:['reading','writing']},
   {key:'textbook_listening',day:6,support:['listening']},
   {key:'guide-review',day:6,support:['comp1','comp2','review']}
 ];
-window.B2_DAY_FOCUS = ['Goals, conversation and picture vocabulary','Vocabulary list and workbook','Kanji and workbook','Grammar and workbook','Speaking and application','Reading and writing','Listening and lesson review'];
+window.B2_DAY_FOCUS = ['Goals, conversation and picture vocabulary','Vocabulary list and workbook','Kanji and workbook','Grammar and workbook','Conversation shadowing and speaking','Reading and writing','Listening and lesson review'];
 
 // ---- Programme registry ---------------------------------------------------
 // Programmes are independent of the book registry. A programme chooses a
@@ -162,6 +163,7 @@ window.TASK_TYPES = [
   {key:"textbook_vocab",label:"Textbook · Vocabulary list",book:"Textbook",field:"vocab",duration:"25–35 min",desc:"After the illustrated vocabulary, work through the vocabulary list with its audio. Check readings and meanings, then retrieve useful words without looking. The displayed range covers both vocabulary sections; their exact page boundary is not yet verified."},
   {key:"textbook_kanji",label:"Textbook · Kanji",book:"Textbook",field:"kanji",duration:"25–35 min",desc:"Work through the lesson kanji in the textbook. Prioritise recognition, readings and the example compounds; writing practice belongs in Workbook 1."},
   {key:"textbook_grammar",label:"Textbook · Grammar",book:"Textbook",field:"grammar",duration:"35–50 min",desc:"Study the grammar explanations in the textbook carefully. For each target, understand form, meaning, restrictions and examples. Then create 2–3 original sentences."},
+  {key:'textbook_conversation_shadowing',label:'会話 · Conversation shadowing',book:'Textbook',field:'conversation',duration:'15–20 min',desc:'Return to the opening conversation after studying the vocabulary and grammar. Spend 15–20 minutes shadowing a short, understood section with the lesson’s conversation audio, matching the speakers’ rhythm and intonation. This is a second pass, not a new textbook section.'},
   {key:"textbook_talk",label:"Textbook · 話しましょう",book:"Textbook",field:"talk",duration:"25–35 min",desc:"Do the textbook speaking/application activities. Answer aloud rather than silently writing answers. Repeat difficult patterns until you can produce them without the model."},
   {key:"textbook_reading",label:"Textbook · 読みましょう",book:"Textbook",field:"reading",duration:"30–45 min",desc:"Read the textbook reading for overall meaning first, then reread for detail. Mark important vocabulary/grammar and give a short summary from memory."},
   {key:"textbook_listening",label:"Textbook · 聞きましょう",book:"Textbook",field:"listening",duration:"25–35 min",desc:"Listen without the script first. Then use the script to diagnose what you missed, listen again, and shadow selected lines. The goal is comprehension plus automaticity."},

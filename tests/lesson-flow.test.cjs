@@ -8,8 +8,10 @@ const context = {state:{taskState:{},lessonVideos:[]},console};
 context.window = context;
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(path.join(root, 'curriculum.js'), 'utf8'), context);
+vm.runInContext(fs.readFileSync(path.join(root, 'audio-map.js'), 'utf8'), context);
+context.AUDIO_LIBRARY=context.LESSON_AUDIO;
 // Exercise the real pure planning/rendering functions without booting auth.
-for (const name of ['defFor','pageFor','makeTask','lessonTasks','weeklyTasks','ts','taskStudyChecklist','lessonGuideSteps','flattenGuideSteps','guideMasteryOptions','guideConfidenceOptions','taskGoalFor','guideTaskWorkspaceMarkup','guideStepMarkup','lessonGuideMarkup','scrollToGuideActivity']) {
+for (const name of ['defFor','pageFor','makeTask','lessonTasks','weeklyTasks','ts','taskStudyChecklist','lessonGuideSteps','flattenGuideSteps','guideAudioMarkup','guideMasteryOptions','guideConfidenceOptions','taskGoalFor','guideTaskWorkspaceMarkup','guideStepMarkup','lessonGuideMarkup','scrollToGuideActivity']) {
   const start=source.indexOf(`function ${name}(`);
   assert.ok(start>=0, `Missing ${name}`);
   const end=source.indexOf('\nfunction ',start+1);
@@ -21,7 +23,6 @@ vm.runInContext(`
   function lessonVideosByType(l,type){return state.lessonVideos.filter(v=>v.lesson===l.n&&v.video_type===type);}
   function grammarPageFromVideos(rows,fallback){return 'pp.'+fallback;}
   function esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-  function guideAudioMarkup(l,step){return step.audio?'<audio data-group="'+step.audio+'"></audio>':'';}
   function guideVideoLinks(videos){return videos.map(v=>esc(v.title)).join('');}
 `,context);
 const plain = value => JSON.parse(JSON.stringify(value));
@@ -38,6 +39,26 @@ for (const lesson of context.CURRICULUM.lessons) {
   assert.deepEqual(plain(scheduled.map(t=>t.id)),plain(flat.filter(s=>scheduled.some(t=>t.id===s.id)).map(s=>s.id)),'Plan follows lesson order');
   for(const task of context.lessonTasks(lesson)) assert.ok(ids.includes(task.id),`Missing task ${task.id}`);
   const grammar=steps.find(s=>s.id.endsWith('-textbook_grammar'));
+  const shadowing=steps.find(s=>s.id.endsWith('-textbook_conversation_shadowing'));
+  assert.equal(steps.indexOf(shadowing),steps.indexOf(grammar)+1,'Shadowing follows grammar and its supporting practice');
+  assert.ok(steps[steps.indexOf(shadowing)+1].id.endsWith('-textbook_talk'),'Shadowing prepares for speaking');
+  assert.equal(shadowing.audio,'conversation');
+  const audioHTML=context.guideAudioMarkup(lesson,shadowing);
+  assert.ok(audioHTML.includes('data-guide-audio="conversation"'));
+  assert.ok(audioHTML.includes('<audio'));
+  assert.ok(audioHTML.includes('value="0.75"'));
+  assert.ok(audioHTML.includes('data-audio-command="back"'));
+  assert.ok(!audioHTML.includes('Book closed first'),'Second-pass instructions suit shadowing');
+  for(const track of context.AUDIO_LIBRARY.lessons[lesson.n].groups.conversation) assert.ok(audioHTML.includes(context.esc(track.title)));
+  assert.equal(shadowing.page,`p.${lesson.textbook.pages.conversation}`);
+  assert.equal(context.pageFor(lesson,'textbook_conversation_shadowing').page,lesson.textbook.pages.conversation);
+  const shadowTask=context.weeklyTasks(lesson.n-11,4).find(t=>t.key==='textbook_conversation_shadowing');
+  assert.equal(shadowTask.id,shadowing.id,'Plan day 5 and lesson share one progress record');
+  assert.equal(shadowTask.duration,'15–20 min');
+  assert.equal(scheduled.filter(t=>t.id===shadowing.id).length,1);
+  assert.ok(shadowing.checklist[0].includes(`Lesson ${lesson.n}`));
+  assert.ok(shadowing.checklist.some(line=>line.includes('without pausing')));
+  assert.ok(shadowing.checklist.some(line=>line.includes('Mark complete')));
   assert.equal(grammar.support.filter(s=>s.id.includes('-guide-grammar-')).length,lesson.textbook.grammar.length);
   assert.ok(steps.find(s=>s.id.endsWith('-textbook_vocab')).support.some(s=>s.id.endsWith('-vocab')));
   const html=context.lessonGuideMarkup(lesson);
@@ -53,13 +74,20 @@ const saved={completed:true,notes:'Existing note',mastery:'studying',confidence:
 context.state.taskState['b2-l11-textbook_vocab']=saved;
 assert.equal(context.ts('b2-l11-textbook_vocab'),saved);
 assert.equal(context.ts('b2-l11-textbook_vocab_pictures').completed,false,'Do not invent completion for split vocabulary');
+context.state.taskState['b2-l11-textbook_conversation']=saved;
+assert.equal(context.ts('b2-l11-textbook_conversation_shadowing').completed,false,'First-pass completion does not complete shadowing');
+assert.equal(context.ts('b2-l11-textbook_conversation'),saved,'Existing conversation record is untouched');
 for(const step of context.flattenGuideSteps(steps)) context.state.taskState[step.id]={completed:true};
+delete context.state.taskState['b2-l11-textbook_conversation_shadowing'];
+assert.ok(context.lessonGuideMarkup(l).includes('data-guide-scroll="b2-l11-textbook_conversation_shadowing"'),'Previously completed lessons continue at the new shadowing step');
+context.state.taskState['b2-l11-textbook_conversation_shadowing']={completed:true,notes:'Shadowed track 1'};
 context.state.taskState['b2-l11-vocab']={completed:false,notes:'Workbook note'};
 const html=context.lessonGuideMarkup(l);
 assert.ok(html.includes('data-guide-scroll="b2-l11-vocab"'),'Continue finds unfinished nested practice');
 assert.ok(!html.includes('Lesson path complete.'));
 assert.ok(html.includes('Workbook note'));
 assert.equal(context.weekPlan(0).days[0].focus,'Goals, conversation and picture vocabulary');
+assert.equal(context.weekPlan(0).days[4].focus,'Conversation shadowing and speaking');
 const ancestor={tagName:'DETAILS',open:false,parentElement:null};
 const workspace={open:false};
 let scrolled=false;
