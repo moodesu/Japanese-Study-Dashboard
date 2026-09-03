@@ -144,16 +144,14 @@
     panel.querySelector('.ninjal-body').innerHTML=`
       <p class="ninjal-context">For: ${escape(panel.dataset.ninjalLabel)}</p>
       <form class="ninjal-search"><label>Find a grammar pattern<input name="pattern" type="search" value="${escape(query)}" placeholder="例：てくる、たら" maxlength="160"></label><button class="smallbtn" type="submit">Search patterns</button></form>
-      <label class="ninjal-toggle"><input type="checkbox" data-ninjal-furigana ${cache.furigana?'checked':''}> Show source furigana</label>
       <p class="ninjal-status" role="status">${escape(result.note)}</p>
       <div class="ninjal-results">${result.entries.map(entryMarkup).join('')}</div>
       <p><a href="${SITE}" target="_blank" rel="noopener noreferrer">Browse Bunkeibank ↗</a></p>${attribution()}`;
-    panel.classList.toggle('ninjal-no-furigana',!cache.furigana);
   }
 
   async function openPanel(panel){
     if(panels.get(panel)?.data||panels.get(panel)?.loading)return;
-    const cache={loading:true,furigana:true};panels.set(panel,cache);
+    const cache={loading:true};panels.set(panel,cache);
     const body=panel.querySelector('.ninjal-body');
     body.innerHTML='<p role="status">Loading NINJAL grammar examples…</p>';
     try{
@@ -177,11 +175,6 @@
     event.preventDefault();const panel=event.target.closest('.ninjal-panel');
     const query=event.target.querySelector('[name="pattern"]').value.trim();
     paint(panel,query,true);panel.querySelector('[name="pattern"]')?.focus({preventScroll:true});
-  });
-  document.addEventListener('change',event=>{
-    if(!event.target.matches?.('[data-ninjal-furigana]'))return;
-    const panel=event.target.closest('.ninjal-panel'),cache=panels.get(panel);
-    if(cache){cache.furigana=event.target.checked;panel.classList.toggle('ninjal-no-furigana',!cache.furigana);}
   });
   window.JLHNinjal={panelMarkup,matchEntries,rich,plain,aliases,load};
 })();

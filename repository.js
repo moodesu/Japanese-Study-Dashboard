@@ -18,7 +18,7 @@ const repositoryState = {
   kind: 'all',
   register: 'all',
   migaku: 'all',
-  showFurigana: localStorage.getItem('repositoryShowFurigana')!=='false'
+  showFurigana: true
 };
 
 const REPOSITORY_STATUSES = ['reference','learning','review','known'];
@@ -51,7 +51,7 @@ function repositoryEntrySearchText(entry){
 }
 
 function renderRepositoryFurigana(notation,plain=''){
-  if(!repositoryState.showFurigana||!notation) return esc(plain||notation||'');
+  if(!notation) return esc(plain||notation||'');
   const source=String(notation), pattern=/\[([^\]|]+)\|([^\]]+)\]/g;
   let html='',last=0,match;
   while((match=pattern.exec(source))){
@@ -74,10 +74,6 @@ function repositoryJapanese(entry,original=false){
   const plain=original?entry.original_japanese:entry.japanese;
   const notation=original?entry.original_japanese_furigana:entry.japanese_furigana;
   return renderRepositoryFurigana(notation,plain);
-}
-
-function repositoryFuriganaToggle(){
-  return `<button type="button" class="smallbtn repo-furigana-toggle" id="repoFuriganaToggle" aria-pressed="${repositoryState.showFurigana}">${repositoryState.showFurigana?'振 Furigana on':'振 Furigana off'}</button>`;
 }
 
 function filteredRepositoryEntries(){
@@ -222,7 +218,7 @@ function repositoryGrammarMarkup(entry){
     ${guide.imported?`<section class="panel"><h2>Imported grammar guide</h2><p>AI-generated · Unverified. Check important details against a trusted grammar reference.</p><small>Meaning ID: ${esc(guide.sense)}</small></section>`:`<section class="panel"><h2>Read more</h2><p>Learning Hub summary with original examples. Reference explanations:</p>${guide.sources.map(source=>`<a class="repo-link" href="${esc(source.url)}" target="_blank" rel="noopener noreferrer">${esc(source.title)} ↗</a>`).join('')}</section>`}
   `:`<section class="panel"><h2>Explanation not yet in the guide library</h2><p>This label does not yet have a standalone Learning Hub explanation. The saved sentence context below is not a substitute for a grammar reference.</p><a class="repo-link" href="https://www.google.com/search?q=${encodeURIComponent(label+' Japanese grammar explanation')}" target="_blank" rel="noopener noreferrer">Search grammar references ↗</a></section>`;
   return `<section class="repo-page repo-grammar-page">
-    <div class="repo-detail-toolbar"><button type="button" class="smallbtn" id="repoGrammarBack">← Back to sentence</button>${repositoryFuriganaToggle()}</div>
+    <div class="repo-detail-toolbar"><button type="button" class="smallbtn" id="repoGrammarBack">← Back to sentence</button></div>
     <header><div class="eyebrow">Grammar reference</div><h1 id="repoGrammarTitle" tabindex="-1">${guide?text(guide.title):esc(label)}</h1></header>
     <div class="repo-grammar-content">
       ${entry.routeStandalone?'':`<section class="panel"><h2>Your saved sentence</h2><p lang="ja"><strong>${repositoryJapanese(entry)}</strong></p>${entry.english?`<p>${esc(entry.english)}</p>`:''}${entry.explanation?`<h3>Saved sentence explanation</h3><p class="repo-grammar-context">${esc(entry.explanation)}</p>`:''}</section>`}
@@ -251,7 +247,7 @@ function repositoryBrowseMarkup(){
   const entries=filteredRepositoryEntries();
   const counts=REPOSITORY_STATUSES.map(status=>[status,repositoryState.entries.filter(x=>x.status===status).length]);
   return `<section class="repo-page">
-    <div class="repo-page-head"><div><div class="eyebrow">Personal Japanese knowledge</div><h1>Japanese Repository</h1><p>Keep the Japanese you encounter, attempt and actually want to use.</p></div><div class="repo-head-actions">${repositoryFuriganaToggle()}<button class="smallbtn migaku-btn" id="repoAnkiBulk" ${entries.length?'':'disabled'}>Export filtered Anki</button><button class="smallbtn" id="repoMigakuBulk" ${entries.length?'':'disabled'}>Export filtered TSV</button><button class="smallbtn" id="repoImport">Import JSON</button><button class="smallbtn primary" id="repoAdd">＋ Capture</button></div></div>
+    <div class="repo-page-head"><div><div class="eyebrow">Personal Japanese knowledge</div><h1>Japanese Repository</h1><p>Keep the Japanese you encounter, attempt and actually want to use.</p></div><div class="repo-head-actions"><button class="smallbtn migaku-btn" id="repoAnkiBulk" ${entries.length?'':'disabled'}>Export filtered Anki</button><button class="smallbtn" id="repoMigakuBulk" ${entries.length?'':'disabled'}>Export filtered TSV</button><button class="smallbtn" id="repoImport">Import JSON</button><button class="smallbtn primary" id="repoAdd">＋ Capture</button></div></div>
     <section class="repo-stats">${counts.map(([status,count])=>`<button type="button" data-repo-status-jump="${status}"><strong>${count}</strong><span>${repositoryStatusLabel(status)}</span></button>`).join('')}</section>
     <section class="repo-toolbar panel"><label class="repo-search"><span>Search</span><input id="repoSearch" type="search" value="${esc(repositoryState.query)}" placeholder="Japanese, English, grammar, tags or notes…"></label><label><span>Type</span><select id="repoKind"><option value="all">All</option><option value="sentence" ${repositoryState.kind==='sentence'?'selected':''}>Sentences</option><option value="correction" ${repositoryState.kind==='correction'?'selected':''}>Corrections</option></select></label><label><span>Status</span><select id="repoStatus"><option value="all">All</option>${REPOSITORY_STATUSES.map(x=>`<option value="${x}" ${repositoryState.status===x?'selected':''}>${repositoryStatusLabel(x)}</option>`).join('')}</select></label><label><span>Register</span><select id="repoRegister"><option value="all">All</option>${REPOSITORY_REGISTERS.map(x=>`<option value="${x}" ${repositoryState.register===x?'selected':''}>${x[0].toUpperCase()+x.slice(1)}</option>`).join('')}</select></label><label><span>Migaku</span><select id="repoMigakuFilter"><option value="all">All</option><option value="pending" ${repositoryState.migaku==='pending'?'selected':''}>Not added</option><option value="exported" ${repositoryState.migaku==='exported'?'selected':''}>Added</option></select></label></section>
     <section class="repo-content-grid"><div><div class="repo-results-head"><strong>${entries.length} entr${entries.length===1?'y':'ies'}</strong><button type="button" class="textbtn" id="repoClearFilters">Clear filters</button></div><div class="repo-entry-list">${entries.length?entries.map(repositoryCard).join(''):`<div class="empty repo-empty"><strong>No matching sentences.</strong><span>Capture something you encountered, attempted or asked how to say.</span></div>`}</div></div>${repositoryPatternsMarkup()}</section>
@@ -269,7 +265,7 @@ function repositoryPatternsMarkup(){
 function repositoryDetailMarkup(entry){
   const revisions=repositoryState.revisions.filter(x=>x.repository_id===entry.id);
   return `<section class="repo-page repo-detail">
-    <div class="repo-detail-toolbar"><button class="smallbtn" id="repoBack">← Repository</button><div>${repositoryFuriganaToggle()}<button class="smallbtn migaku-btn" id="repoOpenMigaku">Migaku handoff</button><button class="smallbtn" id="repoEdit">Edit</button><button class="smallbtn danger" id="repoDelete">Delete</button></div></div>
+    <div class="repo-detail-toolbar"><button class="smallbtn" id="repoBack">← Repository</button><div><button class="smallbtn migaku-btn" id="repoOpenMigaku">Migaku handoff</button><button class="smallbtn" id="repoEdit">Edit</button><button class="smallbtn danger" id="repoDelete">Delete</button></div></div>
     <section class="repo-detail-hero"><div class="repo-entry-top"><span class="repo-kind">${entry.entry_type==='correction'?'Personal correction':'Captured sentence'}</span><span class="repo-status ${entry.status}">${repositoryStatusLabel(entry.status)}</span></div><h1 lang="ja">${entry.japanese?repositoryJapanese(entry):renderRepositoryFurigana(entry.original_japanese_furigana,entry.original_japanese||'Untitled')}</h1>${entry.english?`<p>${esc(entry.english)}</p>`:''}<small>Updated ${repositoryDate(entry.updated_at)}</small></section>
     ${entry.entry_type==='correction'?`<section class="repo-correction-flow"><article><span>1 · Intended meaning</span><p>${esc(entry.intent_english||'—')}</p></article><article><span>2 · My Japanese</span><p lang="ja">${entry.original_japanese?repositoryJapanese(entry,true):'—'}</p></article><article class="corrected"><span>3 · Corrected Japanese</span><p lang="ja">${entry.japanese?repositoryJapanese(entry):'—'}</p></article><article><span>4 · Why</span><p>${esc(entry.explanation||'—')}</p></article></section>`:''}
     <section class="repo-detail-grid"><article class="panel"><div class="eyebrow">Connections</div><h2>Grammar and lessons</h2><div class="repo-chip-row">${repositoryGrammarLinks(entry)||'<span class="subtitle">No grammar linked yet.</span>'}</div>${repositoryLessonButton(entry)}${entry.book_id?`<div class="repo-source-row"><span>Book</span><strong>${esc(entry.book_id)}</strong></div>`:''}</article><article class="panel"><div class="eyebrow">Context</div><h2>How this sentence is used</h2><dl class="repo-facts"><div><dt>Register</dt><dd>${esc(entry.register||'neutral')}</dd></div><div><dt>Source</dt><dd>${esc(entry.source_type||'personal')}${entry.source_detail?` · ${esc(entry.source_detail)}`:''}</dd></div></dl><div class="repo-chip-row">${(entry.tags||[]).map(tag=>`<span class="repo-chip">${esc(tag)}</span>`).join('')}</div>${entry.notes?`<p class="repo-notes">${esc(entry.notes)}</p>`:''}</article></section>
@@ -485,11 +481,6 @@ function bindRepositoryEvents(selected){
   $('#repoDownloadMigaku')?.addEventListener('click',()=>downloadRepositoryTsv(selected?[selected]:[],`learning-hub-${selected?.id||'sentence'}-migaku.tsv`));
   $('#repoDownloadAnki')?.addEventListener('click',e=>downloadRepositoryAnki(selected?[selected]:[],e.currentTarget));
   $('#repoMarkMigaku')?.addEventListener('click',()=>markRepositoryMigaku(selected,!selected?.migaku_exported_at));
-  $('#repoFuriganaToggle')?.addEventListener('click',()=>{
-    repositoryState.showFurigana=!repositoryState.showFurigana;
-    localStorage.setItem('repositoryShowFurigana',String(repositoryState.showFurigana));
-    renderRepository();
-  });
   $('#repositoryForm')?.addEventListener('submit',saveRepositoryEntry);
   const type=$('#repoEntryType');
   const syncType=()=>{const correction=type?.value==='correction';$('#repoCorrectionFields')?.classList.toggle('is-hidden',!correction);$('#repoErrorFields')?.classList.toggle('is-hidden',!correction);};

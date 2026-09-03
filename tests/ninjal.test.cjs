@@ -46,11 +46,10 @@ async function open(panel){panel.open=true;panel.dispatchEvent(new dom.Event('to
   assert.ok(panel.querySelector('ruby'));assert.match(panel.textContent,/No English translations added/);
   assert.ok(panel.querySelector(`a[href="${data.license}"]`));
   assert.ok(panel.querySelectorAll('ol[start="4"]').length>0,'More examples retain their formation grouping');
-  const checkbox=panel.querySelector('[data-ninjal-furigana]');checkbox.checked=false;checkbox.dispatchEvent(new dom.Event('change',{bubbles:true}));assert.ok(panel.classList.contains('ninjal-no-furigana'));
+  assert.equal(panel.querySelector('[data-ninjal-furigana]'),null,'NINJAL uses the site-wide toggle');
   const form=panel.querySelector('form');form.querySelector('input').value='～そうだ [hearsay]';
   const submit=new dom.Event('submit',{bubbles:true,cancelable:true});form.dispatchEvent(submit);
   assert.ok(submit.defaultPrevented);assert.equal(panel.querySelectorAll('.ninjal-entry').length,1);assert.match(panel.textContent,/伝聞/);
-  assert.ok(panel.classList.contains('ninjal-no-furigana'));
   assert.equal(fetches,2,'Search/filter stays local');
   const second=addPanel('noun modification clauses');await open(second);assert.equal(fetches,2,'Shared cached data across panels');assert.match(second.textContent,/No exact reference/);
   assert.ok(!second.querySelector('.ninjal-entry'));

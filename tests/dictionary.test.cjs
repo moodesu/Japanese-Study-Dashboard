@@ -41,7 +41,7 @@ async function readingTests(){
   const source='<p>先生に聞いたら分かった。</p>';
   const output=dictionary.readingMarkup(source,readingFixture,false,true);
   assert.match(output,/<ruby>先生<rt>せんせい<\/rt><\/ruby>/);
-  assert.equal(dictionary.readingMarkup(source,readingFixture,false,false),source);
+  assert.equal(dictionary.readingMarkup(source,readingFixture,false,false),output,'Ruby stays available for the global CSS switch');
   const parsed=document.createElement('div');parsed.innerHTML=output;parsed.querySelectorAll('rt').forEach(node=>node.remove());assert.equal(parsed.textContent,'先生に聞いたら分かった。');
   assert.equal(dictionary.readingMarkup('<p>違う文章。</p>',readingFixture,false,true),'<p>違う文章。</p>','Mismatched source remains unchanged');
   assert.equal(dictionary.readingMarkup('<p><ruby>先生<rt>せんせい</rt></ruby></p>',readingFixture,false,true),'<p><ruby>先生<rt>せんせい</rt></ruby></p>','Existing ruby is not nested');
@@ -71,10 +71,8 @@ async function readingTests(){
   assert.equal(uploadCount,2);assert.equal(writes[0].options.onConflict,'user_id,entry_id');assert.equal(writes[0].payload[0].user_id,'test-user');
   app.document.querySelector('[data-dictionary-entry]').click();await until(()=>!!app.document.querySelector('#dictionaryTitle'));
   assert.match(app.document.querySelector('#dictionaryTitle').innerHTML,/<rt>く<\/rt>/);
-  const countBefore=calls.length;
-  app.document.querySelector('#repoFuriganaToggle').click();assert.equal(app.repository.showFurigana,false);assert.equal(app.document.querySelector('#dictionaryTitle').textContent,row.headword);
-  assert.equal(app.context.localStorage.getItem('repositoryShowFurigana'),'false');
-  app.document.querySelector('#repoFuriganaToggle').click();assert.match(app.document.querySelector('#dictionaryTitle').innerHTML,/<rt>/);assert.equal(calls.length,countBefore,'Toggle does not fetch or upload');
+  assert.equal(app.document.querySelector('#repoFuriganaToggle'),null,'Dictionary uses the site-wide toggle');
+  assert.match(app.document.querySelector('#dictionaryTitle').innerHTML,/<rt>/);
   assert.match(app.document.body.innerHTML,/automatically generated and unverified/);
   loadError=true;app.dictionary.reset();await app.dictionary.open(app.repository.entries[0]);app.document.querySelector('[data-dictionary-entry]').click();await until(()=>!!app.document.querySelector('#dictionaryTitle'));
   assert.match(app.document.body.innerHTML,/Furigana could not be loaded/);assert.match(app.document.body.innerHTML,/Formation/,'Readings failure preserves original reader');
@@ -90,9 +88,9 @@ async function readingTests(){
       const expected=entry.readings.body.reduce((sum,node)=>sum+node.spans.length,0);
       assert.equal(annotated.querySelectorAll('ruby').length,expected,'All supplied annotations are applied');
       annotated.querySelectorAll('rt,rp').forEach(node=>node.remove());assert.equal(annotated.textContent,originalDOM.textContent);
-      assert.equal(dictionary.readingMarkup(original.body_html,entry.readings,false,false),dictionary.safeHtml(original.body_html));
+      assert.equal(dictionary.readingMarkup(original.body_html,entry.readings,false,false),dictionary.readingMarkup(original.body_html,entry.readings,false,true));
     }
-    console.log(`PASS: all ${supplied.length} reading overlays preserve source text and toggle off exactly.`);
+    console.log(`PASS: all ${supplied.length} reading overlays preserve source text for the global toggle.`);
   }
   console.log('PASS: furigana overlay validation/escaping, existing ruby, source mismatch, shared persisted toggle, missing-table fallback, upload/retry and unmatched-dictionary preflight.');
 }

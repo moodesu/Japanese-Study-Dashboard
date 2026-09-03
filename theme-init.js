@@ -4,3 +4,10 @@ try {
 } catch (error) {
   document.documentElement.dataset.theme = 'light';
 }
+try {
+  const saved=localStorage.getItem('siteShowFurigana');
+  const legacy=localStorage.getItem('repositoryShowFurigana');
+  document.documentElement.dataset.furigana=(saved??legacy)!=='false'?'on':'off';
+} catch (error) {
+  document.documentElement.dataset.furigana='on';
+}

@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en">
-<head><base href="/"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#18263b"><title>TOBIRA Foundation · Private Japanese Study</title><script src="theme-init.js"></script><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="ninjal.css"></head>
+<head><base href="/"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#18263b"><title>TOBIRA Foundation · Private Japanese Study</title><script src="theme-init.js"></script><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="ninjal.css"><link rel="stylesheet" href="site-furigana.css"></head>
 <body>
 <section id="loginGate" class="login-gate">
   <div class="gate-card">
@@ -13,7 +13,7 @@
 </section>
 
 <div id="appShell" class="shell" hidden>
-<header class="topbar"><div><div class="brand">Japanese Study System</div><h1 class="title">TOBIRA Foundation</h1><p class="subtitle">Beginning Japanese II → Intermediate Japanese · 12-week focused curriculum</p></div><div class="account"><span id="syncStatus" class="sync"></span><span id="userLabel" class="sync"></span><button id="themeToggle" class="smallbtn theme-toggle" type="button" title="Switch to dark mode" aria-label="Switch to dark mode">☾</button><button id="openLogin" class="smallbtn primary">Login</button><button id="logout" class="smallbtn">Logout</button></div></header>
+<header class="topbar"><div><div class="brand">Japanese Study System</div><h1 class="title">TOBIRA Foundation</h1><p class="subtitle">Beginning Japanese II → Intermediate Japanese · 12-week focused curriculum</p></div><div class="account"><span id="syncStatus" class="sync"></span><span id="userLabel" class="sync"></span><button id="siteFuriganaToggle" class="smallbtn no-auto-furigana" type="button" aria-pressed="true" title="Toggle furigana throughout the Learning Hub">振 Furigana on</button><button id="themeToggle" class="smallbtn theme-toggle" type="button" title="Switch to dark mode" aria-label="Switch to dark mode">☾</button><button id="openLogin" class="smallbtn primary">Login</button><button id="logout" class="smallbtn">Logout</button></div></header>
 <nav id="mainNav" class="mainnav"></nav>
 <div id="pomodoroWidget" class="pomodoro-widget" hidden>
   <div class="pomo-head">
@@ -50,5 +50,5 @@
 <dialog id="authDialog" class="modal"><form id="loginForm" class="authbox"><h2>Private study login</h2><p class="subtitle">Sign in with your single Supabase account.</p><p class="config-note">Your study data is only shown after authentication.</p><label>Email<input id="email" type="email" autocomplete="username" required></label><label>Password<input id="password" type="password" autocomplete="current-password" required></label><div class="modalactions"><button type="button" id="closeLogin" class="smallbtn">Cancel</button><button type="submit" class="smallbtn primary">Sign in</button></div></form></dialog>
 <button id="backToTop" class="back-to-top" type="button" title="Back to top" aria-label="Back to top" hidden>↑</button>
 <div id="toast" class="toast"></div>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4"></script><script src="supabase-config.js"></script><script src="wanikani-config.js"></script><script src="curriculum.js"></script><script src="book-maps.js"></script><script src="audio-map.js"></script><script src="vendor/anki-exporter.bundle.js"></script><script src="grammar-guides.js"></script><script src="ninjal.js"></script><script src="repository.js"></script><script src="dictionary.js"></script><script src="router.js"></script><script src="app.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4"></script><script src="supabase-config.js"></script><script src="wanikani-config.js"></script><script src="curriculum.js"></script><script src="book-maps.js"></script><script src="audio-map.js"></script><script src="vendor/anki-exporter.bundle.js"></script><script src="grammar-guides.js"></script><script src="vendor/kuromoji.js"></script><script src="site-furigana.js"></script><script src="ninjal.js"></script><script src="repository.js"></script><script src="dictionary.js"></script><script src="router.js"></script><script src="app.js"></script>
 </body></html>

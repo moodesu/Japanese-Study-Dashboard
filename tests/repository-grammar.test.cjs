@@ -5,7 +5,7 @@ const vm=require('node:vm');
 const root=path.resolve(__dirname,'..');
 const nodes=new Map();
 function element(){return {innerHTML:'',hidden:false,handlers:{},addEventListener(type,fn){this.handlers[type]=fn;},focus(){this.focused=true;}};}
-for(const id of ['#hero','#bottomArea','#weekView','#mainContent','#repoGrammarBack','#repoGrammarTitle','#repoFuriganaToggle']) nodes.set(id,element());
+for(const id of ['#hero','#bottomArea','#weekView','#mainContent','#repoGrammarBack','#repoGrammarTitle']) nodes.set(id,element());
 const chips=[];
 const textbookButtons=[];
 const scrolls=[];
@@ -39,9 +39,7 @@ for(const chip of chips){
   assert.ok(nodes.get('#mainContent').innerHTML.includes('Your saved sentence'));
   assert.ok(nodes.get('#mainContent').innerHTML.includes('<ruby>'));
   assert.ok(nodes.get('#repoGrammarTitle').focused);
-  nodes.get('#repoFuriganaToggle').handlers.click();
-  assert.ok(!nodes.get('#mainContent').innerHTML.includes('<ruby>'));
-  nodes.get('#repoFuriganaToggle').handlers.click();
+  assert.ok(!nodes.get('#mainContent').innerHTML.includes('id="repoFuriganaToggle"'),'Page-level toggle was replaced by the global control');
   nodes.get('#repoGrammarBack').handlers.click();
   assert.equal(state.mode,'detail');
   assert.ok(chip.focused);

@@ -25,6 +25,5 @@
 .ninjal-example strong{color:var(--accent);font-weight:750}
 .ninjal-panel ruby{ruby-align:center}
 .ninjal-panel rt{font-size:.6em;font-weight:400}
-.ninjal-no-furigana rt{display:none}
 .ninjal-credit{font-size:.875rem;border-top:1px solid var(--line);padding-top:14px}
 @media(max-width:600px){.ninjal-body{padding:0 10px 12px}.ninjal-panel summary{padding:12px}.ninjal-sense-body{padding:0 10px 12px}.ninjal-search{align-items:stretch}.ninjal-search button{flex:0 0 auto}}

@@ -1,0 +1,5 @@
+/* One global switch controls supplied ruby and automatically generated ruby. */
+html[data-furigana="off"] rt,html[data-furigana="off"] rp{display:none!important}
+#siteFuriganaToggle[aria-busy="true"]{opacity:.72;cursor:progress}
+body ruby{ruby-align:center;ruby-position:over}
+body rt{font-size:.55em;font-weight:500;line-height:1;color:inherit;opacity:.82}
