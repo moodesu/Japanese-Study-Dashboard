@@ -2746,6 +2746,7 @@ html[data-theme="dark"] .guide-action:hover { background:#1d2d3a; border-color:#
 .repo-import-preview .panel{min-width:0}
 
 /* Private dictionary reader; source styles are scoped to this reader only. */
+.route-link{color:inherit;text-decoration:none;cursor:pointer}.route-link:focus-visible{outline:2px solid var(--accent);outline-offset:3px}a.smallbtn,a.navbtn,a.weektab{display:inline-flex;align-items:center;justify-content:center}a.book-card{display:block}a.repo-chip{display:inline-flex}
 .dictionary-body ruby,.dictionary-page h2 ruby{ruby-align:center;ruby-position:over}.dictionary-body rt,.dictionary-page h2 rt{font-size:.55em;line-height:1.2;font-weight:400}.dictionary-reading-note{color:var(--muted);font-size:.875rem;line-height:1.6}
 .dictionary-page{display:grid;gap:18px}.dictionary-page h1{font-size:clamp(1.5rem,4vw,2.2rem);margin:0}.dictionary-page .panel{min-width:0}
 .dictionary-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:12px 0}.dictionary-page label{display:grid;gap:6px;font-size:1rem}

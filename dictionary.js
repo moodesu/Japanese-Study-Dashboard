@@ -29,20 +29,23 @@ window.JLHDictionary=(()=>{
   function referenceMarkup(){
     return '<section class="panel"><h2>Dictionary reference</h2><p>Read A Dictionary of Japanese Grammar separately from your imported explanation.</p><button type="button" class="smallbtn" id="repoDictionaryOpen">Open dictionary reference</button></section>';
   }
-  async function open(entry){
-    if(!entry||!state.user||!db)return;
+  async function open(entry,route={}){
+    if((!entry&&!route.fromRoute)||!state.user||!db)return;
     const token=++serial;
-    session={...identity(entry),userId:state.user.id,returnScroll:window.scrollY||0,query:'',results:[],loading:true,count:0,error:'',schemaReady:false,linkedId:null};
+    session={...(entry?identity(entry):{label:'Dictionary',grammar_key:'',sense:''}),standalone:!entry,userId:state.user.id,returnScroll:window.scrollY||0,query:route.query||'',requestedId:route.id||null,results:[],loading:true,count:0,error:'',schemaReady:false,linkedId:null};
     repositoryState.mode='dictionary';paint();scrollTo({top:0,behavior:'smooth'});
     try{
       const [catalogue,link]=await Promise.all([
         db.from('japanese_dictionary_entries').select('id',{count:'exact',head:true}).eq('user_id',session.userId),
-        db.from('japanese_dictionary_links').select('entry_id').eq('user_id',session.userId).eq('grammar_key',session.grammar_key).eq('sense',session.sense).maybeSingle()
+        entry?db.from('japanese_dictionary_links').select('entry_id').eq('user_id',session.userId).eq('grammar_key',session.grammar_key).eq('sense',session.sense).maybeSingle():Promise.resolve({data:null})
       ]);
       if(!active(token))return;
       if(catalogue.error||link.error)throw catalogue.error||link.error;
       session.schemaReady=true;session.count=catalogue.count||0;session.linkedId=link.data?.entry_id||null;session.loading=false;
-      if(session.linkedId)await read(session.linkedId);
+      if(route.setup){session.setup=true;paint();}
+      else if(route.id)await read(route.id);
+      else if(route.query!==null&&route.query!==undefined)await search(route.query);
+      else if(session.linkedId)await read(session.linkedId);
       else if(session.count)await search(terms(session.label)[0]);
       else {session.setup=true;paint();}
     }catch(error){if(active(token)){session.loading=false;session.error=fail(error);paint();}}
@@ -56,7 +59,7 @@ window.JLHDictionary=(()=>{
   async function search(query){
     if(busy())return;
     const token=++serial;
-    session.query=String(query||'').trim().slice(0,100);session.loading=true;session.error='';session.reader=null;session.setup=false;session.urls=[];paint();
+    session.query=String(query||'').trim().slice(0,100);session.requestedId=null;session.loading=true;session.error='';session.reader=null;session.setup=false;session.urls=[];paint();
     try{
       const {data,error}=await db.rpc('search_japanese_dictionary',{p_query:session.query});
       if(!active(token))return;
@@ -68,7 +71,7 @@ window.JLHDictionary=(()=>{
   async function read(id){
     if(busy()||!HASH.test(id))return;
     const token=++serial;
-    session.reader=null;session.urls=[];session.loading=true;session.error='';session.setup=false;session.imageError='';paint();
+    session.requestedId=id;session.reader=null;session.urls=[];session.loading=true;session.error='';session.setup=false;session.imageError='';paint();
     try{
       const {data,error}=await db.from('japanese_dictionary_entries').select('*').eq('user_id',session.userId).eq('id',id).single();
       if(!active(token))return;
@@ -214,7 +217,7 @@ window.JLHDictionary=(()=>{
     finally{if(active(token)){session.loading=false;paint();}}
   }
   async function saveLink(remove=false){
-    if(busy()||(!remove&&!session.reader))return;
+    if(session.standalone||busy()||(!remove&&!session.reader))return;
     const token=serial,userId=session.userId;
     session.saving=true;session.error='';paint();
     try{
@@ -259,10 +262,10 @@ window.JLHDictionary=(()=>{
     else if(session.setup)body=`<section class="panel"><h2>Set up your private dictionary</h2><p>Extract <code>Japanese-Dictionary-private-data.zip</code> outside your Git/Netlify project. Select its <code>private-dictionary-data</code> folder below. This uploads the entries and PNG images to your signed-in account’s private Supabase storage.</p><p>Keep this page open during setup. A retry resumes missing content without duplicating entries or replacing existing files.</p><label>Dictionary folder <input id="dictionaryFolder" type="file" webkitdirectory multiple ${disabled}></label><p id="dictionarySetupSummary">Choose the extracted folder to continue.</p><button type="button" class="smallbtn primary" id="dictionaryInstall" disabled>Upload to my private dictionary</button><p id="dictionaryProgress" role="status" aria-live="polite">${esc(session.progress||'')}</p></section>`;
     else if(session.reader){
       const entry=session.reader;
-      body=`<section class="panel"><div class="dictionary-actions"><button class="smallbtn" id="dictionaryResults" ${disabled}>← Search results</button><button class="smallbtn primary" id="dictionaryLink" ${disabled||session.linkedId===entry.id?'disabled':''}>${session.linkedId===entry.id?'Saved reference':'Use this entry for '+esc(session.label)}</button>${session.linkedId?`<button class="smallbtn" id="dictionaryUnlink" ${disabled}>Remove saved reference</button>`:''}</div><h2 id="dictionaryTitle" tabindex="-1">${readingMarkup(entry.headword,session.readings,true)}</h2><p class="subtitle">A Dictionary of Japanese Grammar · ${esc(entry.volume)} · Dictionary source, separate from the AI explanation</p><p class="dictionary-reading-note">${session.readings?'Furigana is automatically generated and unverified; names and ambiguous words may be misread.':'Furigana has not been added for this entry. Open Dictionary setup to upload the readings-only file.'}</p>${session.readingsError?`<p role="status">${esc(session.readingsError)}</p>`:''}<div class="dictionary-body">${readingMarkup(entry.body_html,session.readings)}</div></section>${entry.image_files.length?`<section class="panel"><h2>Notes and reference images</h2><p>These are original images; their text and readings cannot follow the app’s furigana toggle.</p><div class="dictionary-actions"><label>Image size <select id="dictionaryZoom"><option value="100">Fit width</option><option value="150">150%</option><option value="200">200%</option></select></label><button class="smallbtn" id="dictionaryRefreshImages" ${disabled}>Refresh image links</button></div>${session.imageError?`<p role="alert">${esc(session.imageError)}</p>`:''}${(session.urls||[]).map((url,i)=>url?`<div class="dictionary-image-scroll"><img class="dictionary-scan" src="${esc(url)}" alt="Dictionary notes for ${esc(entry.headword)}, image ${i+1}" referrerpolicy="no-referrer"></div>`:'').join('')}</section>`:''}`;
+      body=`<section class="panel"><div class="dictionary-actions"><button class="smallbtn" id="dictionaryResults" ${disabled}>← Search results</button>${session.standalone?'':`<button class="smallbtn primary" id="dictionaryLink" ${disabled||session.linkedId===entry.id?'disabled':''}>${session.linkedId===entry.id?'Saved reference':'Use this entry for '+esc(session.label)}</button>`}${session.linkedId?`<button class="smallbtn" id="dictionaryUnlink" ${disabled}>Remove saved reference</button>`:''}</div><h2 id="dictionaryTitle" tabindex="-1">${readingMarkup(entry.headword,session.readings,true)}</h2><p class="subtitle">A Dictionary of Japanese Grammar · ${esc(entry.volume)} · Dictionary source, separate from the AI explanation</p><p class="dictionary-reading-note">${session.readings?'Furigana is automatically generated and unverified; names and ambiguous words may be misread.':'Furigana has not been added for this entry. Open Dictionary setup to upload the readings-only file.'}</p>${session.readingsError?`<p role="status">${esc(session.readingsError)}</p>`:''}<div class="dictionary-body">${readingMarkup(entry.body_html,session.readings)}</div></section>${entry.image_files.length?`<section class="panel"><h2>Notes and reference images</h2><p>These are original images; their text and readings cannot follow the app’s furigana toggle.</p><div class="dictionary-actions"><label>Image size <select id="dictionaryZoom"><option value="100">Fit width</option><option value="150">150%</option><option value="200">200%</option></select></label><button class="smallbtn" id="dictionaryRefreshImages" ${disabled}>Refresh image links</button></div>${session.imageError?`<p role="alert">${esc(session.imageError)}</p>`:''}${(session.urls||[]).map((url,i)=>url?`<div class="dictionary-image-scroll"><img class="dictionary-scan" src="${esc(url)}" alt="Dictionary notes for ${esc(entry.headword)}, image ${i+1}" referrerpolicy="no-referrer"></div>`:'').join('')}</section>`:''}`;
     }else if(session.schemaReady)body=`<section class="panel"><form id="dictionarySearch"><label>Find a dictionary entry <input id="dictionaryQuery" maxlength="100" value="${esc(session.query||'')}" ${disabled}></label><button class="smallbtn" ${disabled}>Search</button></form><div class="dictionary-actions">${terms(session.label).map(term=>`<button class="smallbtn" data-dictionary-term="${esc(term)}" ${disabled}>${esc(term)}</button>`).join('')}${session.linkedId?`<button class="smallbtn" id="dictionarySaved" ${disabled}>Open saved reference</button>`:''}</div><p>Suggestions are not automatic links. Open an entry and confirm that its meaning fits your sentence.</p>${(session.results||[]).map(row=>`<button type="button" class="repo-link dictionary-result" data-dictionary-entry="${esc(row.id)}" ${disabled}><strong>${esc(row.headword)} · ${esc(row.volume)}</strong><span>${esc(row.summary)}</span></button>`).join('')}${!session.loading&&!session.results?.length?'<p>No matching entries. Try a base form or shorter label. For example, look up たら for 〜てたら.</p>':''}${session.results?.length===30?'<p>Showing the first 30 matches. Narrow your search for more specific results.</p>':''}</section>`;
     if(session.setup&&session.schemaReady)body+=readingsSetupMarkup(disabled);
-    return `<section class="repo-page dictionary-page"><div class="repo-detail-toolbar"><button class="smallbtn" id="dictionaryBack" ${session.uploading?'disabled':''}>← Back to grammar</button>${session.reader&&!session.setup&&!session.uploading?repositoryFuriganaToggle():''}${session.schemaReady?`<button class="smallbtn" id="dictionarySetup" ${disabled}>Dictionary setup</button>`:''}</div><h1>Dictionary reference: ${esc(session.label||'')}</h1><p class="subtitle">${session.count||0} private entries · ${session.sense?.startsWith('sentence:')?'Reference applies to this sentence only until it has a grammar guide.':'Reference is shared by this grammar meaning.'}</p>${session.error?`<p class="panel" role="alert">${esc(session.error)}</p>`:''}${session.loading?'<p role="status">Loading dictionary…</p>':''}${body}</section>`;
+    return `<section class="repo-page dictionary-page"><div class="repo-detail-toolbar"><button class="smallbtn" id="dictionaryBack" ${session.uploading?'disabled':''}>← ${session.standalone?'Repository':'Back to grammar'}</button>${session.reader&&!session.setup&&!session.uploading?repositoryFuriganaToggle():''}${session.schemaReady?`<button class="smallbtn" id="dictionarySetup" ${disabled}>Dictionary setup</button>`:''}</div><h1>Dictionary reference: ${esc(session.label||'')}</h1><p class="subtitle">${session.count||0} private entries · ${session.standalone?'Browse your private dictionary.':session.sense?.startsWith('sentence:')?'Reference applies to this sentence only until it has a grammar guide.':'Reference is shared by this grammar meaning.'}</p>${session.error?`<p class="panel" role="alert">${esc(session.error)}</p>`:''}${session.loading?'<p role="status">Loading dictionary…</p>':''}${body}</section>`;
   }
   function bind(){
     $('#dictionaryReadingsFile')?.addEventListener('change',prepareReadings);
@@ -364,5 +367,7 @@ window.JLHDictionary=(()=>{
     finally{if(token===serial)session.uploading=false;}
   }
   window.addEventListener('beforeunload',event=>{if(session.uploading){event.preventDefault();event.returnValue='';}});
-  return {reset,open,markup,bind,referenceMarkup,safeHtml,validateManifest,terms,identity,readingTextNodes,readingMarkup,validateReadings,validateReadingsFile};
+  const routeState=()=>({id:session.requestedId||session.reader?.id||null,query:session.query||'',setup:!!session.setup,title:session.reader?.headword||'',linkedId:session.linkedId});
+  const navigationBusy=()=>!!(session.uploading||session.saving);
+  return {reset,open,markup,bind,referenceMarkup,safeHtml,validateManifest,terms,identity,readingTextNodes,readingMarkup,validateReadings,validateReadingsFile,routeState,navigationBusy};
 })();

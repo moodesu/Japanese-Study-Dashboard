@@ -136,6 +136,7 @@ async function loadRepositoryData(force=false){
 
 function resetRepositorySession(){
   window.JLHDictionary?.reset();
+  repositoryState.routeEntry=null;
   repositoryState.entries=[]; repositoryState.revisions=[]; repositoryState.loaded=false;
   repositoryState.loading=false; repositoryState.error=''; repositoryState.selectedId=null;
   repositoryState.mode='browse';
@@ -146,6 +147,7 @@ function resetRepositorySession(){
 }
 
 function openRepositoryEntry(id){
+  if(window.JLHRouter){window.JLHRouter.navigate(window.JLHRouter.entryURL(id));return;}
   repositoryState.selectedId=id;
   repositoryState.mode='detail';
   state.view='repository';
@@ -173,7 +175,7 @@ function repositoryGrammarGuide(label,entry){
   const key=repositoryGrammarKey(label);
   if(entry){
     const link=repositoryState.grammarLinks.find(x=>x.repository_id===entry.id&&x.label===label);
-    const saved=repositoryState.grammarGuides.find(x=>x.id===(link?.grammar_id||repositoryState.grammarGuideId)&&x.grammar_key===key);
+    const saved=repositoryState.grammarGuides.find(x=>x.id===(repositoryState.grammarGuideId||link?.grammar_id)&&x.grammar_key===key);
     if(saved) return repositorySavedGuide(saved);
     // An unlinked label cannot identify a meaning. Let the reader choose explicitly.
     if(repositoryState.grammarGuides.some(x=>x.grammar_key===key)) return undefined;
@@ -223,7 +225,7 @@ function repositoryGrammarMarkup(entry){
     <div class="repo-detail-toolbar"><button type="button" class="smallbtn" id="repoGrammarBack">← Back to sentence</button>${repositoryFuriganaToggle()}</div>
     <header><div class="eyebrow">Grammar reference</div><h1 id="repoGrammarTitle" tabindex="-1">${guide?text(guide.title):esc(label)}</h1></header>
     <div class="repo-grammar-content">
-      <section class="panel"><h2>Your saved sentence</h2><p lang="ja"><strong>${repositoryJapanese(entry)}</strong></p>${entry.english?`<p>${esc(entry.english)}</p>`:''}${entry.explanation?`<h3>Saved sentence explanation</h3><p class="repo-grammar-context">${esc(entry.explanation)}</p>`:''}</section>
+      ${entry.routeStandalone?'':`<section class="panel"><h2>Your saved sentence</h2><p lang="ja"><strong>${repositoryJapanese(entry)}</strong></p>${entry.english?`<p>${esc(entry.english)}</p>`:''}${entry.explanation?`<h3>Saved sentence explanation</h3><p class="repo-grammar-context">${esc(entry.explanation)}</p>`:''}</section>`}
       ${window.JLHDictionary?.referenceMarkup()||''}
       ${body}
       ${!guide&&repositoryState.grammarGuides.some(x=>x.grammar_key===key)?`<section class="panel"><h2>Choose the intended meaning</h2><p>This sentence has no saved meaning link. These guides share its grammar label; choose one to read, or re-import the sentence with its grammar explanation to save an exact link.</p>${repositoryState.grammarGuides.filter(x=>x.grammar_key===key).map(x=>`<button type="button" class="repo-link" data-repo-guide="${esc(x.id)}">${esc(x.content.meaning)} · ${esc(x.sense)}</button>`).join('')}</section>`:''}
@@ -329,14 +331,15 @@ function renderRepository(){
   $('#hero').hidden=true; $('#bottomArea').hidden=true; $('#weekView').hidden=true; $('#mainContent').hidden=false;
   if(repositoryState.loading&&!repositoryState.loaded){ $('#mainContent').innerHTML='<section class="repo-page"><div class="panel repo-loading">Loading your Japanese Repository…</div></section>'; return; }
   if(repositoryState.error&&!repositoryState.loaded){ $('#mainContent').innerHTML=`<section class="repo-page"><div class="panel repo-setup"><h1>Repository setup needed</h1><p>${esc(repositoryState.error)}</p><p>Run <code>migrations/20260830_japanese_repository.sql</code> in the Supabase SQL Editor, then reload.</p><button class="smallbtn" id="repoRetry">Retry</button></div></section>`; $('#repoRetry').onclick=()=>loadRepositoryData(true); return; }
-  const selected=repositoryState.entries.find(x=>x.id===repositoryState.selectedId);
+  const selected=repositoryState.entries.find(x=>x.id===repositoryState.selectedId)||repositoryState.routeEntry;
   if(repositoryState.mode==='form') $('#mainContent').innerHTML=repositoryFormMarkup(selected||{});
   else if(repositoryState.mode==='import') $('#mainContent').innerHTML=repositoryImportMarkup();
   else if(repositoryState.mode==='grammar'&&selected) $('#mainContent').innerHTML=repositoryGrammarMarkup(selected);
-  else if(repositoryState.mode==='dictionary'&&selected&&window.JLHDictionary) $('#mainContent').innerHTML=window.JLHDictionary.markup();
+  else if(repositoryState.mode==='dictionary'&&window.JLHDictionary) $('#mainContent').innerHTML=window.JLHDictionary.markup();
   else if(repositoryState.mode==='detail'&&selected) $('#mainContent').innerHTML=repositoryDetailMarkup(selected);
   else { repositoryState.mode='browse'; $('#mainContent').innerHTML=repositoryBrowseMarkup(); }
   bindRepositoryEvents(selected);
+  window.JLHRouter?.sync();
 }
 
 function cleanMigakuField(value){
@@ -529,6 +532,7 @@ async function saveRepositoryEntry(event){
   if(!repositoryFuriganaMatches(payload.japanese,payload.japanese_furigana)){toast('The furigana notation does not match the plain Japanese sentence.');return;}
   if(!repositoryFuriganaMatches(payload.original_japanese,payload.original_japanese_furigana)){toast('The original-sentence furigana does not match the plain Japanese.');return;}
   if(button) button.disabled=true;
+  window.JLHRepositorySaving=true;
   try{
     if(id){
       const previous=repositoryState.entries.find(x=>x.id===id);
@@ -548,7 +552,7 @@ async function saveRepositoryEntry(event){
     }
     renderRepository();
   }catch(error){toast(error?.message||'Unable to save repository entry.');}
-  finally{if(button)button.disabled=false;}
+  finally{window.JLHRepositorySaving=false;if(button)button.disabled=false;}
 }
 
 async function deleteRepositoryEntry(entry){

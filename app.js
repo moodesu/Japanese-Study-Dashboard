@@ -585,6 +585,7 @@ setInterval(()=>{
 },1000);
 
 function render(){
+  if(window.JLHRouter?.beforeRender())return;
   if(!state.ready || !state.user){ renderGate(); return; }
   $('#appShell').hidden=false; $('#loginGate').hidden=true;
   renderHeader(); renderNav();
@@ -607,6 +608,7 @@ function render(){
   renderPomodoroSettings();
   renderPomodoro();
   updateBackToTop();
+  window.JLHRouter?.sync();
 }
 function renderGate(){
   $('#appShell').hidden=true; $('#loginGate').hidden=false;
@@ -640,12 +642,18 @@ function renderNav(){
   }
   const pomoClose=$('#pomoClose');
   if(pomoClose) pomoClose.onclick=()=>{state.pomoOpen=false;localStorage.setItem('pomodoroOpen','false');renderPomodoro();renderNav();};
+  window.JLHRouter?.decorate();
 }
 
 function renderBookMap(bookId){
   const book=(window.BOOKS||[]).find(b=>b.id===bookId);
   const map=(window.BOOK_MAPS||{})[bookId];
-  if(!book || !map){ state.libraryItem=null; renderLibrary(); return; }
+  if(!book){ state.libraryItem=null; renderLibrary(); return; }
+  if(!map){
+    $('#hero').hidden=true;$('#bottomArea').hidden=true;$('#weekView').hidden=true;$('#mainContent').hidden=false;
+    $('#mainContent').innerHTML=`<div class="book-detail-toolbar"><a class="smallbtn route-link" data-jlh-route href="/books">← Learning hub</a></div><section class="panel"><h1>${esc(book.title)}</h1><p>${esc(book.description||'')}</p>${book.id===CURRICULUM.bookId?`<div class="lessonlist">${CURRICULUM.lessons.map(lessonButton).join('')}</div>`:'<p>No lesson map has been added for this book yet.</p>'}</section>`;
+    return;
+  }
 
   $('#hero').hidden=true; $('#bottomArea').hidden=true; $('#weekView').hidden=true; $('#mainContent').hidden=false;
 
@@ -932,6 +940,7 @@ function renderSearchResults(q){
       render();
     }
   });
+  window.JLHRouter?.decorate();
 }
 
 function renderDashboard(){
@@ -1473,6 +1482,7 @@ function focusGuideTarget(){
 }
 
 function openGuidedLesson(lesson,taskId=null){
+  if(window.JLHRouter){window.JLHRouter.navigate(window.JLHRouter.lessonURL(lesson,taskId));return;}
   state.lesson=Number(lesson); state.view='lesson'; state.guideTarget=taskId; render();
 }
 
@@ -1622,6 +1632,7 @@ function openTask(id){
   $('#startTaskPomo').onclick=()=>{startPomodoro(id);toast('Pomodoro started for this task');$('#startTaskPomo').textContent='Timer running for this task';};
   $('#focusTask').onclick=()=>{state.focusMode=true;document.body.classList.add('focus-mode');$('#modal').classList.add('focus-modal');};
   resetTaskModal(); $('#modal').showModal();
+  window.JLHRouter?.taskOpened(id);
 }
 async function loadCloud(){
   if(!db||!state.user)return;
@@ -1729,7 +1740,8 @@ async function initAuth(){
   });
 }
 
+window.JLHRouter?.start();
 $('#appShell').hidden=true; $('#loginGate').hidden=false; initAuth();
 
-$('#modal')?.addEventListener('close',()=>{state.focusMode=false;document.body.classList.remove('focus-mode');$('#modal')?.classList.remove('focus-modal');});
+$('#modal')?.addEventListener('close',()=>{state.focusMode=false;document.body.classList.remove('focus-mode');$('#modal')?.classList.remove('focus-modal');window.JLHRouter?.taskClosed();});
 $('#globalSearch')?.addEventListener('input',e=>renderSearchResults(e.target.value));
