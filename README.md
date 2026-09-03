@@ -152,7 +152,56 @@ video and private audio shortcut at the point where it is needed. The full
 Can-do list, video library, textbook map, audio browser and workbook maps remain
 available in the collapsed **Lesson reference** section.
 
-The weekly plan follows the same sequence: vocabulary, kanji, grammar,
-dialogue/speaking, reading/writing, listening/comprehensive practice, then
-catch-up and review. The app remains an organiser for the books rather than a
-replacement for the source material.
+The lesson path now starts with **できるCheck → Conversation (first pass) →
+Vocabulary with pictures → Vocabulary list**. It then follows the existing
+mapped textbook sections: kanji, grammar, speaking/application, reading and
+listening, with a final lesson wrap-up. The weekly Plan uses the same shared
+ordering. Day allocations are study suggestions, not instructions to skip
+unfinished textbook sections.
+
+Publisher videos and workbook practice are inside their matching textbook
+section, with independent completion, notes and ratings. Grammar points remain
+individually tracked inside the grammar section. The Continue button includes
+unfinished supporting activities, even when their textbook section is marked
+complete. An optional conversation replay belongs after grammar, not in place
+of the opening first pass.
+
+Existing task IDs, notes, completion and mastery records are retained. Picture
+vocabulary and the final wrap-up are new unchecked tasks; old vocabulary
+completion is retained on the vocabulary-list task. Completion percentages and
+daily allocations can therefore change without losing earlier work. No SQL
+migration is required.
+
+The vocabulary map only supplies a combined page range (Lesson 11: pp. 16–20).
+Both vocabulary steps explicitly use that range until their exact boundary
+can be verified from the book. Other page ranges are the existing mappings,
+not a fresh page-by-page textbook audit. The app remains an organiser for the
+books rather than a replacement for the source material.
+
+### Textbook-led path changelog (2026-09-03)
+
+- Shared textbook order for Lessons and Plan; conversation comes first.
+- Separate picture-vocabulary and vocabulary-list steps.
+- Supporting videos, grammar points and workbook tasks grouped in-section.
+- Corrected textbook task lookup to use section page keys rather than falling
+  back to the entire lesson range.
+- Retained existing record IDs; no SQL or changes to consolidation weeks.
+
+Checks: run `node tests/lesson-flow.test.cjs`, `node --check app.js`, and
+`node --check curriculum.js`.
+
+Smoke-test checklist after deploying the changed files:
+
+- Open Lesson 11: goals p. 13, conversation pp. 14–15, then the two vocabulary
+  steps using the labelled combined range pp. 16–20.
+- Compare the corresponding Plan days; conversation must precede vocabulary.
+- Open a textbook section and play its audio without leaving the task.
+- Open vocabulary/grammar supporting activities and verify their video links,
+  workbook pages, existing notes and completion markers.
+- Leave a workbook task unchecked after completing its textbook section;
+  Continue should reveal that nested activity, including after a reload.
+- Confirm picture vocabulary starts unchecked and old vocabulary completion
+  remains attached to the vocabulary list.
+- Check Lesson 12, mobile width, dark mode, and consolidation weeks 11–12.
+
+Suggested commit: `fix: align lesson path and weekly plan with textbook order`

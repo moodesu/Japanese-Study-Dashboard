@@ -308,7 +308,7 @@ function defFor(key){ return TASK_TYPES.find(x => x.key === key); }
 function pageFor(l, key){
   const def = defFor(key);
   if(def?.book === 'Textbook'){
-    const p = l.textbook?.pages?.[key];
+    const p = l.textbook?.pages?.[def.field] ?? l.textbook?.[def.field];
     return { book:'Textbook', page:p || `${l.textbook.start}–${l.textbook.end}` };
   }
   for (const b of ['workbook2','workbook1']) {
@@ -326,15 +326,7 @@ function lessonTasks(l){ return TASK_TYPES.map(d=>makeTask(l,d.key)).filter(Bool
 function weeklyTasks(w,d){
   if(w>=10) return consolidationTasks(w,d);
   const l=lessonForWeek(w);
-  const schedule=[
-    ['textbook_vocab','vocab'],
-    ['textbook_kanji','kanji'],
-    ['textbook_grammar','particle','grammar1'],
-    ['textbook_conversation','textbook_talk'],
-    ['textbook_reading','reading','writing'],
-    ['textbook_listening','listening','comp1'],
-    ['grammar2','comp2','review']
-  ][d];
+  const schedule=B2_LESSON_FLOW.filter(section=>section.day===d).flatMap(section=>[section.key,...section.support]);
   return schedule.map(k=>makeTask(l,k)).filter(Boolean);
 }
 function consolidationTasks(w,d){
@@ -1272,6 +1264,8 @@ function grammarPageFromVideos(rows,fallback){
 }
 
 function taskStudyChecklist(l,t){
+  if(t?.key==='textbook_conversation') return ['Listen once for the situation and overall meaning.','Read the conversation with the audio; mark anything unclear without stopping to master every new form.','Continue to the illustrated vocabulary. You can revisit this conversation after grammar.'];
+  if(t?.key==='textbook_vocab') return ['Find the vocabulary list after the illustrated vocabulary within the displayed combined page range.','Listen to the list audio and check readings and meanings.','Cover the meanings and retrieve useful words; then attempt the supporting workbook exercise.'];
   if(t?.sectionSteps?.length) return t.sectionSteps;
   const textbook=l?.textbook?.pages||{};
   const page=t?.page?`${t.book} p.${t.page}`:t?.book||'the referenced resource';
@@ -1375,8 +1369,34 @@ function lessonGuideSteps(l){
   addTask('comp1','Use Comprehensive practice 1 as a closed-book retrieval test.');
   addTask('comp2','Use Comprehensive practice 2 as the final application check.');
   addTask('review','Finish with the kanji review only if it exists for this lesson.');
-  return steps;
+  // Reuse all existing activity IDs while placing supporting work inside the
+  // matching textbook section. Do not infer completion for newly split work.
+  const byKey=key=>steps.find(step=>step.id===`b2-l${l.n}-${key}`);
+  const toStep=t=>({id:t.id,taskId:t.id,title:t.title,resource:t.book,page:`p.${t.page}`,instruction:t.desc,checklist:taskStudyChecklist(l,t)});
+  return B2_LESSON_FLOW.map(section=>{
+    const main=byKey(section.key)||toStep(task(section.key));
+    main.support=section.support.map(byKey).filter(Boolean);
+    if(section.key==='guide-goals') main.title='できるCheck · Review the Can-do goals';
+    if(section.key==='textbook_conversation'){
+      main.title='会話 · Conversation — first pass';
+      main.instruction='Start with the opening conversation. Listen and read for the situation; understanding every new grammar form is not required yet.';
+      const video=byKey('guide-video-dialogue');
+      if(video) main.support.unshift(video);
+    }
+    if(section.key==='textbook_vocab'){
+      main.instruction=task(section.key).desc;
+      const video=byKey('guide-video-vocabulary');
+      if(video){video.instruction='Use this video alongside the vocabulary list for pronunciation practice.';main.support.unshift(video);}
+    }
+    if(section.key==='textbook_grammar'){
+      main.instruction='Follow the numbered grammar points in textbook order below. Read each explanation first, then use its video and exercises. Mark this section complete after the textbook work.';
+      main.support.unshift(...steps.filter(step=>step.id.startsWith(`b2-l${l.n}-guide-grammar-`)).map(step=>({...step,instruction:'Read the matching textbook explanation and examples first; then use the linked video, complete the exercise and try your own example.',checklist:['Read the matching textbook explanation and examples.',...(step.videos.length?['Watch the linked video parts for this grammar point.']:[]),'Complete the textbook exercise and say an original example aloud.']})));
+    }
+    return main;
+  });
 }
+
+function flattenGuideSteps(steps){ return steps.flatMap(step=>[step,...flattenGuideSteps(step.support||[])]); }
 
 function guideVideoLinks(videos=[]){
   return videos.map((video,index)=>{
@@ -1395,7 +1415,7 @@ function taskGoalFor(l,step){
   return goals[0];
 }
 
-function guideTaskWorkspaceMarkup(l,step,index,steps,isNext){
+function guideTaskWorkspaceMarkup(l,step,index,steps,isNext,nextId){
   const status=ts(step.id), goal=taskGoalFor(l,step);
   const canRate=!!step.taskId||step.id.includes('-guide-grammar-');
   const details=step.details?.length?`<div class="guide-workspace-section"><strong>Lesson outcomes</strong><ul>${step.details.map(item=>`<li>${esc(item)}</li>`).join('')}</ul></div>`:'';
@@ -1411,34 +1431,45 @@ function guideTaskWorkspaceMarkup(l,step,index,steps,isNext){
         <label>Notes<textarea class="guide-task-notes" data-guide-notes="${esc(step.id)}" placeholder="Errors, useful examples, or what needs another pass…">${esc(status.notes||'')}</textarea></label>
         ${canRate?`<div class="guide-rating-grid"><label>Mastery<select data-guide-mastery="${esc(step.id)}">${guideMasteryOptions(status.mastery)}</select></label><label>Confidence<select data-guide-confidence="${esc(step.id)}">${guideConfidenceOptions(status.confidence)}</select></label></div>`:''}
       </div>
-      <nav class="guide-step-nav" aria-label="Guided lesson navigation">${previous?`<button type="button" data-guide-step-nav="${esc(previous.id)}">← Step ${index}</button>`:'<span></span>'}${next?`<button type="button" data-guide-step-nav="${esc(next.id)}">Step ${index+2} →</button>`:'<span></span>'}</nav>
+      ${step.support?.length?`<section class="guide-support"><h4>Supporting practice · within this section</h4><p>These activities keep their own notes and completion. Marking the textbook section complete does not mark them complete.</p>${step.support.map(child=>guideStepMarkup(l,child,-1,[],nextId)).join('')}</section>`:''}
+      ${index>=0?`<nav class="guide-step-nav" aria-label="Guided lesson navigation">${previous?`<button type="button" data-guide-step-nav="${esc(previous.id)}">← Step ${index}</button>`:'<span></span>'}${next?`<button type="button" data-guide-step-nav="${esc(next.id)}">Step ${index+2} →</button>`:'<span></span>'}</nav>`:''}
     </div>
   </details>`;
 }
 
+function guideStepMarkup(l,step,index,steps,nextId){
+  const status=ts(step.id), page=step.page?` · ${step.page}`:'';
+  const isNext=flattenGuideSteps([step]).some(item=>item.id===nextId);
+  return `<article class="guide-step ${index<0?'guide-support-step':''} ${status.completed?'done':''}" id="guide-${esc(step.id)}" data-guide-task="${esc(step.taskId||step.id)}">
+    <div class="guide-step-number">${status.completed?'✓':index<0?'↳':index+1}</div>
+    <div class="guide-step-main"><div class="guide-resource">${esc(step.resource)}${esc(page)}</div><h3>${esc(step.title)}</h3><p>${esc(step.instruction)}</p>${guideTaskWorkspaceMarkup(l,step,index,steps,isNext,nextId)}</div>
+    <label class="guide-check"><input type="checkbox" data-guide-check="${esc(step.id)}" ${status.completed?'checked':''}><span>${status.completed?'Complete':'Mark complete'}</span></label>
+  </article>`;
+}
+
 function lessonGuideMarkup(l){
-  const steps=lessonGuideSteps(l), done=steps.filter(step=>ts(step.id).completed).length;
-  const nextIndex=steps.findIndex(step=>!ts(step.id).completed);
-  const next=nextIndex>=0?steps[nextIndex]:null;
+  const steps=lessonGuideSteps(l), activities=flattenGuideSteps(steps), done=activities.filter(step=>ts(step.id).completed).length;
+  const next=activities.find(step=>!ts(step.id).completed);
+  const nextIndex=steps.findIndex(step=>flattenGuideSteps([step]).some(item=>item.id===next?.id));
   return `<section class="panel lesson-guide" id="lessonGuide">
-    <div class="lesson-guide-head"><div><div class="eyebrow">Guided lesson path</div><h2>Work from top to bottom</h2><p class="subtitle">One route through the textbook, publisher videos, private audio and both workbooks.</p></div><div class="guide-progress"><strong>${done}/${steps.length}</strong><span>steps complete</span></div></div>
-    <div class="progress"><i style="width:${steps.length?done/steps.length*100:0}%"></i></div>
+    <div class="lesson-guide-head"><div><div class="eyebrow">Guided lesson path</div><h2>Follow the textbook</h2><p class="subtitle">Textbook sections in reading order, with videos, audio and workbook practice inside the matching section. Vocabulary page ranges cover both pictures and the list; the exact split is not yet verified.</p></div><div class="guide-progress"><strong>${done}/${activities.length}</strong><span>activities complete</span></div></div>
+    <div class="progress"><i style="width:${activities.length?done/activities.length*100:0}%"></i></div>
     ${next?`<button type="button" class="guide-next" data-guide-scroll="${esc(next.id)}"><span>Continue with step ${nextIndex+1}</span><strong>${esc(next.title)}</strong><b>Go to next step ↓</b></button>`:`<div class="guide-complete">Lesson path complete. Use the mastery check to decide what needs another pass.</div>`}
-    <div class="guide-list">${steps.map((step,index)=>{
-      const status=ts(step.id), page=step.page?` · ${step.page}`:'';
-      return `<article class="guide-step ${status.completed?'done':''}" id="guide-${esc(step.id)}" data-guide-task="${esc(step.taskId||step.id)}">
-        <div class="guide-step-number">${status.completed?'✓':index+1}</div>
-        <div class="guide-step-main"><div class="guide-resource">${esc(step.resource)}${esc(page)}</div><h3>${esc(step.title)}</h3><p>${esc(step.instruction)}</p>${guideTaskWorkspaceMarkup(l,step,index,steps,index===nextIndex)}</div>
-        <label class="guide-check"><input type="checkbox" data-guide-check="${esc(step.id)}" ${status.completed?'checked':''}><span>${status.completed?'Complete':'Mark complete'}</span></label>
-      </article>`;
-    }).join('')}</div>
+    <div class="guide-list">${steps.map((step,index)=>guideStepMarkup(l,step,index,steps,next?.id)).join('')}</div>
   </section>`;
+}
+
+function scrollToGuideActivity(id){
+  const target=document.getElementById(`guide-${id}`); if(!target) return;
+  for(let node=target.parentElement;node;node=node.parentElement){if(node.tagName==='DETAILS') node.open=true;}
+  const workspace=target.querySelector('.guide-task-workspace'); if(workspace) workspace.open=true;
+  target.scrollIntoView({behavior:'smooth',block:'center'});
 }
 
 function focusGuideTarget(){
   const target=state.guideTarget; if(!target) return;
   state.guideTarget=null;
-  requestAnimationFrame(()=>document.getElementById(`guide-${target}`)?.scrollIntoView({behavior:'smooth',block:'center'}));
+  requestAnimationFrame(()=>scrollToGuideActivity(target));
 }
 
 function openGuidedLesson(lesson,taskId=null){
@@ -1489,12 +1520,12 @@ function renderLesson(n){
   $('#nextLesson').onclick=()=>{if(n<20){state.lesson=n+1;render();}};
   $('#lessonMastery').onclick=()=>openLessonMastery(l);
   $('#mainContent').querySelectorAll('[data-guide-check]').forEach(input=>input.onchange=()=>{
-    const steps=lessonGuideSteps(l), index=steps.findIndex(step=>step.id===input.dataset.guideCheck);
-    state.guideTarget=steps[index+1]?.id||input.dataset.guideCheck;
+    const steps=flattenGuideSteps(lessonGuideSteps(l)), index=steps.findIndex(step=>step.id===input.dataset.guideCheck);
+    state.guideTarget=input.checked?(steps.slice(index+1).find(step=>!ts(step.id).completed)?.id||input.dataset.guideCheck):input.dataset.guideCheck;
     toggle(input.dataset.guideCheck);
   });
   $('#mainContent').querySelectorAll('[data-guide-scroll]').forEach(button=>button.onclick=()=>{
-    document.getElementById(`guide-${button.dataset.guideScroll}`)?.scrollIntoView({behavior:'smooth',block:'center'});
+    scrollToGuideActivity(button.dataset.guideScroll);
   });
   initGuideTaskWorkspaces(l);
   initLessonAudio(n);

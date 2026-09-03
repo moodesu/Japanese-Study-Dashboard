@@ -60,8 +60,9 @@ window.CURRICULUM = {
 // Task IDs remain b2-l<lesson>-<key> so existing Supabase/local progress is
 // preserved when the richer hierarchy is introduced.
 const B2_SECTION_DEFS = [
-  {key:"conversation", label:"Conversation", taskKey:"textbook_conversation", resource:"Textbook", desc:"Work through the lesson conversation and its associated interaction practice.", steps:["Listen once for the situation and overall meaning.","Read with the book and check anything that blocks understanding.","Listen again and repeat selected lines.","Practise the interaction aloud rather than only rereading it."]},
-  {key:"vocabulary", label:"Vocabulary", taskKey:"textbook_vocab", resource:"Textbook", desc:"Study the lesson vocabulary in context and retrieve it actively.", steps:["Work through the visual/context vocabulary first.","Study the vocabulary list and example usage.","Test yourself without looking at the list.","Record only recurring or genuinely useful unknowns."]},
+  {key:"conversation", label:"会話 / Conversation — first pass", taskKey:"textbook_conversation", resource:"Textbook", desc:"Begin with the opening conversation before vocabulary or grammar.", steps:["Listen once for the situation and overall meaning.","Read with the audio without expecting to understand every new form.","Continue to the illustrated vocabulary.","Optionally revisit the conversation after studying grammar."]},
+  {key:"vocabulary_pictures", label:"Vocabulary with pictures", taskKey:"textbook_vocab_pictures", resource:"Textbook", desc:"Study the illustrated vocabulary before the list. The page range covers both vocabulary sections; the exact split is not verified.", steps:["Find the illustrated vocabulary after the conversation.","Use the pictures to understand each item, then say it aloud.","Continue to the vocabulary list."]},
+  {key:"vocabulary", label:"Vocabulary list", taskKey:"textbook_vocab", resource:"Textbook", desc:"Study the list after the illustrated vocabulary. The page range covers both vocabulary sections; the exact split is not verified.", steps:["Find the list after the illustrated vocabulary.","Listen to the list audio and check readings and meanings.","Test yourself without looking at the list.","Complete the supporting workbook vocabulary practice."]},
   {key:"kanji", label:"Kanji", taskKey:"textbook_kanji", resource:"Textbook", desc:"Study the lesson kanji, readings and example compounds; writing reinforcement is in Workbook 1.", steps:["Learn recognition and the readings shown in the textbook.","Work through the compounds/examples in context.","Test recognition and readings from memory.","Use Workbook 1 for focused writing reinforcement."]},
   {key:"grammar", label:"Grammar", taskKey:"textbook_grammar", resource:"Textbook", desc:"Work through each target grammar point, examples and practice. Create original sentences.", steps:["Study each listed grammar point in the textbook.","Understand the examples before attempting production.","Produce your own examples without copying the model.","Use Workbook 2 Grammar practice after the textbook work.","Flag only grammar that remains genuinely uncertain."]},
   {key:"activities", label:"話しましょう / Activities", taskKey:"textbook_talk", resource:"Textbook", desc:"Use the lesson language in the book's speaking and application activities.", steps:["Attempt the activity using the target lesson language.","Speak rather than silently planning every answer.","Repeat weak answers with improved wording.","Keep a note of useful phrases or recurring production problems."]},
@@ -86,7 +87,7 @@ const B2_WB1_DEFS = [
 function buildB2ContentMap(l){
   const p=l.textbook.pages||{};
   const sectionPages={
-    conversation:p.conversation, vocabulary:p.vocab, kanji:p.kanji, grammar:p.grammar,
+    conversation:p.conversation, vocabulary_pictures:p.vocab, vocabulary:p.vocab, kanji:p.kanji, grammar:p.grammar,
     activities:p.talk, reading:p.reading, listening:p.listening
   };
   l.sections=B2_SECTION_DEFS.map(d=>({
@@ -100,6 +101,22 @@ function buildB2ContentMap(l){
   };
 }
 window.CURRICULUM.lessons.forEach(buildB2ContentMap);
+
+// One textbook-led order for Lessons and the weekly Plan. Workbook tasks
+// remain independently tracked inside the associated textbook section.
+window.B2_LESSON_FLOW = [
+  {key:'guide-goals',day:0,support:[]},
+  {key:'textbook_conversation',day:0,support:[]},
+  {key:'textbook_vocab_pictures',day:0,support:[]},
+  {key:'textbook_vocab',day:1,support:['vocab']},
+  {key:'textbook_kanji',day:2,support:['kanji']},
+  {key:'textbook_grammar',day:3,support:['particle','grammar1','grammar2']},
+  {key:'textbook_talk',day:4,support:[]},
+  {key:'textbook_reading',day:5,support:['reading','writing']},
+  {key:'textbook_listening',day:6,support:['listening']},
+  {key:'guide-review',day:6,support:['comp1','comp2','review']}
+];
+window.B2_DAY_FOCUS = ['Goals, conversation and picture vocabulary','Vocabulary list and workbook','Kanji and workbook','Grammar and workbook','Speaking and application','Reading and writing','Listening and lesson review'];
 
 // ---- Programme registry ---------------------------------------------------
 // Programmes are independent of the book registry. A programme chooses a
@@ -139,8 +156,10 @@ window.PROGRAMME_SETTINGS = {
 };
 
 window.TASK_TYPES = [
+  {key:'guide-goals',label:'Textbook · できるCheck / Can-do goals',book:'Textbook',field:'start',duration:'5–10 min',desc:'Read the lesson goals, then turn to the opening conversation.'},
+  {key:'textbook_vocab_pictures',label:'Textbook · Vocabulary with pictures',book:'Textbook',field:'vocab',duration:'15–20 min',desc:'Work through the illustrated vocabulary before the vocabulary list. Use the pictures to understand the situation and say the words aloud. The displayed range covers both vocabulary sections; their exact page boundary is not yet verified.'},
   {key:"textbook_conversation",label:"Textbook · Conversation",book:"Textbook",field:"conversation",duration:"30–40 min",desc:"Work through the lesson's conversation in the textbook. First understand the situation and meaning, then read/listen repeatedly. Finish by reading aloud without relying on the English."},
-  {key:"textbook_vocab",label:"Textbook · Vocabulary",book:"Textbook",field:"vocab",duration:"25–35 min",desc:"Study the lesson vocabulary from the textbook. Learn readings and meanings in context, then retrieve them without looking. Add only genuinely useful items to Migaku/WaniKani."},
+  {key:"textbook_vocab",label:"Textbook · Vocabulary list",book:"Textbook",field:"vocab",duration:"25–35 min",desc:"After the illustrated vocabulary, work through the vocabulary list with its audio. Check readings and meanings, then retrieve useful words without looking. The displayed range covers both vocabulary sections; their exact page boundary is not yet verified."},
   {key:"textbook_kanji",label:"Textbook · Kanji",book:"Textbook",field:"kanji",duration:"25–35 min",desc:"Work through the lesson kanji in the textbook. Prioritise recognition, readings and the example compounds; writing practice belongs in Workbook 1."},
   {key:"textbook_grammar",label:"Textbook · Grammar",book:"Textbook",field:"grammar",duration:"35–50 min",desc:"Study the grammar explanations in the textbook carefully. For each target, understand form, meaning, restrictions and examples. Then create 2–3 original sentences."},
   {key:"textbook_talk",label:"Textbook · 話しましょう",book:"Textbook",field:"talk",duration:"25–35 min",desc:"Do the textbook speaking/application activities. Answer aloud rather than silently writing answers. Repeat difficult patterns until you can produce them without the model."},
@@ -156,7 +175,8 @@ window.TASK_TYPES = [
   {key:"kanji",label:"Workbook 1 · Kanji practice",book:"Workbook 1",field:"kanji",duration:"20–30 min",desc:"Complete the kanji practice. Prioritise recognition, readings and writing from memory; use WaniKani as reinforcement."},
   {key:"reading",label:"Workbook 1 · Reading practice",book:"Workbook 1",field:"reading",duration:"30–40 min",desc:"Read once for overall meaning, then again for detail. Mark unknown vocabulary/grammar and give a short summary."},
   {key:"writing",label:"Workbook 1 · Writing practice",book:"Workbook 1",field:"writing",duration:"25–40 min",desc:"Complete the writing practice. Aim for accurate, natural sentences and compare carefully with the model."},
-  {key:"review",label:"Workbook 1 · Kanji review",book:"Workbook 1",field:"review",duration:"15–25 min",desc:"Use the review section as a retrieval check. Skip only if the underlying kanji are genuinely automatic."}
+  {key:"review",label:"Workbook 1 · Kanji review",book:"Workbook 1",field:"review",duration:"15–25 min",desc:"Use the review section as a retrieval check. Skip only if the underlying kanji are genuinely automatic."},
+  {key:'guide-review',label:'Lesson wrap-up · return to the Can-do goals',book:'Textbook',field:'end',duration:'10–15 min',desc:'After the final textbook section, revisit the Can-do goals and complete the supporting comprehensive practice. Optionally replay the opening conversation to notice what is clearer now.'}
 ];
 
 
@@ -271,7 +291,10 @@ window.WEEK_PLANS = [
   ]}
 ];
 
-function weekPlan(w){ return window.WEEK_PLANS[w] || {week:w+1,focus:'Study week',target:120,days:Array.from({length:7},()=>({focus:'Core study',target:120,extra:'30 min Japanese input'}))}; }
+function weekPlan(w){
+  const plan=window.WEEK_PLANS[w] || {week:w+1,focus:'Study week',target:120,days:Array.from({length:7},()=>({focus:'Core study',target:120,extra:'30 min Japanese input'}))};
+  return w<10 ? {...plan,days:plan.days.map((day,index)=>({...day,focus:B2_DAY_FOCUS[index]}))} : plan;
+}
 
 window.OPTIONAL_TASKS = [
   {key:"wanikani",label:"WaniKani",duration:"15–25 min",desc:"Clear a manageable portion of your reviews. Stop before this becomes the main study block; TOBIRA remains the priority."},

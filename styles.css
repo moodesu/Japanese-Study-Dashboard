@@ -2443,8 +2443,13 @@ html[data-theme="dark"] .programme-card.active-programme {
   scroll-margin-top:18px;
 }
 
-.guide-step.done { opacity:.72; }
-.guide-step.done h3 { text-decoration:line-through; }
+.guide-step.done > .guide-step-main > h3 { text-decoration:line-through; }
+.guide-support { display:grid; gap:12px; min-width:0; }
+.guide-support h4 { margin:0; font-size:14px; }
+.guide-support-step { grid-template-columns:minmax(0,1fr); padding:12px; }
+.guide-support-step > .guide-step-number { display:none; }
+.guide-support-step > .guide-check { justify-self:start; }
+.guide-support-step > .guide-step-main { min-width:0; }
 
 .guide-step-number {
   position:relative;
@@ -2714,6 +2719,8 @@ html[data-theme="dark"] .guide-action:hover { background:#1d2d3a; border-color:#
   .guide-step-number { width:34px; height:34px; }
   .guide-list::before { left:16px; }
   .guide-check { grid-column:2; width:max-content; }
+  .guide-support-step { grid-template-columns:minmax(0,1fr); }
+  .guide-support-step > .guide-check { grid-column:1; max-width:100%; }
   .guide-rating-grid { grid-template-columns:1fr; }
   .guide-inline-controls { grid-template-columns:1fr 1fr; }
   .guide-inline-controls label { grid-column:1/-1; justify-content:flex-start; }
