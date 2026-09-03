@@ -5,6 +5,8 @@ const repositoryState = {
   loading: false,
   error: '',
   selectedId: null,
+  grammarLabel: '',
+  grammarReturnScroll: 0,
   mode: 'browse',
   query: '',
   status: 'all',
@@ -30,8 +32,8 @@ function repositoryArray(value){
 function repositoryGrammarCatalogue(){
   const rows=[];
   for(const lesson of (window.CURRICULUM?.lessons||[])){
-    for(const grammar of (lesson.textbook?.grammar||[])){
-      if(!rows.some(row=>row.label===grammar)) rows.push({label:grammar,lesson:lesson.n});
+    for(const [index,grammar] of (lesson.textbook?.grammar||[]).entries()){
+      if(!rows.some(row=>row.label===grammar)) rows.push({label:grammar,lesson:lesson.n,index:index+1});
     }
   }
   return rows;
@@ -120,6 +122,7 @@ function resetRepositorySession(){
   repositoryState.entries=[]; repositoryState.revisions=[]; repositoryState.loaded=false;
   repositoryState.loading=false; repositoryState.error=''; repositoryState.selectedId=null;
   repositoryState.mode='browse';
+  repositoryState.grammarLabel=''; repositoryState.grammarReturnScroll=0;
 }
 
 function openRepositoryEntry(id){
@@ -137,11 +140,58 @@ function repositoryLessonButton(entry){
 }
 
 function repositoryGrammarLinks(entry){
-  const catalogue=repositoryGrammarCatalogue();
   return (entry.grammar_points||[]).map(grammar=>{
-    const match=catalogue.find(x=>x.label===grammar);
-    return match?`<button type="button" class="repo-chip grammar" data-repo-lesson="${match.lesson}">${esc(grammar)} · L${match.lesson}</button>`:`<span class="repo-chip grammar">${esc(grammar)}</span>`;
+    return `<button type="button" class="repo-chip grammar" data-repo-grammar="${esc(grammar)}" aria-label="Open grammar: ${esc(grammar)}">${esc(grammar)} →</button>`;
   }).join('');
+}
+
+function repositoryGrammarKey(label){
+  return String(label||'').normalize('NFKC').trim().replace(/^[~〜～]+/u,'').replace(/\s+/gu,'').toLowerCase();
+}
+
+function repositoryGrammarGuide(label){
+  const key=repositoryGrammarKey(label);
+  return (window.REPOSITORY_GRAMMAR_GUIDES||[]).find(guide=>guide.aliases.some(alias=>repositoryGrammarKey(alias)===key));
+}
+
+function openRepositoryGrammar(label){
+  const entry=repositoryState.entries.find(row=>row.id===repositoryState.selectedId);
+  if(!entry?.grammar_points?.includes(label)) return;
+  repositoryState.grammarLabel=label;
+  repositoryState.grammarReturnScroll=window.scrollY||0;
+  repositoryState.mode='grammar';
+  renderRepository(); scrollTo({top:0,behavior:'smooth'});
+  $('#repoGrammarTitle')?.focus({preventScroll:true});
+}
+
+function closeRepositoryGrammar(){
+  repositoryState.mode='detail'; renderRepository();
+  const chip=Array.from(document.querySelectorAll('[data-repo-grammar]')).find(node=>node.dataset.repoGrammar===repositoryState.grammarLabel);
+  chip?.focus({preventScroll:true});
+  scrollTo({top:repositoryState.grammarReturnScroll,behavior:'auto'});
+}
+
+function repositoryGrammarMarkup(entry){
+  const label=repositoryState.grammarLabel, guide=repositoryGrammarGuide(label);
+  const key=repositoryGrammarKey(label);
+  const lessons=repositoryGrammarCatalogue().filter(row=>repositoryGrammarKey(row.label)===key);
+  const text=value=>renderRepositoryFurigana(value,repositoryPlainFromFurigana(value));
+  const body=guide?`
+    <section class="panel"><h2>Meaning</h2><p>${text(guide.meaning)}</p></section>
+    <section class="panel"><h2>Formation</h2><dl class="repo-grammar-forms">${guide.forms.map(form=>`<div><dt>${text(form.pattern)}</dt><dd>${text(form.meaning)}</dd></div>`).join('')}</dl></section>
+    ${guide.sections.map(section=>`<section class="panel"><h2>${esc(section.title)}</h2>${section.paragraphs.map(paragraph=>`<p>${text(paragraph)}</p>`).join('')}</section>`).join('')}
+    <section class="panel"><h2>Examples</h2>${guide.examples.map(example=>`<article class="repo-grammar-example"><p lang="ja"><strong>${text(example.japanese)}</strong></p><p>${esc(example.english)}</p><small>${text(example.note)}</small></article>`).join('')}</section>
+    <section class="panel"><h2>Read more</h2><p>Learning Hub summary with original examples. Reference explanations:</p>${guide.sources.map(source=>`<a class="repo-link" href="${esc(source.url)}" target="_blank" rel="noopener noreferrer">${esc(source.title)} ↗</a>`).join('')}</section>
+  `:`<section class="panel"><h2>Explanation not yet in the guide library</h2><p>This label does not yet have a standalone Learning Hub explanation. The saved sentence context below is not a substitute for a grammar reference.</p><a class="repo-link" href="https://www.google.com/search?q=${encodeURIComponent(label+' Japanese grammar explanation')}" target="_blank" rel="noopener noreferrer">Search grammar references ↗</a></section>`;
+  return `<section class="repo-page repo-grammar-page">
+    <div class="repo-detail-toolbar"><button type="button" class="smallbtn" id="repoGrammarBack">← Back to sentence</button>${repositoryFuriganaToggle()}</div>
+    <header><div class="eyebrow">Grammar reference</div><h1 id="repoGrammarTitle" tabindex="-1">${guide?text(guide.title):esc(label)}</h1></header>
+    <div class="repo-grammar-content">
+      <section class="panel"><h2>Your saved sentence</h2><p lang="ja"><strong>${repositoryJapanese(entry)}</strong></p>${entry.english?`<p>${esc(entry.english)}</p>`:''}${entry.explanation?`<h3>Saved sentence explanation</h3><p class="repo-grammar-context">${esc(entry.explanation)}</p>`:''}</section>
+      ${body}
+      ${lessons.length?`<section class="panel"><h2>Textbook connection</h2>${lessons.map(row=>`<button type="button" class="repo-link" data-repo-grammar-lesson="${row.lesson}" data-repo-grammar-index="${row.index}">Lesson ${row.lesson} · Grammar ${row.index}: ${esc(row.label)}</button>`).join('')}</section>`:''}
+    </div>
+  </section>`;
 }
 
 function repositoryCard(entry){
@@ -243,6 +293,7 @@ function renderRepository(){
   const selected=repositoryState.entries.find(x=>x.id===repositoryState.selectedId);
   if(repositoryState.mode==='form') $('#mainContent').innerHTML=repositoryFormMarkup(selected||{});
   else if(repositoryState.mode==='import') $('#mainContent').innerHTML=repositoryImportMarkup();
+  else if(repositoryState.mode==='grammar'&&selected) $('#mainContent').innerHTML=repositoryGrammarMarkup(selected);
   else if(repositoryState.mode==='detail'&&selected) $('#mainContent').innerHTML=repositoryDetailMarkup(selected);
   else { repositoryState.mode='browse'; $('#mainContent').innerHTML=repositoryBrowseMarkup(); }
   bindRepositoryEvents(selected);
@@ -360,6 +411,9 @@ async function markRepositoryMigaku(entry,exported){
 }
 
 function bindRepositoryEvents(selected){
+  document.querySelectorAll('[data-repo-grammar]').forEach(button=>button.onclick=()=>openRepositoryGrammar(button.dataset.repoGrammar));
+  document.querySelectorAll('[data-repo-grammar-lesson]').forEach(button=>button.onclick=()=>openGuidedLesson(Number(button.dataset.repoGrammarLesson),`b2-l${button.dataset.repoGrammarLesson}-guide-grammar-${button.dataset.repoGrammarIndex}`));
+  $('#repoGrammarBack')?.addEventListener('click',closeRepositoryGrammar);
   document.querySelectorAll('[data-repo-entry]').forEach(x=>x.onclick=()=>openRepositoryEntry(x.dataset.repoEntry));
   document.querySelectorAll('[data-repo-lesson]').forEach(x=>x.onclick=()=>{state.lesson=Number(x.dataset.repoLesson);state.view='lesson';render();scrollTo({top:0,behavior:'smooth'});});
   document.querySelectorAll('[data-repo-status-jump]').forEach(x=>x.onclick=()=>{repositoryState.status=x.dataset.repoStatusJump;renderRepository();});
