@@ -16,11 +16,18 @@ const root=path.resolve(__dirname,'..'),owner='00000000-0000-4000-8000-000000000
       alter table storage.objects enable row level security;
       create policy existing_broad_policy on storage.objects for all to public using(true) with check(true);`);
     const sql=fs.readFileSync(path.join(root,'migrations/20260903_private_dictionary.sql'),'utf8');await db.exec(sql);await db.exec(sql);
+    const readingsSQL=fs.readFileSync(path.join(root,'migrations/20260903_dictionary_readings.sql'),'utf8');await db.exec(readingsSQL);await db.exec(readingsSQL);
     await db.exec(`set role authenticated; set request.jwt.claim.sub='${owner}';`);
     const fixture={id:'a'.repeat(64),headword:'来る・くる (2)',volume:'Basic',aliases:['くる','来る'],summary:'developing change',body_html:'<p>Example fixture</p>',image_files:['b'.repeat(64)+'.png']};
     const insert=async(row,user=owner)=>db.query(`insert into public.japanese_dictionary_entries(user_id,id,headword,volume,aliases,summary,body_html,image_files)
       select $1,r.id,r.headword,r.volume,r.aliases,r.summary,r.body_html,r.image_files from jsonb_populate_record(null::public.japanese_dictionary_entries,$2::jsonb) r on conflict(user_id,id) do nothing`,[user,JSON.stringify(row)]);
     await insert(fixture);await insert(fixture);
+    const readingData={version:1,generator:'test',headword:{text:fixture.headword,spans:[]},body:[]};
+    const saveReadings=(user,entry,payload=readingData)=>db.query('insert into public.japanese_dictionary_readings(user_id,entry_id,readings) values($1,$2,$3::jsonb) on conflict(user_id,entry_id) do update set readings=excluded.readings',[user,entry,JSON.stringify(payload)]);
+    await saveReadings(owner,fixture.id);await saveReadings(owner,fixture.id);
+    assert.equal((await db.query('select count(*) from public.japanese_dictionary_readings')).rows[0].count,1);
+    await assert.rejects(saveReadings(owner,fixture.id,{}),/check constraint/);
+    assert.equal((await db.query('select body_html from public.japanese_dictionary_entries')).rows[0].body_html,fixture.body_html);
     assert.equal((await db.query('select count(*) from public.japanese_dictionary_entries')).rows[0].count,1);
     assert.equal((await db.query('select * from public.search_japanese_dictionary($1)',['〜くる'])).rows.length,1);
     assert.equal((await db.query('select * from public.search_japanese_dictionary($1)',['%'])).rows.length,0,'Wildcards are literal');
@@ -32,6 +39,9 @@ const root=path.resolve(__dirname,'..'),owner='00000000-0000-4000-8000-000000000
     await db.exec(`set request.jwt.claim.sub='${other}';`);
     assert.equal((await db.query('select * from public.search_japanese_dictionary($1)',['くる'])).rows.length,0);
     assert.equal((await db.query('select * from public.japanese_dictionary_links')).rows.length,0);
+    assert.equal((await db.query('select * from public.japanese_dictionary_readings')).rows.length,0);
+    await assert.rejects(saveReadings(owner,fixture.id),/row-level security/);
+    await assert.rejects(saveReadings(other,fixture.id),/foreign key/);
     assert.equal((await db.query('select * from storage.objects')).rows.length,0,'Restrictive guard defeats broad policies');
     await assert.rejects(insert(fixture,owner),/row-level security/);
     await assert.rejects(link(other,fixture.id),/foreign key/);
@@ -41,9 +51,10 @@ const root=path.resolve(__dirname,'..'),owner='00000000-0000-4000-8000-000000000
     await db.exec("reset role; set role anon; set request.jwt.claim.sub='';");
     await assert.rejects(db.query('select * from public.search_japanese_dictionary($1)',['くる']),/permission denied/);
     await assert.rejects(db.query('select * from public.japanese_dictionary_entries'),/permission denied/);
+    await assert.rejects(db.query('select * from public.japanese_dictionary_readings'),/permission denied/);
     assert.equal((await db.query('select * from storage.objects')).rows.length,0);
     await db.exec("reset role; update storage.buckets set public=true where id='japanese-grammar-dictionary';");
     await assert.rejects(db.exec(sql),/bucket is public/);await db.exec('rollback;');
-    console.log('PASS: dictionary SQL rerun, literal search, dedup, append-only entries, own links, RLS, cross-user/anonymous isolation, storage guard, safe image paths and public-bucket rejection.');
+    console.log('PASS: dictionary/reading SQL rerun, overlay upsert and source preservation, literal search, dedup, append-only entries, own links, RLS, cross-user/anonymous isolation, storage guard, safe image paths and public-bucket rejection.');
   }finally{await db.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});

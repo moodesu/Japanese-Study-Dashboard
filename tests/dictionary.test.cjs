@@ -8,7 +8,8 @@ const {parseHTML}=require(process.env.LINKEDOM_MODULE||'/tmp/jlh-dictionary-test
 const root=path.resolve(__dirname,'..');
 function boot(db){
   const {document}=parseHTML('<html><body><main id="mainContent"></main></body></html>');
-  const context={console,document,db,crypto:webcrypto,URL,TextEncoder,localStorage:{getItem:()=>null},
+  const preferences=new Map();
+  const context={console,document,db,crypto:webcrypto,URL,TextEncoder,localStorage:{getItem:key=>preferences.get(key)||null,setItem:(key,value)=>preferences.set(key,value)},
     state:{user:{id:'test-user'},view:'repository'},scrollY:24,scrollTo:()=>{},addEventListener:()=>{},
     $:s=>document.querySelector(s),toast:()=>{},esc:v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))};
   context.window=context;vm.createContext(context);
@@ -17,7 +18,7 @@ function boot(db){
   repository.selectedId='sentence1';repository.grammarLabel='〜てくる';repository.entries=[{id:'sentence1',grammar_points:['〜てくる']}];
   repository.grammarGuides=[{id:'guide',grammar_key:'てくる',label:'〜てくる',sense:'developing-change',content:{meaning:'Change',formation:['て + くる'],explanation:'Change',examples:[]}}];
   repository.grammarLinks=[{repository_id:'sentence1',label:'〜てくる',grammar_id:'guide'}];
-  context.renderRepository=()=>{document.querySelector('#mainContent').innerHTML=context.JLHDictionary.markup();context.JLHDictionary.bind();};
+  context.renderRepository=()=>{document.querySelector('#mainContent').innerHTML=context.JLHDictionary.markup();context.bindRepositoryEvents(repository.entries[0]);};
   return {context,repository,document,dictionary:context.JLHDictionary};
 }
 const id='a'.repeat(64),filename='b'.repeat(64)+'.png';
@@ -33,6 +34,68 @@ function chain(table){
     }};return q;
 }
 const db={from:chain,rpc:async(name,args)=>{calls.push({name,args});return {data:[row]};},storage:{from:bucket=>({createSignedUrls:async(paths,ttl)=>{calls.push({bucket,paths,ttl});return {data:paths.map(p=>({path:p,signedUrl:'https://example.supabase.co/storage/v1/object/sign/'+p+'?token=test'}))};}})}};
+const readingFixture={version:1,generator:'test automatic readings',headword:{text:row.headword,spans:[[0,1,'く']]},body:[{index:0,text:'先生に聞いたら分かった。',spans:[[0,2,'せんせい'],[3,4,'き'],[7,8,'わ']]}]};
+async function readingTests(){
+  const {dictionary,document}=boot(db);
+  dictionary.validateReadings(readingFixture);
+  const source='<p>先生に聞いたら分かった。</p>';
+  const output=dictionary.readingMarkup(source,readingFixture,false,true);
+  assert.match(output,/<ruby>先生<rt>せんせい<\/rt><\/ruby>/);
+  assert.equal(dictionary.readingMarkup(source,readingFixture,false,false),source);
+  const parsed=document.createElement('div');parsed.innerHTML=output;parsed.querySelectorAll('rt').forEach(node=>node.remove());assert.equal(parsed.textContent,'先生に聞いたら分かった。');
+  assert.equal(dictionary.readingMarkup('<p>違う文章。</p>',readingFixture,false,true),'<p>違う文章。</p>','Mismatched source remains unchanged');
+  assert.equal(dictionary.readingMarkup('<p><ruby>先生<rt>せんせい</rt></ruby></p>',readingFixture,false,true),'<p><ruby>先生<rt>せんせい</rt></ruby></p>','Existing ruby is not nested');
+  const malicious=structuredClone(readingFixture);malicious.body[0].spans[0][2]='<img src=x onerror=alert(1)>';
+  assert.throws(()=>dictionary.validateReadings(malicious),/Invalid/);
+  assert.equal(dictionary.readingMarkup(source,malicious,false,true),source);
+  const overlap=structuredClone(readingFixture);overlap.body[0].spans[1][0]=1;assert.throws(()=>dictionary.validateReadings(overlap),/Invalid/);
+  assert.throws(()=>dictionary.validateReadingsFile({format:'jlh-dictionary-readings-v1',entries:[{entry_id:id,readings:readingFixture},{entry_id:id,readings:readingFixture}]}),/duplicate/);
+  let overlay=null,failWrite=true,available=true,loadError=false,uploadCount=0;
+  const writes=[];
+  const readingDb={...db,from:table=>{
+    if(table==='japanese_dictionary_readings')return {select(){return this;},eq(){return this;},maybeSingle:async()=>loadError?{error:{message:'Missing table'}}:{data:overlay?{readings:overlay}:null},
+      upsert:async(payload,options)=>{writes.push({payload,options});uploadCount++;if(failWrite)return {error:{message:'Simulated interrupted upload'}};overlay=payload[0].readings;return {};}};
+    const q=chain(table);q.in=async()=>({data:available?[{id}]:[]});return q;
+  }};
+  const app=boot(readingDb);await app.dictionary.open(app.repository.entries[0]);
+  const choose=async()=>{
+    app.document.querySelector('#dictionarySetup').click();
+    const input=app.document.querySelector('#dictionaryReadingsFile');
+    Object.defineProperty(input,'files',{value:[{size:1000,text:async()=>JSON.stringify({format:'jlh-dictionary-readings-v1',entries:[{entry_id:id,readings:readingFixture}]})}]});
+    input.dispatchEvent(new app.context.document.defaultView.Event('change'));
+    await until(()=>!app.document.querySelector('#dictionaryReadingsInstall').disabled);
+  };
+  await choose();assert.equal(uploadCount,0,'Choosing readings does not upload');
+  app.document.querySelector('#dictionaryReadingsInstall').click();await until(()=>app.document.body.innerHTML.includes('Simulated interrupted upload'));
+  failWrite=false;await choose();app.document.querySelector('#dictionaryReadingsInstall').click();await until(()=>app.document.body.innerHTML.includes('Suggestions are not automatic links'));
+  assert.equal(uploadCount,2);assert.equal(writes[0].options.onConflict,'user_id,entry_id');assert.equal(writes[0].payload[0].user_id,'test-user');
+  app.document.querySelector('[data-dictionary-entry]').click();await until(()=>!!app.document.querySelector('#dictionaryTitle'));
+  assert.match(app.document.querySelector('#dictionaryTitle').innerHTML,/<rt>く<\/rt>/);
+  const countBefore=calls.length;
+  app.document.querySelector('#repoFuriganaToggle').click();assert.equal(app.repository.showFurigana,false);assert.equal(app.document.querySelector('#dictionaryTitle').textContent,row.headword);
+  assert.equal(app.context.localStorage.getItem('repositoryShowFurigana'),'false');
+  app.document.querySelector('#repoFuriganaToggle').click();assert.match(app.document.querySelector('#dictionaryTitle').innerHTML,/<rt>/);assert.equal(calls.length,countBefore,'Toggle does not fetch or upload');
+  assert.match(app.document.body.innerHTML,/automatically generated and unverified/);
+  loadError=true;app.dictionary.reset();await app.dictionary.open(app.repository.entries[0]);app.document.querySelector('[data-dictionary-entry]').click();await until(()=>!!app.document.querySelector('#dictionaryTitle'));
+  assert.match(app.document.body.innerHTML,/Furigana could not be loaded/);assert.match(app.document.body.innerHTML,/Formation/,'Readings failure preserves original reader');
+  available=false;await choose();const before=uploadCount;app.document.querySelector('#dictionaryReadingsInstall').click();await until(()=>app.document.body.innerHTML.includes('Install the matching dictionary data first'));assert.equal(uploadCount,before);
+  if(process.env.DICTIONARY_READINGS_FILE&&process.env.DICTIONARY_DATA_DIR){
+    const originals=JSON.parse(fs.readFileSync(path.join(process.env.DICTIONARY_DATA_DIR,'dictionary-data.json'),'utf8')).entries;
+    const supplied=dictionary.validateReadingsFile(JSON.parse(fs.readFileSync(process.env.DICTIONARY_READINGS_FILE,'utf8')));
+    assert.equal(supplied.length,originals.length);
+    for(const entry of supplied){
+      const original=originals.find(x=>x.id===entry.entry_id);assert.ok(original);
+      const originalDOM=document.createElement('div');originalDOM.innerHTML=dictionary.safeHtml(original.body_html);
+      const annotated=document.createElement('div');annotated.innerHTML=dictionary.readingMarkup(original.body_html,entry.readings,false,true);
+      const expected=entry.readings.body.reduce((sum,node)=>sum+node.spans.length,0);
+      assert.equal(annotated.querySelectorAll('ruby').length,expected,'All supplied annotations are applied');
+      annotated.querySelectorAll('rt,rp').forEach(node=>node.remove());assert.equal(annotated.textContent,originalDOM.textContent);
+      assert.equal(dictionary.readingMarkup(original.body_html,entry.readings,false,false),dictionary.safeHtml(original.body_html));
+    }
+    console.log(`PASS: all ${supplied.length} reading overlays preserve source text and toggle off exactly.`);
+  }
+  console.log('PASS: furigana overlay validation/escaping, existing ruby, source mismatch, shared persisted toggle, missing-table fallback, upload/retry and unmatched-dictionary preflight.');
+}
 async function until(predicate){
   const deadline=Date.now()+5000;
   while(!predicate()){if(Date.now()>deadline)throw new Error('Timed out waiting for setup');await new Promise(resolve=>setImmediate(resolve));}
@@ -104,6 +167,7 @@ async function setupTests(){
   const missing=boot({...db,from:()=>({select(){return this;},eq(){return this;},maybeSingle:async()=>({error:{message:'Missing schema'}}),then:resolve=>resolve({error:{message:'Missing schema'}})})});
   await missing.dictionary.open(missing.repository.entries[0]);assert.match(missing.document.body.innerHTML,/20260903_private_dictionary.sql/);
   await setupTests();
+  await readingTests();
   if(process.env.DICTIONARY_DATA_DIR){
     const folder=process.env.DICTIONARY_DATA_DIR;
     const entries=dictionary.validateManifest(JSON.parse(fs.readFileSync(path.join(folder,'dictionary-data.json'),'utf8')));
