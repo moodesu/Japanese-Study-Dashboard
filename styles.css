@@ -2744,3 +2744,12 @@ html[data-theme="dark"] .guide-action:hover { background:#1d2d3a; border-color:#
 /* Grammar import conflict previews must remain readable on narrow screens. */
 .repo-import-preview pre{white-space:pre-wrap;overflow-wrap:anywhere;max-width:100%;font-size:.85rem}
 .repo-import-preview .panel{min-width:0}
+
+/* Private dictionary reader; source styles are scoped to this reader only. */
+.dictionary-page{display:grid;gap:18px}.dictionary-page h1{font-size:clamp(1.5rem,4vw,2.2rem);margin:0}.dictionary-page .panel{min-width:0}
+.dictionary-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:12px 0}.dictionary-page label{display:grid;gap:6px;font-size:1rem}
+.dictionary-page input,.dictionary-page select{max-width:100%;min-width:0;border:1px solid var(--line);border-radius:8px;padding:9px;background:var(--card);color:var(--ink)}
+#dictionarySearch{display:flex;gap:10px;align-items:end;flex-wrap:wrap}#dictionarySearch label{flex:1 1 220px}.dictionary-result{display:grid;width:100%;text-align:left;gap:5px;margin:10px 0}.dictionary-result span{font-size:1rem;line-height:1.5;color:var(--muted)}
+.dictionary-body{font-size:1rem;line-height:1.85;overflow-wrap:anywhere;overflow-x:auto;margin-top:22px}.dictionary-body .header{font-size:1.35rem;font-weight:800}.dictionary-body .edition,.dictionary-body .pos{font-size:.9rem;color:var(--muted);margin-left:.4em}.dictionary-body .sub-header{display:inline-block;margin-top:20px;font-weight:800;border-bottom:2px solid var(--accent)}
+.dictionary-body .concept,.dictionary-body .cloze{color:var(--accent);font-weight:700}.dictionary-body .bold{font-weight:700}.dictionary-body .formation{display:block;margin-top:8px}.dictionary-body ul{padding-left:1.4em}.dictionary-body li{margin-bottom:10px}.dictionary-body table{border-collapse:collapse;max-width:100%;margin:10px 0}.dictionary-body td,.dictionary-body th{border:1px solid var(--line);padding:8px;vertical-align:top}
+.dictionary-image-scroll{overflow:auto;max-height:80vh;border:1px solid var(--line);border-radius:10px;margin-top:16px;background:white}.dictionary-scan{display:block;width:100%;height:auto;max-width:100%;color:#18263b}.dictionary-page button:disabled{cursor:default;opacity:.65}

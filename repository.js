@@ -135,6 +135,7 @@ async function loadRepositoryData(force=false){
 }
 
 function resetRepositorySession(){
+  window.JLHDictionary?.reset();
   repositoryState.entries=[]; repositoryState.revisions=[]; repositoryState.loaded=false;
   repositoryState.loading=false; repositoryState.error=''; repositoryState.selectedId=null;
   repositoryState.mode='browse';
@@ -223,6 +224,7 @@ function repositoryGrammarMarkup(entry){
     <header><div class="eyebrow">Grammar reference</div><h1 id="repoGrammarTitle" tabindex="-1">${guide?text(guide.title):esc(label)}</h1></header>
     <div class="repo-grammar-content">
       <section class="panel"><h2>Your saved sentence</h2><p lang="ja"><strong>${repositoryJapanese(entry)}</strong></p>${entry.english?`<p>${esc(entry.english)}</p>`:''}${entry.explanation?`<h3>Saved sentence explanation</h3><p class="repo-grammar-context">${esc(entry.explanation)}</p>`:''}</section>
+      ${window.JLHDictionary?.referenceMarkup()||''}
       ${body}
       ${!guide&&repositoryState.grammarGuides.some(x=>x.grammar_key===key)?`<section class="panel"><h2>Choose the intended meaning</h2><p>This sentence has no saved meaning link. These guides share its grammar label; choose one to read, or re-import the sentence with its grammar explanation to save an exact link.</p>${repositoryState.grammarGuides.filter(x=>x.grammar_key===key).map(x=>`<button type="button" class="repo-link" data-repo-guide="${esc(x.id)}">${esc(x.content.meaning)} · ${esc(x.sense)}</button>`).join('')}</section>`:''}
       ${!repositoryState.grammarLibraryReady?'<p class="subtitle">Saved grammar library unavailable. Apply the separate grammar migration if needed, then reload.</p>':''}
@@ -331,6 +333,7 @@ function renderRepository(){
   if(repositoryState.mode==='form') $('#mainContent').innerHTML=repositoryFormMarkup(selected||{});
   else if(repositoryState.mode==='import') $('#mainContent').innerHTML=repositoryImportMarkup();
   else if(repositoryState.mode==='grammar'&&selected) $('#mainContent').innerHTML=repositoryGrammarMarkup(selected);
+  else if(repositoryState.mode==='dictionary'&&selected&&window.JLHDictionary) $('#mainContent').innerHTML=window.JLHDictionary.markup();
   else if(repositoryState.mode==='detail'&&selected) $('#mainContent').innerHTML=repositoryDetailMarkup(selected);
   else { repositoryState.mode='browse'; $('#mainContent').innerHTML=repositoryBrowseMarkup(); }
   bindRepositoryEvents(selected);
@@ -448,6 +451,8 @@ async function markRepositoryMigaku(entry,exported){
 }
 
 function bindRepositoryEvents(selected){
+  $('#repoDictionaryOpen')?.addEventListener('click',()=>window.JLHDictionary?.open(selected));
+  if(repositoryState.mode==='dictionary') window.JLHDictionary?.bind();
   document.querySelectorAll('[data-repo-grammar]').forEach(button=>button.onclick=()=>openRepositoryGrammar(button.dataset.repoGrammar));
   document.querySelectorAll('[data-repo-grammar-lesson]').forEach(button=>button.onclick=()=>openGuidedLesson(Number(button.dataset.repoGrammarLesson),`b2-l${button.dataset.repoGrammarLesson}-guide-grammar-${button.dataset.repoGrammarIndex}`));
   $('#repoGrammarBack')?.addEventListener('click',closeRepositoryGrammar);
