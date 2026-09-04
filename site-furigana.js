@@ -2,7 +2,9 @@
 (function(){
   'use strict';
   const STORAGE_KEY='siteShowFurigana';
-  const DICT_URL=new URL('vendor/kuromoji-dict/',document.baseURI).href;
+  // Kuromoji joins dictionary filenames with a POSIX path helper. Passing an
+  // absolute https:// URL collapses its double slash, so keep this root-relative.
+  const DICT_URL='/vendor/kuromoji-dict/';
   const HAN=/[\p{Script=Han}々〆]/u;
   const KANA=/^[ぁ-ゖァ-ヺー]$/u;
   const EXCLUDED='ruby,rt,rp,script,style,textarea,input,select,option,code,pre,[contenteditable="true"],.no-auto-furigana';
@@ -69,13 +71,20 @@
     if(tokenizer)return Promise.resolve(tokenizer);
     if(!pending)pending=new Promise((resolve,reject)=>{
       if(!window.kuromoji)return reject(new Error('Reading engine unavailable'));
-      window.kuromoji.builder({dicPath:DICT_URL}).build((error,value)=>error?reject(error):resolve(value));
+      let settled=false;
+      const finish=(error,value)=>{
+        if(settled)return;settled=true;clearTimeout(timer);
+        error?reject(error):resolve(value);
+      };
+      const timer=setTimeout(()=>finish(new Error('Reading dictionary timed out')),30000);
+      try{window.kuromoji.builder({dicPath:DICT_URL}).build(finish);}
+      catch(error){finish(error);}
     }).then(value=>{tokenizer=value;return value;}).catch(error=>{pending=null;throw error;});
     return pending;
   }
   function updateControl(status=''){
     const button=document.getElementById('siteFuriganaToggle');if(!button)return;
-    const label=status==='loading'?'振 Preparing…':`振 Furigana ${enabled?'on':'off'}`;
+    const label=status==='loading'?'振 Preparing…':status==='error'?'振 Furigana unavailable':`振 Furigana ${enabled?'on':'off'}`;
     button.setAttribute('aria-pressed',String(enabled));
     button.setAttribute('aria-busy',String(status==='loading'));
     if(button.textContent!==label)button.textContent=label;

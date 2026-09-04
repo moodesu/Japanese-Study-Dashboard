@@ -14,8 +14,8 @@ const fakeTokenizer={tokenize(value){
   return tokens;
 }};
 const context={document,URL,NodeFilter:{SHOW_TEXT:4},MutationObserver:dom.MutationObserver,
-  requestAnimationFrame:callback=>setImmediate(callback),localStorage:{getItem:key=>storage.get(key)??null,setItem:(key,value)=>storage.set(key,String(value))},
-  kuromoji:{builder:options=>{assert.equal(options.dicPath,'https://hub.test/vendor/kuromoji-dict/');return {build(callback){builds++;setImmediate(()=>callback(null,fakeTokenizer));}};}}};
+  requestAnimationFrame:callback=>setImmediate(callback),setTimeout,clearTimeout,localStorage:{getItem:key=>storage.get(key)??null,setItem:(key,value)=>storage.set(key,String(value))},
+  kuromoji:{builder:options=>{assert.equal(options.dicPath,'/vendor/kuromoji-dict/');return {build(callback){builds++;setImmediate(()=>callback(null,fakeTokenizer));}};}}};
 context.window=context;vm.createContext(context);vm.runInContext(fs.readFileSync(path.join(root,'site-furigana.js'),'utf8'),context);
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 (async()=>{

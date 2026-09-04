@@ -9,6 +9,7 @@
 - Added local Kuromoji 0.1.2 and IPADIC browser assets. They are loaded only when automatic readings are needed and do not send study text to a third-party service.
 - Excluded form controls, editable content, code and preformatted text from automatic annotation.
 - Updated cache headers and regression tests.
+- Corrected the browser dictionary path so Netlify does not rewrite malformed Kuromoji requests to the app page, and added a visible timeout state instead of leaving the switch on **Preparing…** indefinitely.
 
 No SQL or database changes are required.
 
