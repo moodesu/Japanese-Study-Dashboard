@@ -139,7 +139,7 @@ function resetRepositorySession(){
   repositoryState.grammarLabel=''; repositoryState.grammarReturnScroll=0;
   repositoryState.grammarGuides=[]; repositoryState.grammarLinks=[];
   repositoryState.grammarLibraryReady=false; repositoryState.grammarLibraryError='';
-  repositoryState.grammarGuideId=null; pendingRepositoryImport=[]; repositoryImportSnapshot='';
+  repositoryState.grammarGuideId=null; pendingRepositoryImport=[]; pendingGrammarClarifications=[]; repositoryImportSnapshot='';
 }
 
 function openRepositoryEntry(id){
@@ -184,7 +184,8 @@ function repositorySavedGuide(guide){
   return {id:guide.id,title:guide.label,meaning:content.meaning,imported:true,sense:guide.sense,
     forms:content.formation.map(pattern=>({pattern,meaning:''})),
     sections:[{title:'Explanation',paragraphs:[content.explanation]}],
-    examples:content.examples.map(x=>({japanese:x.japanese_furigana||x.japanese,english:x.english,note:''})),sources:[]};
+    examples:content.examples.map(x=>({japanese:x.japanese_furigana||x.japanese,english:x.english,note:''})),
+    clarifications:(content.clarifications||[]).map(item=>({...item,contrasts:item.contrasts.map(x=>({...x,japanese:x.japanese_furigana||x.japanese}))})),sources:[]};
 }
 
 function openRepositoryGrammar(label){
@@ -215,6 +216,7 @@ function repositoryGrammarMarkup(entry){
     <section class="panel"><h2>Formation</h2><dl class="repo-grammar-forms">${guide.forms.map(form=>`<div><dt>${text(form.pattern)}</dt><dd>${text(form.meaning)}</dd></div>`).join('')}</dl></section>
     ${guide.sections.map(section=>`<section class="panel"><h2>${esc(section.title)}</h2>${section.paragraphs.map(paragraph=>`<p>${text(paragraph)}</p>`).join('')}</section>`).join('')}
     <section class="panel"><h2>Examples</h2>${guide.examples.map(example=>`<article class="repo-grammar-example"><p lang="ja"><strong>${text(example.japanese)}</strong></p><p>${esc(example.english)}</p><small>${text(example.note)}</small></article>`).join('')}</section>
+    ${guide.clarifications?.length?`<section class="panel repo-clarifications"><h2>Clarifications &amp; Contrasts</h2>${guide.clarifications.map((item,index)=>`<details ${index===0?'open':''}><summary>${esc(item.title)}</summary><p>${text(item.explanation)}</p><div class="repo-contrast-grid">${item.contrasts.map(contrast=>`<article class="repo-contrast-card"><p lang="ja"><strong>${text(contrast.japanese)}</strong></p><p>${esc(contrast.english)}</p><small>${text(contrast.note)}</small></article>`).join('')}</div></details>`).join('')}</section>`:''}
     ${guide.imported?`<section class="panel"><h2>Imported grammar guide</h2><p>AI-generated · Unverified. Check important details against a trusted grammar reference.</p><small>Meaning ID: ${esc(guide.sense)}</small></section>`:`<section class="panel"><h2>Read more</h2><p>Learning Hub summary with original examples. Reference explanations:</p>${guide.sources.map(source=>`<a class="repo-link" href="${esc(source.url)}" target="_blank" rel="noopener noreferrer">${esc(source.title)} ↗</a>`).join('')}</section>`}
   `:`<section class="panel"><h2>Explanation not yet in the guide library</h2><p>This label does not yet have a standalone Learning Hub explanation. The saved sentence context below is not a substitute for a grammar reference.</p><a class="repo-link" href="https://www.google.com/search?q=${encodeURIComponent(label+' Japanese grammar explanation')}" target="_blank" rel="noopener noreferrer">Search grammar references ↗</a></section>`;
   return `<section class="repo-page repo-grammar-page">
@@ -321,7 +323,7 @@ function repositoryFormMarkup(entry={}){
 
 function repositoryImportMarkup(){
   const example=JSON.stringify({japanese:'いいと思う。',japanese_furigana:'いいと[思|おも]う。',english:'I think it is good.',grammar_points:['〜と思う'],grammar_explanations:[{label:'〜と思う',sense:'expressing-an-opinion',meaning:'I think that…',formation:['Plain-form clause + と思う'],explanation:'と marks the content of a thought; 思う expresses what the speaker thinks. Nouns and な-adjectives usually take だ before と in affirmative non-past statements.',examples:[{japanese:'いいと思う。',japanese_furigana:'いいと[思|おも]う。',english:'I think it is good.'}]}],register:'casual',tags:['import-test'],source_type:'personal',source_detail:'ChatGPT'},null,2);
-  return `<section class="repo-page repo-form-page"><div class="repo-detail-toolbar"><button class="smallbtn" id="repoCancel">← Cancel</button></div><section class="repo-form-head"><div class="eyebrow">Chat capture</div><h1>Import repository entries</h1><p>Paste one JSON object or an array of objects produced from a chat. Preview before saving.</p><p>Keep grammar labels in <code>grammar_points</code>. Add <code>grammar_explanations</code> to create reusable grammar pages. Each explanation needs a stable <code>sense</code> ID to distinguish different meanings. Older JSON still imports without creating guides.</p><p>Readings must be supplied in <code>japanese_furigana</code> using <code>[漢字|かんじ]</code>. Imported grammar guides are labelled AI-generated and unverified.</p></section><section class="panel repo-import"><label><span>JSON</span><textarea id="repoImportJson" spellcheck="false" placeholder="Paste JSON here…">${esc(example)}</textarea></label><div id="repoImportPreview" class="repo-import-preview" role="status" aria-live="polite"></div><div class="repo-form-actions"><button class="smallbtn" id="repoPreviewImport" type="button">Preview</button><button class="smallbtn primary" id="repoRunImport" type="button" disabled>Import entries</button></div></section></section>`;
+  return `<section class="repo-page repo-form-page"><div class="repo-detail-toolbar"><button class="smallbtn" id="repoCancel">← Cancel</button></div><section class="repo-form-head"><div class="eyebrow">Chat capture</div><h1>Import repository JSON</h1><p>Paste sentence JSON or a <code>grammar_clarification</code> update produced from a study chat. Preview before saving.</p><p>Sentence imports still use <code>grammar_points</code> and complete <code>grammar_explanations</code>. A clarification-only update adds useful contrasts to an existing guide without creating or changing a sentence.</p><p>All readings must use <code>[漢字|かんじ]</code>. Imported grammar content is AI-generated and unverified.</p></section><section class="panel repo-import"><label><span>JSON</span><textarea id="repoImportJson" spellcheck="false" placeholder="Paste JSON here…">${esc(example)}</textarea></label><div id="repoImportPreview" class="repo-import-preview" role="status" aria-live="polite"></div><div class="repo-form-actions"><button class="smallbtn" id="repoPreviewImport" type="button">Preview</button><button class="smallbtn primary" id="repoRunImport" type="button" disabled>Import entries</button></div></section></section>`;
 }
 
 function renderRepository(){
@@ -498,8 +500,9 @@ function bindRepositoryEvents(selected){
   $('#repoPreviewImport')?.addEventListener('click',previewRepositoryImport);
   $('#repoRunImport')?.addEventListener('click',runRepositoryImport);
   $('#repoImportJson')?.addEventListener('input',()=>{
-    pendingRepositoryImport=[]; repositoryImportSnapshot='';
+    pendingRepositoryImport=[]; pendingGrammarClarifications=[]; repositoryImportSnapshot='';
     $('#repoRunImport').disabled=true;
+    $('#repoRunImport').textContent='Import entries';
     $('#repoImportPreview').textContent='JSON changed. Preview again before importing.';
   });
 }
@@ -569,6 +572,7 @@ function normaliseRepositoryImport(raw){
 }
 
 let pendingRepositoryImport=[];
+let pendingGrammarClarifications=[];
 let repositoryImportSnapshot='';
 let repositoryImportRunning=false;
 
@@ -578,11 +582,35 @@ function repositoryCanonical(value){
   return JSON.stringify(value);
 }
 
+function repositoryGuideCore(content){
+  return {meaning:content.meaning,formation:content.formation,explanation:content.explanation,examples:content.examples};
+}
+
+function repositoryClarificationKey(title){
+  return String(title||'').normalize('NFKC').trim().replace(/\s+/gu,'').toLowerCase();
+}
+
+function repositoryValidateClarifications(raw,fail){
+  if(!Array.isArray(raw)||!raw.length||raw.length>100) fail('clarifications must be a non-empty array of at most 100 items.');
+  return raw.map(item=>{
+    if(!item||typeof item!=='object'||Array.isArray(item)||Object.keys(item).some(k=>!['title','explanation','contrasts'].includes(k))) fail('invalid clarification fields; use title, explanation and contrasts.');
+    for(const key of ['title','explanation']) if(typeof item[key]!=='string'||!item[key].trim()) fail('clarification '+key+' is required.');
+    if(!Array.isArray(item.contrasts)||item.contrasts.length<2||item.contrasts.length>12) fail('clarification contrasts must contain between 2 and 12 items.');
+    const contrasts=item.contrasts.map(contrast=>{
+      if(!contrast||typeof contrast!=='object'||Array.isArray(contrast)||Object.keys(contrast).some(k=>!['japanese','japanese_furigana','english','note'].includes(k))) fail('invalid contrast fields; use japanese, japanese_furigana, english and note.');
+      for(const key of ['japanese','japanese_furigana','english','note']) if(typeof contrast[key]!=='string'||!contrast[key].trim()) fail('contrast '+key+' is required.');
+      if(!repositoryFuriganaMatches(contrast.japanese,contrast.japanese_furigana)) fail('contrast furigana does not match: '+contrast.japanese);
+      return {japanese:contrast.japanese,japanese_furigana:contrast.japanese_furigana,english:contrast.english,note:contrast.note};
+    });
+    return {title:item.title,explanation:item.explanation,contrasts};
+  });
+}
+
 function repositoryValidateGuide(raw,entry){
   const fail=message=>{throw new Error(`Grammar explanation: ${message}`);};
   if(!raw||typeof raw!=='object'||Array.isArray(raw)) fail('expected an object.');
-  const allowed=['label','sense','meaning','formation','explanation','examples'];
-  if(Object.keys(raw).some(k=>!allowed.includes(k))) fail('unknown field; use label, sense, meaning, formation, explanation and examples.');
+  const allowed=['label','sense','meaning','formation','explanation','examples','clarifications'];
+  if(Object.keys(raw).some(k=>!allowed.includes(k))) fail('unknown field; use label, sense, meaning, formation, explanation, examples and optional clarifications.');
   for(const k of ['label','sense','meaning','explanation']) if(typeof raw[k]!=='string'||!raw[k].trim()) fail(`${k} is required.`);
   if(!repositoryGrammarKey(raw.label)) fail('label must contain a grammar pattern.');
   if(!entry.grammar_points.includes(raw.label)) fail(`${raw.label} must also appear exactly in grammar_points.`);
@@ -596,7 +624,37 @@ function repositoryValidateGuide(raw,entry){
     if(!repositoryFuriganaMatches(x.japanese,x.japanese_furigana)) fail(`example furigana does not match: ${x.japanese}`);
     return {japanese:x.japanese,japanese_furigana:x.japanese_furigana||'',english:x.english};
   });
-  return {label:raw.label,sense:raw.sense,content:{meaning:raw.meaning,formation:raw.formation,explanation:raw.explanation,examples}};
+  const content={meaning:raw.meaning,formation:raw.formation,explanation:raw.explanation,examples};
+  if(raw.clarifications!==undefined) content.clarifications=repositoryValidateClarifications(raw.clarifications,fail);
+  return {label:raw.label,sense:raw.sense,content};
+}
+
+function repositoryPlanClarificationImport(raw){
+  if(!raw||typeof raw!=='object'||Array.isArray(raw)||raw.entry_type!=='grammar_clarification') throw new Error('Expected a grammar_clarification object.');
+  if(Object.keys(raw).some(key=>!['entry_type','grammar_explanations'].includes(key))) throw new Error('Grammar clarification JSON may contain only entry_type and grammar_explanations.');
+  if(!Array.isArray(raw.grammar_explanations)||!raw.grammar_explanations.length||raw.grammar_explanations.length>20) throw new Error('Supply between 1 and 20 grammar explanations.');
+  const warnings=[],seenGuides=new Set();
+  const updates=raw.grammar_explanations.map(item=>{
+    const guide=repositoryValidateGuide(item,{grammar_points:[item?.label]});
+    if(!guide.content.clarifications) throw new Error(guide.label+': clarification updates must include a non-empty clarifications array.');
+    const identity=repositoryGrammarKey(guide.label)+'\u001f'+guide.sense;
+    if(seenGuides.has(identity)) throw new Error('Supply each grammar guide only once in a clarification update.');
+    seenGuides.add(identity);
+    const saved=repositoryState.grammarGuides.find(row=>row.grammar_key===repositoryGrammarKey(guide.label)&&row.sense===guide.sense);
+    if(!saved) throw new Error('No saved grammar guide matches '+guide.label+' ('+guide.sense+'). Import its original sentence guide first.');
+    if(repositoryCanonical(repositoryGuideCore(saved.content))!==repositoryCanonical(repositoryGuideCore(guide.content))) throw new Error(guide.label+': the core guide has changed. Reuse the saved meaning, formation, explanation and examples exactly.');
+    const existing=new Map((saved.content.clarifications||[]).map(value=>[repositoryClarificationKey(value.title),value]));
+    const additions=[];
+    for(const clarification of guide.content.clarifications||[]){
+      const key=repositoryClarificationKey(clarification.title),match=existing.get(key);
+      if(match){
+        if(repositoryCanonical(match)!==repositoryCanonical(clarification)) throw new Error(guide.label+': a clarification titled "'+clarification.title+'" already exists with different content. Use a distinct title or keep the saved clarification unchanged.');
+        warnings.push(guide.label+': skipped existing clarification "'+clarification.title+'".');
+      }else{existing.set(key,clarification);additions.push(clarification);}
+    }
+    return {guide:saved,label:guide.label,sense:guide.sense,expected_content:saved.content,clarifications:additions};
+  });
+  return {updates,warnings};
 }
 
 function repositoryPlanImport(raw){
@@ -637,7 +695,16 @@ function previewRepositoryImport(){
   try{
     repositoryImportSnapshot=$('#repoImportJson').value;
     if(new TextEncoder().encode(repositoryImportSnapshot).length>2097152) throw new Error('Import at most 2 MB at a time.');
-    const plan=repositoryPlanImport(JSON.parse(repositoryImportSnapshot));
+    const parsed=JSON.parse(repositoryImportSnapshot);
+    if(parsed?.entry_type==='grammar_clarification'){
+      if(!repositoryState.grammarLibraryReady) throw new Error('Grammar clarifications are unavailable. Apply migrations/20260904_grammar_clarifications.sql, then reload. Nothing has been changed.');
+      const plan=repositoryPlanClarificationImport(parsed),count=plan.updates.reduce((sum,item)=>sum+item.clarifications.length,0);
+      pendingRepositoryImport=[];pendingGrammarClarifications=plan.updates.filter(item=>item.clarifications.length);
+      $('#repoImportPreview').innerHTML=`<strong>${count} new clarification${count===1?'':'s'} · ${plan.updates.length} grammar guide${plan.updates.length===1?'':'s'} · no sentence changes</strong>${plan.updates.map(item=>`<span>${esc(item.label)} · ${esc(item.sense)}${item.clarifications.map(value=>`<small>${esc(value.title)}</small>`).join('')}</span>`).join('')}${plan.warnings.map(value=>`<p>${esc(value)}</p>`).join('')}`;
+      $('#repoRunImport').textContent='Save clarifications';$('#repoRunImport').disabled=!count;return;
+    }
+    pendingGrammarClarifications=[];$('#repoRunImport').textContent='Import entries';
+    const plan=repositoryPlanImport(parsed);
     if(plan.items.some(x=>x.guides.length)&&!repositoryState.grammarLibraryReady) throw new Error('The grammar library is unavailable. Apply migrations/20260903_repository_grammar_library.sql, then reload. Nothing has been imported.');
     pendingRepositoryImport=plan.items;
     const guides=plan.items.flatMap(x=>x.guides);
@@ -649,18 +716,28 @@ function previewRepositoryImport(){
       $('#repoRunImport').disabled=plan.conflicts.some(x=>!x.guide.expected_content);
     }));
     $('#repoRunImport').disabled=!!plan.conflicts.length;
-  }catch(error){pendingRepositoryImport=[];repositoryImportSnapshot='';$('#repoImportPreview').innerHTML=`<span class="repo-import-error">${esc(error.message)}</span>`;$('#repoRunImport').disabled=true;}
+  }catch(error){pendingRepositoryImport=[];pendingGrammarClarifications=[];repositoryImportSnapshot='';$('#repoImportPreview').innerHTML=`<span class="repo-import-error">${esc(error.message)}</span>`;$('#repoRunImport').textContent='Import entries';$('#repoRunImport').disabled=true;}
 }
 
 async function runRepositoryImport(){
-  if(repositoryImportRunning||!pendingRepositoryImport.length||!state.user) return;
+  if(repositoryImportRunning||(!pendingRepositoryImport.length&&!pendingGrammarClarifications.length)||!state.user) return;
   if($('#repoImportJson')?.value!==repositoryImportSnapshot){toast('Preview the current JSON first.');return;}
   if(pendingRepositoryImport.some(x=>x.guides.some(g=>g.conflict!==undefined&&!g.expected_content))) return;
   const button=$('#repoRunImport'),userId=state.user.id;
-  const items=pendingRepositoryImport;
+  const items=pendingRepositoryImport,clarificationUpdates=pendingGrammarClarifications;
   repositoryImportRunning=true; button.disabled=true;
   const input=$('#repoImportJson'); if(input)input.disabled=true;
   try{
+    if(clarificationUpdates.length){
+      const payload=clarificationUpdates.map(({label,sense,expected_content,clarifications})=>({label,sense,expected_content,clarifications}));
+      const {data,error}=await db.rpc('append_repository_grammar_clarifications',{p_updates:payload});
+      if(error) throw error;
+      if(state.user?.id!==userId) return;
+      const updated=data.guides||[];
+      repositoryState.grammarGuides=[...new Map([...repositoryState.grammarGuides,...updated].map(row=>[row.id,row])).values()];
+      const count=payload.reduce((sum,item)=>sum+item.clarifications.length,0);
+      pendingGrammarClarifications=[];repositoryImportSnapshot='';repositoryState.mode='browse';renderRepository();toast(`${count} grammar clarification${count===1?'':'s'} saved; sentence entries unchanged`);return;
+    }
     let entries;
     if(items.some(x=>x.guides.length)){
       const payload=items.map(x=>({entry:x.entry,guides:x.guides.map(({label,sense,content,expected_content})=>({label,sense,content,...(expected_content?{expected_content}:{})}))}));
@@ -682,6 +759,6 @@ async function runRepositoryImport(){
   }finally{
     repositoryImportRunning=false;
     if(input?.isConnected)input.disabled=false;
-    if(button.isConnected)button.disabled=!pendingRepositoryImport.length;
+    if(button.isConnected)button.disabled=!pendingRepositoryImport.length&&!pendingGrammarClarifications.length;
   }
 }

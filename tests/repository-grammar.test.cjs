@@ -68,6 +68,15 @@ assert.ok(!html.includes('<script>'));
 assert.ok(!html.includes('<img'));
 assert.ok(html.includes(encodeURIComponent(hostile+' Japanese grammar explanation')));
 assert.ok(!context.repositoryGrammarLinks({grammar_points:[hostile]}).includes('<img'));
+const clarification={title:'見た vs 見ていた',explanation:'Completed event compared with an ongoing past action.',contrasts:[
+  {japanese:'テレビを見た。',japanese_furigana:'テレビを[見|み]た。',english:'I watched TV.',note:'Completed event.'},
+  {japanese:'テレビを見ていた。',japanese_furigana:'テレビを[見|み]ていた。',english:'I was watching TV.',note:'Ongoing in the past.'}
+]};
+const importedGuide={id:'clarification-guide',label:'〜だと思う',grammar_key:'だと思う',sense:'opinion',content:{meaning:'I think',formation:['Plain clause + と思う'],explanation:'Expresses an opinion.',examples:[{japanese:'いいと思う。',japanese_furigana:'いいと[思|おも]う。',english:'I think it is good.'}],clarifications:[clarification]}};
+state.grammarGuides=[importedGuide];state.grammarLinks=[{repository_id:entry.id,label:'〜だと思う',grammar_id:importedGuide.id}];state.grammarLabel='〜だと思う';
+html=context.repositoryGrammarMarkup(entry);
+assert.ok(html.includes('Clarifications &amp; Contrasts'));assert.ok(html.includes('repo-contrast-grid'));assert.ok(html.includes('見た vs 見ていた'));assert.ok(html.includes('<ruby>見<rt>み</rt></ruby>'));
+assert.equal(JSON.stringify(entry),before,'Rendering clarifications does not change the sentence');
 const grammar=context.repositoryGrammarCatalogue().find(row=>row.lesson===11);
 assert.equal(grammar.index,1);
 state.grammarLabel=grammar.label;

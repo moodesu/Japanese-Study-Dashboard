@@ -1,0 +1,66 @@
+{
+  "entry_type": "grammar_clarification",
+  "grammar_explanations": [
+    {
+      "label": "〜てたら",
+      "sense": "while-doing-then-result",
+      "meaning": "while doing something, another situation or result occurs",
+      "formation": [
+        "動詞て形 + いたら",
+        "会話では「〜ていたら」が「〜てたら」に縮まることが多い"
+      ],
+      "explanation": "This pattern describes something happening or becoming apparent while an action is in progress. In casual conversation, 〜ていたら is commonly contracted to 〜てたら. The following clause often describes an event, discovery, or change that occurs during that ongoing action.",
+      "examples": [
+        {
+          "japanese": "テレビを見てたら、眠くなった。",
+          "japanese_furigana": "テレビを[見|み]てたら、[眠|ねむ]くなった。",
+          "english": "I got sleepy while watching TV."
+        }
+      ],
+      "clarifications": [
+        {
+          "title": "見た vs 見ていた",
+          "explanation": "見た presents the action as a completed past event, while 見ていた presents it as an action that was in progress at a point in the past.",
+          "contrasts": [
+            {
+              "japanese": "テレビを見た。",
+              "japanese_furigana": "テレビを[見|み]た。",
+              "english": "I watched TV.",
+              "note": "Completed past event."
+            },
+            {
+              "japanese": "テレビを見ていた。",
+              "japanese_furigana": "テレビを[見|み]ていた。",
+              "english": "I was watching TV.",
+              "note": "Ongoing action in the past."
+            }
+          ]
+        },
+        {
+          "title": "見たら vs 見ていたら vs 見てたら",
+          "explanation": "見たら treats 見る as an event before the following result. 見ていたら places the following event during an ongoing act of watching or looking. 見てたら has the same ongoing meaning but is the normal casual contraction of 見ていたら.",
+          "contrasts": [
+            {
+              "japanese": "お弁当箱を見たら、お腹がすいた。",
+              "japanese_furigana": "お[弁当箱|べんとうばこ]を[見|み]たら、お[腹|なか]がすいた。",
+              "english": "When/after I looked at the lunchbox, I got hungry.",
+              "note": "Looking is treated as an event before the result."
+            },
+            {
+              "japanese": "お弁当箱を見ていたら、お腹がすいてきた。",
+              "japanese_furigana": "お[弁当箱|べんとうばこ]を[見|み]ていたら、お[腹|なか]がすいてきた。",
+              "english": "While I was looking at lunchboxes, I started getting hungry.",
+              "note": "The hunger develops during an ongoing action."
+            },
+            {
+              "japanese": "お弁当箱を見てたら、お腹すいてきた。",
+              "japanese_furigana": "お[弁当箱|べんとうばこ]を[見|み]てたら、お[腹|なか]すいてきた。",
+              "english": "While I was looking at lunchboxes, I started getting hungry.",
+              "note": "Casual contraction of 見ていたら; this matches the saved sentence's style."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

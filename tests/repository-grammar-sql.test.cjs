@@ -20,6 +20,8 @@ const owner='00000000-0000-4000-8000-000000000001',other='00000000-0000-4000-800
     await db.exec(fs.readFileSync(path.join(root,'migrations/20260830_japanese_repository.sql'),'utf8').replace('create extension if not exists pgcrypto;',''));
     const migration=fs.readFileSync(path.join(root,'migrations/20260903_repository_grammar_library.sql'),'utf8');
     await db.exec(migration);await db.exec(migration); // rerun safety
+    const clarificationMigration=fs.readFileSync(path.join(root,'migrations/20260904_grammar_clarifications.sql'),'utf8');
+    await db.exec(clarificationMigration);await db.exec(clarificationMigration);
     await db.exec(`set role authenticated; set request.jwt.claim.sub='${owner}';`);
     const content={meaning:'I think',formation:['Clause + と思う'],explanation:'A thought.',examples:[{japanese:'いいと思う。',japanese_furigana:'いいと[思|おも]う。',english:'I think it is good.'}]};
     const input={entry:{japanese:'いいと思う。',japanese_furigana:'いいと[思|おも]う。',grammar_points:['〜と思う']},guides:[{label:'〜と思う',sense:'opinion',content}]};
@@ -28,6 +30,22 @@ const owner='00000000-0000-4000-8000-000000000001',other='00000000-0000-4000-800
     const first=await run([input]);assert.equal(first.entries.length,1);assert.equal(first.links.length,1);
     const second=await run([input]);assert.equal(first.guides[0].id,second.guides[0].id);
     assert.equal(await count('japanese_grammar_guides'),1);
+    const clarification={title:'見た vs 見ていた',explanation:'Completed event compared with an ongoing past action.',contrasts:[
+      {japanese:'テレビを見た。',japanese_furigana:'テレビを[見|み]た。',english:'I watched TV.',note:'Completed event.'},
+      {japanese:'テレビを見ていた。',japanese_furigana:'テレビを[見|み]ていた。',english:'I was watching TV.',note:'Ongoing in the past.'}
+    ]};
+    const clarify=async rows=>(await db.query('select public.append_repository_grammar_clarifications($1::jsonb) as result',[JSON.stringify(rows)])).rows[0].result;
+    const sentenceCount=await count('japanese_repository');
+    let clarificationResult=await clarify([{label:'〜と思う',sense:'opinion',expected_content:content,clarifications:[clarification]}]);
+    assert.equal(clarificationResult.guides[0].content.clarifications.length,1);assert.equal(await count('japanese_repository'),sentenceCount,'Clarifications never create or update sentences');
+    const updatedContent={...content,clarifications:[clarification]};
+    clarificationResult=await clarify([{label:'〜と思う',sense:'opinion',expected_content:updatedContent,clarifications:[clarification]}]);
+    assert.equal(clarificationResult.guides[0].content.clarifications.length,1,'Exact duplicate is not appended');
+    const conflictingClarification=structuredClone(clarification);conflictingClarification.explanation='Different content';
+    await assert.rejects(clarify([{label:'〜と思う',sense:'opinion',expected_content:updatedContent,clarifications:[conflictingClarification]}]),/already exists/);
+    const invalidClarification=structuredClone(clarification);invalidClarification.title='Invalid furigana';invalidClarification.contrasts[0].japanese_furigana='違う';
+    await assert.rejects(clarify([{label:'〜と思う',sense:'opinion',expected_content:updatedContent,clarifications:[invalidClarification]}]),/Invalid grammar clarification content/);
+    await db.exec(`reset role; update public.japanese_grammar_guides set content='${JSON.stringify(content).replaceAll("'","''")}'::jsonb where user_id='${owner}'; set role authenticated; set request.jwt.claim.sub='${owner}';`);
     const changed=structuredClone(input);changed.guides[0].content.meaning='Changed';
     const before=await count('japanese_repository');
     await assert.rejects(run([input,changed]),/Grammar conflict/);
@@ -49,6 +67,7 @@ const owner='00000000-0000-4000-8000-000000000001',other='00000000-0000-4000-800
     assert.equal((await db.query('select * from public.japanese_repository_grammar where repository_id=$1',[first.entries[0].id])).rows.length,0);
     await db.exec(`set request.jwt.claim.sub='${other}';`);
     assert.equal(await count('japanese_grammar_guides'),0);assert.equal(await count('japanese_repository_grammar'),0);
+    await assert.rejects(clarify([{label:'〜と思う',sense:'opinion',expected_content:content,clarifications:[clarification]}]),/not found/,'Another user cannot append to the owner guide');
     const own=await run([input]);assert.notEqual(own.guides[0].id,first.guides[0].id);
     await assert.rejects(db.query(`insert into public.japanese_repository_grammar(repository_id,user_id,label,grammar_id) values($1,$2,$3,$4)`,[own.entries[0].id,other,'foreign',first.guides[0].id]),/foreign key/);
     await assert.rejects(db.query(`insert into public.japanese_grammar_guides(user_id,label,sense,content) values($1,$2,$3,$4)`,[owner,'x','x',JSON.stringify(content)]),/row-level security/);

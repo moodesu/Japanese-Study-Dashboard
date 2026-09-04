@@ -14,6 +14,10 @@ context.window=context;vm.createContext(context);
 vm.runInContext(fs.readFileSync(path.join(__dirname,'../repository.js'),'utf8'),context);
 const state=vm.runInContext('repositoryState',context);
 const explanation={label:'〜と思う',sense:'opinion',meaning:'I think',formation:['Plain clause + と思う'],explanation:'Expresses a thought.',examples:[{japanese:'いいと思う。',japanese_furigana:'いいと[思|おも]う。',english:'I think it is good.'}]};
+const clarification={title:'見た vs 見ていた',explanation:'The first is completed; the second was ongoing.',contrasts:[
+  {japanese:'テレビを見た。',japanese_furigana:'テレビを[見|み]た。',english:'I watched TV.',note:'Completed past event.'},
+  {japanese:'テレビを見ていた。',japanese_furigana:'テレビを[見|み]ていた。',english:'I was watching TV.',note:'Ongoing action in the past.'}
+]};
 const entry={japanese:'いいと思う。',japanese_furigana:'いいと[思|おも]う。',english:'I think it is good.',grammar_points:['〜と思う'],grammar_explanations:[explanation]};
 const copy=x=>JSON.parse(JSON.stringify(x));
 const plan=x=>context.repositoryPlanImport(x);
@@ -36,6 +40,8 @@ assert.throws(()=>plan({...entry,grammar_explanations:[{...explanation,sense:''}
 assert.throws(()=>plan({...entry,grammar_explanations:[{...explanation,label:'〜ようと思う'}]}),/grammar_points/);
 assert.throws(()=>plan({...entry,grammar_explanations:[{...explanation,examples:[{japanese:'私',japanese_furigana:'[君|きみ]',english:'I'}]}]}),/furigana/);
 assert.throws(()=>plan({...entry,grammar_explanations:[{...explanation,verified:true}]}),/unknown/);
+assert.equal(plan({...entry,grammar_explanations:[{...explanation,clarifications:[clarification]}]}).items[0].guides[0].content.clarifications.length,1);
+assert.throws(()=>plan({...entry,grammar_explanations:[{...explanation,clarifications:[{...clarification,contrasts:[{...clarification.contrasts[0],japanese_furigana:'違う'},clarification.contrasts[1]]}]}]}),/contrast furigana/);
 assert.throws(()=>plan([entry,null]),/Entry 2/);
 assert.throws(()=>plan(Array(101).fill(entry)),/100/);
 nodes.get('#repoImportJson').value=JSON.stringify(entry);
@@ -60,8 +66,33 @@ assert.equal(context.repositoryGrammarGuide(explanation.label,linked).id,'guide1
 assert.equal(context.repositoryGrammarGuide(explanation.label,{...entry,id:'unlinked'}),undefined,'Never guess meaning for unlinked labels');
 state.grammarLabel=explanation.label;
 assert.match(context.repositoryGrammarMarkup(linked),/AI-generated · Unverified/);
+const clarificationUpdate={entry_type:'grammar_clarification',grammar_explanations:[{...explanation,clarifications:[clarification]}]};
+assert.throws(()=>context.repositoryPlanClarificationImport({entry_type:'grammar_clarification',grammar_explanations:[explanation]}),/must include/);
+let updatePlan=context.repositoryPlanClarificationImport(clarificationUpdate);
+assert.equal(updatePlan.updates[0].clarifications.length,1);
+state.grammarGuides=[{...saved,content:{...saved.content,clarifications:[clarification]}}];
+updatePlan=context.repositoryPlanClarificationImport(clarificationUpdate);
+assert.equal(updatePlan.updates[0].clarifications.length,0);assert.match(updatePlan.warnings[0],/skipped existing/);
+const changedClarification=copy(clarificationUpdate);changedClarification.grammar_explanations[0].clarifications[0].explanation='Different distinction';
+assert.throws(()=>context.repositoryPlanClarificationImport(changedClarification),/already exists with different content/);
+const studyExample=JSON.parse(fs.readFileSync(path.join(__dirname,'../examples/grammar-clarification-import.json'),'utf8'));
+const studyGuide=studyExample.grammar_explanations[0],studyCore={meaning:studyGuide.meaning,formation:studyGuide.formation,explanation:studyGuide.explanation,examples:studyGuide.examples};
+state.grammarGuides=[{id:'study-guide',label:studyGuide.label,grammar_key:'てたら',sense:studyGuide.sense,content:studyCore}];
+assert.equal(context.repositoryPlanClarificationImport(studyExample).updates[0].clarifications.length,2,'Current 見てたら study chain is ready to import');
+state.grammarGuides=[saved];
 
 (async()=>{
+  state.entries=[linked];
+  let clarificationRpc=0;
+  context.renderRepository=()=>{};
+  context.db={rpc:async(name,args)=>{
+    clarificationRpc++;assert.equal(name,'append_repository_grammar_clarifications');assert.equal(args.p_updates[0].clarifications[0].title,clarification.title);
+    return {data:{guides:[{...saved,content:{...saved.content,clarifications:[clarification]}}]}};
+  }};
+  state.grammarLibraryReady=true;nodes.get('#repoImportJson').value=JSON.stringify(clarificationUpdate);context.previewRepositoryImport();
+  assert.equal(nodes.get('#repoRunImport').disabled,false);assert.equal(nodes.get('#repoRunImport').textContent,'Save clarifications');
+  const originalEntries=JSON.stringify(state.entries);await context.runRepositoryImport();
+  assert.equal(clarificationRpc,1);assert.equal(JSON.stringify(state.entries),originalEntries,'Clarification import never changes sentence entries');assert.equal(state.grammarGuides[0].content.clarifications.length,1);
   state.grammarGuides=[];
   let rpcCalls=0,insertCalls=0,release;
   context.renderRepository=()=>{};
