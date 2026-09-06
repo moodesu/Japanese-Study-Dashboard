@@ -16,8 +16,8 @@ function boot(db){
   for(const file of ['repository.js','dictionary.js'])vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),context);
   const repository=vm.runInContext('repositoryState',context);
   repository.selectedId='sentence1';repository.grammarLabel='〜てくる';repository.entries=[{id:'sentence1',grammar_points:['〜てくる']}];
-  repository.grammarGuides=[{id:'guide',grammar_key:'てくる',label:'〜てくる',sense:'developing-change',content:{meaning:'Change',formation:['て + くる'],explanation:'Change',examples:[]}}];
-  repository.grammarLinks=[{repository_id:'sentence1',label:'〜てくる',grammar_id:'guide'}];
+  repository.grammarGuides=[{id:'guide',slug:'developing-change',pattern:'〜てくる',meaning:'Change',summary:'Change',formation:['て + くる'],usage:[],nuance:[],reference_examples:[],reference_links:[]}];
+  repository.grammarLinks=[{repository_id:'sentence1',grammar_id:'guide',surface:'てきた',note:''}];
   context.renderRepository=()=>{document.querySelector('#mainContent').innerHTML=context.JLHDictionary.markup();context.bindRepositoryEvents(repository.entries[0]);};
   return {context,repository,document,dictionary:context.JLHDictionary};
 }
@@ -145,7 +145,7 @@ async function setupTests(){
   assert.throws(()=>dictionary.validateManifest({format:'jlh-private-dictionary-v1',entries:[{...row,image_files:['../secret']}]}),/Invalid/);
   assert.throws(()=>dictionary.validateManifest({format:'jlh-private-dictionary-v1',entries:[row,row]}),/duplicate/);
   assert.deepEqual(Array.from(dictionary.terms('〜てたら')),['てたら','たら']);
-  assert.equal(dictionary.identity(repository.entries[0]).sense,'developing-change');
+  assert.equal(dictionary.identity(repository.entries[0]).sense,'canonical:developing-change');
   await dictionary.open(repository.entries[0]);
   assert.equal(repository.mode,'dictionary');assert.match(document.body.innerHTML,/Suggestions are not automatic links/);
   assert.equal(calls.filter(x=>x.operation==='upsert').length,0,'Opening suggestions cannot save references');
@@ -154,7 +154,7 @@ async function setupTests(){
   const signing=calls.find(x=>x.ttl);assert.equal(signing.ttl,300);assert.equal(signing.paths[0],'test-user/'+filename);
   document.querySelector('#dictionaryLink').click();await new Promise(resolve=>setImmediate(resolve));
   assert.equal(savedId,id);assert.match(document.body.innerHTML,/Saved reference/);
-  assert.equal(calls.find(x=>x.operation==='upsert').payload.sense,'developing-change');
+  assert.equal(calls.find(x=>x.operation==='upsert').payload.sense,'canonical:developing-change');
   document.querySelector('#dictionaryBack').click();assert.equal(repository.mode,'grammar');
   await dictionary.open(repository.entries[0]);assert.match(document.body.innerHTML,/Saved reference/,'Saved dictionary entry opens directly');
   document.querySelector('#dictionaryUnlink').click();await new Promise(resolve=>setImmediate(resolve));assert.equal(savedId,null);

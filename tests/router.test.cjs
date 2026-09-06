@@ -4,7 +4,7 @@ const {parseHTML}=require(process.env.LINKEDOM_MODULE||'/tmp/jlh-dictionary-furi
 const root=path.resolve(__dirname,'..');
 const dictionaryId='a'.repeat(64),sentenceId='00000000-0000-4000-8000-000000000001',guideId='00000000-0000-4000-8000-000000000002';
 const sentence={id:sentenceId,japanese:'寒くなってきた。',english:'It is getting colder.',entry_type:'sentence',grammar_points:['〜てくる'],tags:[],status:'learning'};
-const guide={id:guideId,label:'〜てくる',grammar_key:'てくる',sense:'change',content:{meaning:'A developing change',formation:['て + くる'],explanation:'Change over time.',examples:[]}};
+const guide={id:guideId,slug:'te-kuru',pattern:'〜てくる',meaning:'A developing change',summary:'Change over time.',formation:['て + くる'],usage:['Describes a developing change.'],nuance:[],register:'neutral',jlpt_level:'N4',reference_examples:[],reference_links:[],is_placeholder:false};
 function boot(initial='/'){
   const {document,window:dom}=parseHTML(fs.readFileSync(path.join(root,'index.html'),'utf8'));
   for(const select of document.querySelectorAll('select'))Object.defineProperty(select,'value',{get(){return this._value||'';},set(v){this._value=v;},configurable:true});
@@ -24,7 +24,7 @@ function boot(initial='/'){
     replaceState(state,unused,href){url=new URL(href,url);stack[cursor]={url:url.href,state:structuredClone(state)};},
     pushState(state,unused,href){url=new URL(href,url);stack.splice(cursor+1);stack.push({url:url.href,state:structuredClone(state)});cursor++;},
     go(delta){const next=cursor+delta;if(next<0||next>=stack.length)return;cursor=next;url=new URL(stack[cursor].url);emit('popstate',{state:stack[cursor].state});},back(){this.go(-1);},forward(){this.go(1);}};
-  const records={japanese_repository:[sentence],japanese_repository_revisions:[],japanese_grammar_guides:[guide],japanese_repository_grammar:[{repository_id:sentenceId,label:'〜てくる',grammar_id:guideId}],japanese_dictionary_entries:[{id:dictionaryId,headword:'来る (2)',volume:'Basic',summary:'Change',body_html:'<p>変化</p>',image_files:[]}],japanese_dictionary_links:[{entry_id:dictionaryId}],japanese_dictionary_readings:[]};
+  const records={japanese_repository:[sentence],japanese_repository_revisions:[],japanese_grammar_guides:[guide],japanese_grammar_variants:[],japanese_grammar_clarifications:[],japanese_grammar_related:[],japanese_repository_grammar:[{repository_id:sentenceId,grammar_id:guideId,surface:'てきた',note:''}],japanese_dictionary_entries:[{id:dictionaryId,headword:'来る (2)',volume:'Basic',summary:'Change',body_html:'<p>変化</p>',image_files:[]}],japanese_dictionary_links:[{entry_id:dictionaryId}],japanese_dictionary_readings:[]};
   const db={auth:{getSession:async()=>({data:{session:null}}),onAuthStateChange:()=>{},signOut:async()=>{}},rpc:async()=>({data:records.japanese_dictionary_entries}),storage:{from:()=>({createSignedUrls:async()=>({data:[]})})},from:table=>{
     let count=false;const filters=[];const q={select(fields,options){count=options?.head;return q;},eq(k,v){filters.push([k,v]);return q;},order(){return q;},
       maybeSingle:async()=>({data:(records[table]||[])[0]||null}),single:async()=>{const rows=records[table]||[];const id=filters.find(x=>x[0]==='id')?.[1];return {data:rows.find(x=>!id||x.id===id)||null,error:rows.some(x=>!id||x.id===id)?null:{message:'Entry unavailable'}};},
@@ -74,7 +74,7 @@ const watchdog=setTimeout(()=>{console.error('Routing test timed out');process.e
   await app.router.navigate(app.router.lessonURL(11,'b2-l11-textbook_conversation'));await tick();assert.equal(app.state.lesson,11);assert.ok(app.document.getElementById('guide-b2-l11-textbook_conversation')._testScrolled);
   const lessonLength=app.history.length;app.context.render();assert.equal(app.history.length,lessonLength,'Repaint creates no duplicate history');
   await app.router.navigate('/plan/week/1?task=b2-l11-textbook_conversation');assert.ok(app.document.querySelector('#modal').open);app.document.querySelector('#modal').close();await tick();assert.equal(app.document.querySelector('#modal').open,false);
-  const built=app.context.REPOSITORY_GRAMMAR_GUIDES[0];await app.router.navigate('/grammar/'+built.id);assert.match(app.document.querySelector('#mainContent').textContent,/Meaning/);
+  await app.router.navigate('/grammar');assert.match(app.document.querySelector('#mainContent').textContent,/Grammar Library/);assert.match(app.document.querySelector('#mainContent').textContent,/〜てくる/);
   await app.router.navigate('/plan/week/99');assert.match(app.document.querySelector('#mainContent').textContent,/Page unavailable/);
   await app.router.navigate('/repository/entries/missing');assert.match(app.document.querySelector('#mainContent').textContent,/Page unavailable/);
   await app.router.navigate('/repository/import');app.document.querySelector('#repoImportJson').value='private unsaved draft';assert.doesNotMatch(JSON.stringify(app.stack),/private unsaved draft|寒く|signedUrl|access_token/);
@@ -85,6 +85,6 @@ const watchdog=setTimeout(()=>{console.error('Routing test timed out');process.e
   await app.router.navigate('/grammar/'+guideId+'?entry='+sentenceId);
   app.state.user=null;app.context.render();assert.equal(app.repository.entries.length,0);assert.equal(app.document.querySelector('#mainContent').textContent,'');assert.equal(app.document.querySelector('#loginGate').hidden,false);
   const beforeLogin=app.requests.length;await app.login();assert.ok(app.requests.length>beforeLogin);assert.match(app.document.querySelector('#mainContent').textContent,/A developing change/,'Login returns to the requested route');
-  app.records.japanese_repository=[];app.records.japanese_grammar_guides=[];app.records.japanese_repository_grammar=[];app.state.user={id:'other'};app.context.render();while(app.router.isNavigating())await tick();assert.match(app.document.querySelector('#mainContent').textContent,/Page unavailable/);assert.doesNotMatch(app.document.querySelector('#mainContent').textContent,/A developing change/);
+  app.records.japanese_repository=[];app.records.japanese_grammar_guides=[];app.records.japanese_grammar_variants=[];app.records.japanese_grammar_clarifications=[];app.records.japanese_grammar_related=[];app.records.japanese_repository_grammar=[];app.state.user={id:'other'};app.context.render();while(app.router.isNavigating())await tick();assert.match(app.document.querySelector('#mainContent').textContent,/Page unavailable/);assert.doesNotMatch(app.document.querySelector('#mainContent').textContent,/A developing change/);
   console.log('PASS: real app routing, direct login links, history/filters/scroll, standalone grammar/dictionary, context links, edit guards, book/lesson/task URLs, invalid routes, modifier links, title and history privacy.');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(()=>clearTimeout(watchdog));

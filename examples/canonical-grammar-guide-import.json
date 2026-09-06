@@ -1,0 +1,23 @@
+{
+  "entry_type": "grammar_guide",
+  "slug": "tara",
+  "canonical": "〜たら",
+  "meaning": "if; when; after",
+  "summary": "A conditional and temporal construction formed from the plain past form plus ら.",
+  "formation": ["動詞た形 + ら", "い形容詞: 〜かったら", "な形容詞・名詞: 〜だったら"],
+  "usage": ["Use 〜たら for a condition whose following result applies if or when the condition is met.", "In temporal uses, the first event is completed before the following event or discovery."],
+  "nuance": ["The context determines whether English uses if, when, or after.", "When attached after 〜ていた, the combined form 〜ていたら describes something occurring during an ongoing action."],
+  "register": "neutral",
+  "jlpt_level": "N4",
+  "variants": [],
+  "combined_forms": [
+    {"form": "〜ていたら", "explanation": "Combines ongoing/past 〜ている with 〜たら.", "related_canonical": "〜ている"},
+    {"form": "〜てたら", "explanation": "Casual contraction of 〜ていたら.", "related_canonical": "〜ている"}
+  ],
+  "clarifications": [],
+  "related_grammar": ["〜ている"],
+  "reference_examples": [
+    {"japanese": "駅に着いたら、電話してください。", "japanese_furigana": "[駅|えき]に[着|つ]いたら、[電話|でんわ]してください。", "english": "Please call me when you arrive at the station.", "source": "Learning Hub original example"}
+  ],
+  "references": []
+}

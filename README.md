@@ -24,51 +24,28 @@ readings exactly reproduces the corresponding plain Japanese, preventing
 duplicated or mismatched text. Use **振 Furigana on/off** to control display;
 the setting is remembered on the device.
 
-### Repository grammar explanations (2026-09-03)
+### Canonical grammar library (2026-09-06)
 
-Open a saved entry and click a grammar chip under **Grammar and lessons**.
-The chip opens a grammar reference within the Repository. **Back to sentence**
-returns to the same entry and restores focus and scroll position. The furigana
-toggle works in the guide and its examples as well as in the saved sentence.
+Repository sentences now link to reusable canonical concepts such as `〜たら`,
+`〜ている` and `〜てしまう`. A sentence annotation records the canonical guide,
+the exact surface form found in that sentence and a short note. Contractions or
+combined forms such as `見てたら` and `食べちゃった` remain searchable variants;
+they do not create separate grammar cards.
 
-The initial local guide library in `grammar-guides.js` covers `〜くらいなら`
-(including the distinction between an approximate amount with a condition and
-the “rather than” use) and `〜だと思う` / `〜と思う`. Each guide includes meaning,
-formation, original examples and links to source explanations. The current
-sentence and its saved explanation remain visible separately as context.
+Use **Grammar Library** to search canonical patterns, meanings, variants,
+contractions and combined forms. Guide pages contain overview, formation,
+usage/nuance, forms and variants, clarifications, personal sentence examples,
+reference examples and related grammar. Sentence imports, standalone
+`grammar_guide` imports and `grammar_clarification` imports use the current JSON
+contracts documented in `deliverables/Learning-Hub-Project-Instructions.md`.
 
-Resolution uses explicit aliases and normalizes leading wave/tilde markers,
-Unicode width and spaces; it does not guess using substring matching. Guides
-can be expanded by adding explicit entries to `grammar-guides.js`. Unknown
-labels show an honest “not yet in the guide library” message and a reference
-search link, not a generated or unrelated explanation. A search sends only the
-grammar label when clicked, never the saved sentence. Textbook matches also
-offer a direct link to the specific existing lesson grammar step.
+Apply `migrations/20260906_canonical_grammar_redesign.sql` once after the earlier
+Repository migrations. It deliberately replaces the old grammar-guide and link
+data while preserving Repository sentences, corrections and revision history.
+Do not rerun it after rebuilding the new grammar library.
 
-Changelog:
-
-- Replaced non-clickable grammar labels with accessible navigation buttons.
-- Added in-app guides for the two latest imported patterns, including aliases.
-- Kept existing entries, import schema and Anki export unchanged.
-- Preserved textbook connections and linked them to the exact grammar step.
-- Added fallback handling, safe text rendering and navigation tests.
-- No SQL migration, database writes or re-import required.
-
-Smoke-test checklist:
-
-- Open the price sentence and click each of its two grammar chips.
-- Verify the approximation/condition explanation and the separate “rather
-  than” use on the `〜くらいなら` page.
-- Check formation, examples and reference links on the `〜だと思う` page.
-- Toggle furigana, then use Back to sentence; verify the same entry returns.
-- Check an unknown label and an exact Tobira grammar label for their respective
-  fallback and textbook connection, then check mobile and dark mode.
-
-Automated checks: `node tests/repository-grammar.test.cjs` and
-`node tests/lesson-flow.test.cjs`. Browser/import-account verification remains
-a manual smoke test.
-
-Suggested commit: `feat: open repository grammar points in explanation views`
+Implementation notes, changelog and the complete smoke-test checklist are in
+`docs/canonical-grammar-redesign.md`.
 
 ### Migaku handoff
 

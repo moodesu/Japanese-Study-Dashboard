@@ -16,7 +16,7 @@ window.JLHDictionary=(()=>{
     const label=repositoryState.grammarLabel;
     const guide=repositoryGrammarGuide(label,entry);
     return {label,grammar_key:repositoryGrammarKey(label),
-      sense:guide?.imported?guide.sense:guide?`builtin:${guide.id}`:`sentence:${entry.id}`};
+      sense:guide?.slug?`canonical:${guide.slug}`:guide?`canonical:${guide.id}`:`sentence:${entry.id}`};
   }
   function terms(label){
     const key=repositoryGrammarKey(label);

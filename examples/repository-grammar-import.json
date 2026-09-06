@@ -1,26 +1,17 @@
 {
-  "japanese": "いいと思う。",
-  "japanese_furigana": "いいと[思|おも]う。",
-  "english": "I think it is good.",
-  "grammar_points": ["〜と思う"],
-  "grammar_explanations": [
-    {
-      "label": "〜と思う",
-      "sense": "expressing-an-opinion",
-      "meaning": "I think that…",
-      "formation": ["Plain-form clause + と思う"],
-      "explanation": "と marks the content of a thought; 思う expresses what the speaker thinks. Nouns and な-adjectives usually take だ before と in affirmative non-past statements.",
-      "examples": [
-        {
-          "japanese": "いいと思う。",
-          "japanese_furigana": "いいと[思|おも]う。",
-          "english": "I think it is good."
-        }
-      ]
-    }
+  "entry_type": "sentence",
+  "japanese": "お弁当箱を見てたら、お腹すいてきた。",
+  "japanese_furigana": "お[弁当箱|べんとうばこ]を[見|み]てたら、お[腹|なか]すいてきた。",
+  "english": "Looking at lunchboxes has made me hungry.",
+  "explanation": "見てたら is the casual form of 見ていたら. The hunger begins to develop while the speaker is looking.",
+  "grammar_points": [
+    {"canonical": "〜たら", "surface": "見てたら", "note": "The conditional/temporal 〜たら appears after the contracted ongoing form."},
+    {"canonical": "〜ている", "surface": "見てたら", "note": "見てたら contracts 見ていたら; 〜ている supplies the ongoing aspect."},
+    {"canonical": "〜てくる", "surface": "すいてきた", "note": "The change develops toward the speaker's present state."}
   ],
   "register": "casual",
-  "tags": ["import-test"],
+  "tags": ["food", "lunchbox", "conversation"],
   "source_type": "personal",
-  "source_detail": "ChatGPT"
+  "source_detail": "ChatGPT",
+  "notes": ""
 }

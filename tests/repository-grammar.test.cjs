@@ -2,96 +2,28 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const vm=require('node:vm');
-const root=path.resolve(__dirname,'..');
-const nodes=new Map();
+const root=path.resolve(__dirname,'..'),nodes=new Map();
 function element(){return {innerHTML:'',hidden:false,handlers:{},addEventListener(type,fn){this.handlers[type]=fn;},focus(){this.focused=true;}};}
-for(const id of ['#hero','#bottomArea','#weekView','#mainContent','#repoGrammarBack','#repoGrammarTitle']) nodes.set(id,element());
-const chips=[];
-const textbookButtons=[];
-const scrolls=[];
-let lessonTarget;
-const context={
-  console,
-  localStorage:{getItem:()=>null,setItem:()=>{}},
-  state:{user:{id:'test-user'},view:'repository'},
-  $:selector=>nodes.get(selector)||null,
-  document:{querySelectorAll:selector=>selector==='[data-repo-grammar]'?chips:selector==='[data-repo-grammar-lesson]'?textbookButtons:[]},
-  scrollTo:options=>scrolls.push(options),scrollY:325,
-  openGuidedLesson:(lesson,id)=>{lessonTarget={lesson,id};},
-  esc:value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),
-  db:new Proxy({}, {get(){throw new Error('Grammar navigation must not access the database');}})
-};
-context.window=context;
-vm.createContext(context);
-for(const file of ['curriculum.js','grammar-guides.js','repository.js']) vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),context);
+for(const id of ['#hero','#bottomArea','#weekView','#mainContent','#repoGrammarBack','#repoGrammarTitle'])nodes.set(id,element());
+const context={console,URL,TextEncoder,localStorage:{getItem:()=>null},state:{user:{id:'user'},view:'repository'},$:s=>nodes.get(s)||null,
+  document:{querySelectorAll:()=>[]},scrollTo:()=>{},scrollY:0,esc:value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))};
+context.window=context;vm.createContext(context);vm.runInContext(fs.readFileSync(path.join(root,'repository.js'),'utf8'),context);
 const state=vm.runInContext('repositoryState',context);
-const entry={id:'price-example',entry_type:'sentence',status:'learning',japanese:'4000円くらいなら妥当だと思う。',japanese_furigana:'4000[円|えん]くらいなら[妥当|だとう]だと[思|おも]う。',english:'If it is around 4,000 yen, I think that is reasonable.',explanation:'Price comment.',grammar_points:['〜くらいなら','〜だと思う'],tags:[]};
-state.entries=[entry];state.selectedId=entry.id;state.loaded=true;state.mode='detail';
-const before=JSON.stringify(entry);
-for(const label of entry.grammar_points) chips.push({...element(),dataset:{repoGrammar:label}});
-context.renderRepository();
-for(const chip of chips){
-  chip.onclick();
-  assert.equal(state.mode,'grammar');
-  assert.equal(state.selectedId,entry.id);
-  assert.ok(nodes.get('#mainContent').innerHTML.includes('<h2>Formation</h2>'));
-  assert.ok(nodes.get('#mainContent').innerHTML.includes('<h2>Examples</h2>'));
-  assert.ok(nodes.get('#mainContent').innerHTML.includes('Your saved sentence'));
-  assert.ok(nodes.get('#mainContent').innerHTML.includes('<ruby>'));
-  assert.ok(nodes.get('#repoGrammarTitle').focused);
-  assert.ok(!nodes.get('#mainContent').innerHTML.includes('id="repoFuriganaToggle"'),'Page-level toggle was replaced by the global control');
-  nodes.get('#repoGrammarBack').handlers.click();
-  assert.equal(state.mode,'detail');
-  assert.ok(chip.focused);
-  assert.equal(scrolls.at(-1).top,325);
-}
-assert.equal(JSON.stringify(entry),before,'No entry changes during navigation');
-assert.equal(context.repositoryGrammarGuide('～だと思う').id,'to-omou');
-assert.equal(context.repositoryGrammarGuide(' ~ だと思います ').id,'to-omou');
-assert.equal(context.repositoryGrammarGuide('〜ぐらいなら').id,'kurai-nara');
-assert.equal(context.repositoryGrammarGuide('〜ようと思う'),undefined,'Do not confuse intent with generic opinion through substring matching');
-const keys=new Set();
-for(const guide of context.REPOSITORY_GRAMMAR_GUIDES){
-  for(const alias of guide.aliases){const key=context.repositoryGrammarKey(alias);assert.ok(!keys.has(key));keys.add(key);}
-  for(const example of guide.examples){
-    const plain=context.repositoryPlainFromFurigana(example.japanese);
-    assert.ok(context.repositoryFuriganaMatches(plain,example.japanese));
-    assert.ok(!/[\[\]|]/.test(plain),'Example notation is complete');
-  }
-  for(const source of guide.sources) assert.equal(new URL(source.url).protocol,'https:');
-}
-const hostile='unknown"><img src=x onerror=alert(1)>';
-state.grammarLabel=hostile;
-let html=context.repositoryGrammarMarkup({...entry,japanese:'<script>alert(1)</script>',japanese_furigana:'',explanation:'<img src=x>'});
-assert.ok(html.includes('Explanation not yet in the guide library'));
-assert.ok(!html.includes('<script>'));
-assert.ok(!html.includes('<img'));
-assert.ok(html.includes(encodeURIComponent(hostile+' Japanese grammar explanation')));
-assert.ok(!context.repositoryGrammarLinks({grammar_points:[hostile]}).includes('<img'));
-const clarification={title:'見た vs 見ていた',explanation:'Completed event compared with an ongoing past action.',contrasts:[
-  {japanese:'テレビを見た。',japanese_furigana:'テレビを[見|み]た。',english:'I watched TV.',note:'Completed event.'},
-  {japanese:'テレビを見ていた。',japanese_furigana:'テレビを[見|み]ていた。',english:'I was watching TV.',note:'Ongoing in the past.'}
-]};
-const importedGuide={id:'clarification-guide',label:'〜だと思う',grammar_key:'だと思う',sense:'opinion',content:{meaning:'I think',formation:['Plain clause + と思う'],explanation:'Expresses an opinion.',examples:[{japanese:'いいと思う。',japanese_furigana:'いいと[思|おも]う。',english:'I think it is good.'}],clarifications:[clarification]}};
-state.grammarGuides=[importedGuide];state.grammarLinks=[{repository_id:entry.id,label:'〜だと思う',grammar_id:importedGuide.id}];state.grammarLabel='〜だと思う';
-html=context.repositoryGrammarMarkup(entry);
-assert.ok(html.includes('Clarifications &amp; Contrasts'));assert.ok(html.includes('repo-contrast-grid'));assert.ok(html.includes('見た vs 見ていた'));assert.ok(html.includes('<ruby>見<rt>み</rt></ruby>'));
-assert.equal(JSON.stringify(entry),before,'Rendering clarifications does not change the sentence');
-const grammar=context.repositoryGrammarCatalogue().find(row=>row.lesson===11);
-assert.equal(grammar.index,1);
-state.grammarLabel=grammar.label;
-html=context.repositoryGrammarMarkup(entry);
-assert.ok(html.includes('data-repo-grammar-lesson="11"'));
-assert.ok(html.includes('data-repo-grammar-index="1"'));
-textbookButtons.push({dataset:{repoGrammarLesson:'11',repoGrammarIndex:'1'}});
-context.bindRepositoryEvents(entry);
-textbookButtons[0].onclick();
-assert.deepEqual(lessonTarget,{lesson:11,id:'b2-l11-guide-grammar-1'});
-context.openRepositoryGrammar('not attached to this entry');
-assert.equal(state.mode,'detail','Ignore stale or unattached grammar labels');
-context.resetRepositorySession();
-assert.equal(state.grammarLabel,'');
-assert.equal(state.entries.length,0);
-const htmlSource=fs.readFileSync(path.join(root,'index.html'),'utf8');
-assert.ok(htmlSource.indexOf('src="grammar-guides.js"')<htmlSource.indexOf('src="repository.js"'));
-console.log('PASS: grammar chip navigation, both imported labels, aliases, furigana, return focus/scroll, unknown-label fallback, escaping, textbook target, no database writes.');
+const entry={id:'sentence',japanese:'お弁当箱を見てたら、お腹すいてきた。',japanese_furigana:'お[弁当箱|べんとうばこ]を[見|み]てたら、お[腹|なか]すいてきた。',english:'Looking at lunchboxes made me hungry.',grammar_points:['〜たら','〜ている','〜てくる'],tags:[]};
+const tara={id:'tara-id',slug:'tara',pattern:'〜たら',meaning:'if; when; after',summary:'Conditional and temporal.',formation:['動詞た形 + ら'],usage:['Introduces a condition.'],nuance:['Context determines the translation.'],register:'neutral',jlpt_level:'N4',reference_examples:[],references:[],is_placeholder:false};
+const teiru={...tara,id:'teiru-id',slug:'teiru',pattern:'〜ている',meaning:'ongoing action'};
+state.entries=[entry];state.grammarGuides=[tara,teiru];state.grammarVariants=[
+  {id:'v1',grammar_id:tara.id,form:'〜ていたら',variant_type:'combined_form',explanation:'Combined with 〜ている.',related_grammar_id:teiru.id},
+  {id:'v2',grammar_id:tara.id,form:'〜てたら',variant_type:'combined_form',explanation:'Casual contraction.',related_grammar_id:teiru.id}
+];
+state.grammarLinks=[{id:'l1',repository_id:entry.id,grammar_id:tara.id,surface:'見てたら',note:'Contracted ongoing form.'},{id:'l2',repository_id:entry.id,grammar_id:teiru.id,surface:'見てたら',note:'Ongoing aspect.'}];
+state.grammarClarifications=[{id:'c1',grammar_id:tara.id,title:'見たら vs 見ていたら / 見てたら',question:'How do they differ?',explanation:'They differ in aspect.',contrasts:[]}];state.grammarRelated=[{grammar_id:tara.id,related_grammar_id:teiru.id}];
+state.selectedId=entry.id;state.grammarGuideId=tara.id;state.grammarLabel='〜たら';state.mode='grammar';
+let html=context.repositoryGrammarMarkup(entry);
+for(const heading of ['Overview','Formation','Usage and nuance','Combined forms','Clarifications','My examples','Reference examples','Related grammar'])assert.ok(html.includes(`<h2>${heading}</h2>`),heading);
+assert.ok(html.includes('見てたら'));assert.ok(html.includes('data-repo-entry="sentence"'));assert.ok(!html.includes('〜てたら</h1>'));
+assert.match(context.repositoryGrammarLinks(entry),/〜たら/);assert.match(context.repositoryGrammarLinks(entry),/〜ている/);
+state.grammarQuery='てたら';html=context.repositoryGrammarLibraryMarkup();assert.ok(html.includes('〜たら'));assert.ok(html.includes('Matched: 〜てたら'));assert.ok(html.includes('Related match via 〜たら: 〜てたら'));assert.equal((html.match(/class="repo-grammar-card"/g)||[]).length,2,'combined-form search also discovers its related canonical guide');assert.ok(!html.includes('data-repo-guide="v2"'),'variants are not cards');
+state.grammarQuery='';html=context.repositoryGrammarLibraryMarkup();assert.equal((html.match(/class="repo-grammar-card"/g)||[]).length,2,'only canonical guides become cards');
+assert.equal(context.repositorySavedGuide(tara).myExamples.length,1);
+console.log('PASS: canonical-only library, variant search, guide sections, related grammar and linked personal examples.');

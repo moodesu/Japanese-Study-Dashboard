@@ -29,14 +29,16 @@ window.JLHRouter=(()=>{
       if(parts.length===3)r.type='entry';
       else if(parts.length===4&&parts[3]==='edit')r.type='edit';
       else if(parts.length===5&&parts[3]==='grammar'){r.type='grammar';r.label=parts[4];r.guide=q.get('guide');}
-    }else if(parts[0]==='grammar'&&parts.length===2){r.type='grammar';r.guide=parts[1];r.entry=q.get('entry');}
+    }else if(p==='/grammar')r.type='grammar-library';
+    else if(parts[0]==='grammar'&&parts.length===2){r.type='grammar';r.guide=parts[1];r.entry=q.get('entry');}
     else if(parts[0]==='dictionary'&&parts.length<=2){r.type='dictionary';r.id=parts[1]==='setup'?null:parts[1]||null;r.setup=parts[1]==='setup';r.entry=q.get('entry');r.guide=q.get('guide');r.label=q.get('label');if(r.id&&!/^[a-f0-9]{64}$/.test(r.id))throw Error('Dictionary entry not found');}
     if(!r.type)throw Error('Page not found');return r;
   }
   function grammarURL(entry=selected(),label=repositoryState.grammarLabel,guideId=repositoryState.grammarGuideId){
-    if(!entry)return '/repository';
+    if(!entry&&!guideId)return '/grammar';
     const guide=repositoryGrammarGuide(label,entry);
-    if(guide?.id)return query('/grammar/'+encode(guide.id),{entry:entry.routeStandalone?'':entry.id});
+    if(guide?.id)return query('/grammar/'+encode(guide.id),{entry:entry?.routeStandalone?'':entry?.id||''});
+    if(guideId)return '/grammar/'+encode(guideId);
     return query(entryURL(entry.id)+'/grammar/'+encode(label),{guide:guideId});
   }
   function dictionaryURL(overrides={}){
@@ -57,6 +59,7 @@ window.JLHRouter=(()=>{
       const r=repositoryState;
       if(r.mode==='dictionary')return dictionaryURL();
       if(r.mode==='grammar')return grammarURL();
+      if(r.mode==='grammar-library')return query('/grammar',{q:r.grammarQuery});
       if(r.mode==='form')return r.selectedId?entryURL(r.selectedId)+'/edit':'/repository/new';
       if(r.mode==='import')return '/repository/import';
       if(r.mode==='detail'&&r.selectedId)return entryURL(r.selectedId);
@@ -92,7 +95,7 @@ window.JLHRouter=(()=>{
   }
   function title(){
     const d=window.JLHDictionary?.routeState?.();
-    const labels={dashboard:'Home',plan:`Plan · Week ${state.week+1}`,lesson:`Lesson ${state.lesson}`,library:state.libraryItem?(window.BOOKS||[]).find(x=>x.id===state.libraryItem)?.title:'Book library',wanikani:'WaniKani',repository:repositoryState.mode==='dictionary'?(d?.title||'Dictionary'):repositoryState.mode==='grammar'?repositoryState.grammarLabel:repositoryState.mode==='detail'?'Saved sentence':repositoryState.mode==='form'?'Edit sentence':repositoryState.mode==='import'?'Import sentences':'Japanese Repository'};
+    const labels={dashboard:'Home',plan:`Plan · Week ${state.week+1}`,lesson:`Lesson ${state.lesson}`,library:state.libraryItem?(window.BOOKS||[]).find(x=>x.id===state.libraryItem)?.title:'Book library',wanikani:'WaniKani',repository:repositoryState.mode==='dictionary'?(d?.title||'Dictionary'):repositoryState.mode==='grammar'?repositoryState.grammarLabel:repositoryState.mode==='grammar-library'?'Grammar Library':repositoryState.mode==='detail'?'Saved sentence':repositoryState.mode==='form'?'Edit sentence':repositoryState.mode==='import'?'Import Learning Hub JSON':'Japanese Repository'};
     document.title=(routeError?'Page unavailable':labels[state.view]||'Learning Hub')+' · Japanese Learning Hub';
   }
   function showError(message){
@@ -120,13 +123,13 @@ window.JLHRouter=(()=>{
     if(r.entry&&!entry)throw Error('This saved sentence is unavailable.');
     if(r.guide){
       const saved=repositoryState.grammarGuides.find(x=>x.id===r.guide);
-      const built=(window.REPOSITORY_GRAMMAR_GUIDES||[]).find(x=>x.id===r.guide);
-      if(!saved&&!built)throw Error('This grammar meaning is unavailable.');
-      const label=saved?.label||built.title;
-      if(entry){r.label=(entry.grammar_points||[]).find(x=>repositoryGrammarKey(x)===repositoryGrammarKey(label));if(!r.label)throw Error('The grammar link does not match this sentence.');}
-      else {r.label=label;entry={id:'guide:'+r.guide,routeStandalone:true,grammar_points:[label]};}
+      if(!saved)throw Error('This grammar meaning is unavailable.');
+      const label=saved.pattern;
+      if(entry&&!repositoryState.grammarLinks.some(link=>link.repository_id===entry.id&&link.grammar_id===saved.id))throw Error('The grammar link does not match this sentence.');
+      if(!entry)entry={id:'guide:'+r.guide,routeStandalone:true};
+      r.label=label;
     }
-    if(entry&&r.label&&!(entry.grammar_points||[]).includes(r.label))throw Error('This grammar point is not linked to the sentence.');
+    if(entry&&!entry.routeStandalone&&r.label&&!repositoryState.grammarLinks.some(link=>link.repository_id===entry.id&&repositoryGrammarKey(repositoryState.grammarGuides.find(guide=>guide.id===link.grammar_id)?.pattern)===repositoryGrammarKey(r.label)))throw Error('This grammar point is not linked to the sentence.');
     repositoryState.routeEntry=entry?.routeStandalone?entry:null;repositoryState.selectedId=entry?.routeStandalone?null:entry?.id||null;
     repositoryState.grammarLabel=r.label||'';repositoryState.grammarGuideId=r.guide||null;
     return entry;
@@ -137,7 +140,7 @@ window.JLHRouter=(()=>{
     for(const id of ['modal','searchDialog'])if($('#'+id)?.open)$('#'+id).close();
     try{
       const r=parse(url);
-      if(['repository','entry','edit','new','import','grammar','dictionary'].includes(r.type)){
+      if(['repository','entry','edit','new','import','grammar-library','grammar','dictionary'].includes(r.type)){
         state.view='repository';repositoryState.mode='browse';repositoryState.selectedId=null;
         render();await repositoryReady();if(token!==sequence||owner!==state.user?.id)return;
         if(r.type==='repository'){
@@ -146,6 +149,7 @@ window.JLHRouter=(()=>{
           if(!repositoryState.entries.some(x=>x.id===r.entry))throw Error('This saved sentence is unavailable.');
           repositoryState.selectedId=r.entry;repositoryState.mode=r.type==='edit'?'form':'detail';
         }else if(r.type==='new'||r.type==='import')repositoryState.mode=r.type==='new'?'form':'import';
+        else if(r.type==='grammar-library'){repositoryState.mode='grammar-library';repositoryState.grammarQuery=r.q.get('q')||'';}
         else {
           const entry=grammarContext(r);repositoryState.mode=r.type==='grammar'?'grammar':'dictionary';
           if(r.type==='dictionary')await window.JLHDictionary.open(entry,{id:r.id,setup:r.setup,query:r.q.get('q'),fromRoute:true});
@@ -243,12 +247,12 @@ window.JLHRouter=(()=>{
     if(id==='openRelatedLesson'){
       const task=findTaskById(modalTask);if(task?.lesson)return lessonURL(task.lesson,task.id);
     }
-    const map={backDashboard:'/',backPlan:'/plan/week/'+(state.week+1),backToLibrary:'/books',repoBack:'/repository',repoAdd:'/repository/new',repoImport:'/repository/import',repoEdit:entry?entryURL(entry.id)+'/edit':null,repoCancel:entry?entryURL(entry.id):'/repository',repoCancelBottom:entry?entryURL(entry.id):'/repository',repoGrammarBack:entry&&!entry.routeStandalone?entryURL(entry.id):'/repository',repoDictionaryOpen:dictionaryURL({id:null,setup:false}),dictionaryBack:entry?grammarURL(entry):'/repository',dictionarySetup:dictionaryURL({setup:true}),dictionaryResults:dictionaryURL({id:null,setup:false}),dictionarySaved:dictionaryURL({id:window.JLHDictionary?.routeState?.().linkedId,setup:false}),prevLesson:state.lesson>11?lessonURL(state.lesson-1):null,nextLesson:state.lesson<20?lessonURL(state.lesson+1):null,prevWeek:state.week>0?'/plan/week/'+state.week:null,nextWeek:state.week<11?'/plan/week/'+(state.week+2):null,openWkDashboard:'/wanikani'};
+    const map={backDashboard:'/',backPlan:'/plan/week/'+(state.week+1),backToLibrary:'/books',repoBack:'/repository',repoGrammarLibrary:'/grammar',repoGrammarLibraryBack:'/repository',repoAdd:'/repository/new',repoImport:'/repository/import',repoEdit:entry?entryURL(entry.id)+'/edit':null,repoCancel:entry?entryURL(entry.id):'/repository',repoCancelBottom:entry?entryURL(entry.id):'/repository',repoGrammarBack:entry&&!entry.routeStandalone?entryURL(entry.id):'/grammar',repoDictionaryOpen:dictionaryURL({id:null,setup:false}),dictionaryBack:entry?grammarURL(entry):'/grammar',dictionarySetup:dictionaryURL({setup:true}),dictionaryResults:dictionaryURL({id:null,setup:false}),dictionarySaved:dictionaryURL({id:window.JLHDictionary?.routeState?.().linkedId,setup:false}),prevLesson:state.lesson>11?lessonURL(state.lesson-1):null,nextLesson:state.lesson<20?lessonURL(state.lesson+1):null,prevWeek:state.week>0?'/plan/week/'+state.week:null,nextWeek:state.week<11?'/plan/week/'+(state.week+2):null,openWkDashboard:'/wanikani'};
     return map[id]||null;
   }
   function decorate(){
     if(!started)return;
-    document.querySelectorAll('[data-view],[data-week],[data-lesson],[data-open-book],[data-repo-entry],[data-repo-grammar],[data-repo-guide],[data-repo-lesson],[data-repo-grammar-lesson],[data-guided-task],[data-guide-step-nav],[data-guide-scroll],[data-task],[data-today-task],[data-review-task],[data-dictionary-entry],[data-dictionary-term],[data-search-type],#backDashboard,#backPlan,#backToLibrary,#repoBack,#repoAdd,#repoImport,#repoEdit,#repoCancel,#repoCancelBottom,#repoGrammarBack,#repoDictionaryOpen,#dictionaryBack,#dictionarySetup,#dictionaryResults,#dictionarySaved,#prevLesson,#nextLesson,#prevWeek,#nextWeek,#openWkDashboard,#resumeWeek,#openWeekToday,#openNext,#openNextTask,#openRelatedLesson').forEach(node=>{
+    document.querySelectorAll('[data-view],[data-week],[data-lesson],[data-open-book],[data-repo-entry],[data-repo-grammar],[data-repo-guide],[data-repo-lesson],[data-repo-grammar-lesson],[data-guided-task],[data-guide-step-nav],[data-guide-scroll],[data-task],[data-today-task],[data-review-task],[data-dictionary-entry],[data-dictionary-term],[data-search-type],#backDashboard,#backPlan,#backToLibrary,#repoBack,#repoGrammarLibrary,#repoGrammarLibraryBack,#repoAdd,#repoImport,#repoEdit,#repoCancel,#repoCancelBottom,#repoGrammarBack,#repoDictionaryOpen,#dictionaryBack,#dictionarySetup,#dictionaryResults,#dictionarySaved,#prevLesson,#nextLesson,#prevWeek,#nextWeek,#openWkDashboard,#resumeWeek,#openWeekToday,#openNext,#openNextTask,#openRelatedLesson').forEach(node=>{
       if(node.localName==='a'||node.disabled)return;
       const url=routeFor(node);if(!url)return;
       if(node.localName!=='button'&&!node.matches('[data-open-book]')){
