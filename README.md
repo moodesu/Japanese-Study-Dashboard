@@ -44,6 +44,12 @@ Repository migrations. It deliberately replaces the old grammar-guide and link
 data while preserving Repository sentences, corrections and revision history.
 Do not rerun it after rebuilding the new grammar library.
 
+Then apply `migrations/20260906_duplicate_safe_sentence_import.sql`. Exact
+Japanese matches now update an existing ordinary sentence and rebuild its
+canonical grammar links instead of creating another row. The partial database
+uniqueness rule does not apply to corrections. If existing test duplicates make
+the migration stop, manually delete the unwanted rows and run it again.
+
 Implementation notes, changelog and the complete smoke-test checklist are in
 `docs/canonical-grammar-redesign.md`.
 

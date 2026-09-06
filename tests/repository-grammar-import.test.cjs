@@ -16,6 +16,7 @@ const sentence=JSON.parse(fs.readFileSync(path.join(root,'examples/repository-gr
 const plan=context.repositoryPlanImport(sentence);
 assert.deepEqual(Array.from(plan.items[0].entry.grammar_points),['〜たら','〜ている','〜てくる']);
 assert.equal(plan.items[0].grammar_points[0].surface,'見てたら');
+assert.ok(plan.items[0].import_fields.includes('english'));assert.ok(!plan.items[0].import_fields.includes('status'));
 assert.ok(!JSON.stringify(plan).includes('〜てたら"'), 'surface form is not promoted to a canonical label');
 assert.throws(()=>context.repositoryPlanImport({...sentence,grammar_points:['〜てたら']}),/canonical, surface and note/);
 assert.throws(()=>context.repositoryPlanImport({...sentence,grammar_points:[{canonical:'〜たら',surface:'食べたら',note:''}]}),/not present/);
@@ -34,8 +35,9 @@ assert.throws(()=>context.repositoryValidateClarification({...clarificationRaw,c
 
 (async()=>{
   let calls=[];context.renderRepository=()=>{};context.loadRepositoryData=async()=>{};
-  context.db={rpc:async(name,args)=>{calls.push([name,args]);if(name==='import_repository_with_canonical_grammar')return {data:{entries:[{id:'sentence'}]}};if(name==='upsert_canonical_grammar_guide')return {data:{guide:{pattern:'〜たら'}}};return {data:{guide:{pattern:'〜たら'}}};}};
-  nodes.get('#repoImportJson').value=JSON.stringify(sentence);context.previewRepositoryImport();assert.match(nodes.get('#repoImportPreview').innerHTML,/3 canonical grammar links/);await context.runRepositoryImport();assert.equal(calls[0][0],'import_repository_with_canonical_grammar');assert.equal(calls[0][1].p_entries[0].grammar_points[0].canonical,'〜たら');
+  context.db={rpc:async(name,args)=>{calls.push([name,args]);if(name==='import_repository_with_canonical_grammar')return {data:{entries:[{id:'sentence'}],created_count:0,updated_count:1}};if(name==='upsert_canonical_grammar_guide')return {data:{guide:{pattern:'〜たら'}}};return {data:{guide:{pattern:'〜たら'}}};}};
+  state.entries=[{id:'existing',entry_type:'sentence',japanese:sentence.japanese}];
+  nodes.get('#repoImportJson').value=JSON.stringify(sentence);context.previewRepositoryImport();assert.match(nodes.get('#repoImportPreview').innerHTML,/1 existing sentence will be updated · 3 canonical grammar links/);await context.runRepositoryImport();assert.equal(calls[0][0],'import_repository_with_canonical_grammar');assert.equal(calls[0][1].p_entries[0].grammar_points[0].canonical,'〜たら');assert.equal(calls[0][1].p_entries[0].existing_id,undefined);assert.ok(calls[0][1].p_entries[0].import_fields.includes('english'));
   nodes.get('#repoImportJson').value=JSON.stringify(guideRaw);context.previewRepositoryImport();await context.runRepositoryImport();assert.equal(calls[1][0],'upsert_canonical_grammar_guide');
   nodes.get('#repoImportJson').value=JSON.stringify(clarificationRaw);context.previewRepositoryImport();await context.runRepositoryImport();assert.equal(calls[2][0],'append_canonical_grammar_clarification');
   nodes.get('#repoImportJson').value=JSON.stringify(sentence);context.previewRepositoryImport();nodes.get('#repoImportJson').value+=' ';await context.runRepositoryImport();assert.equal(calls.length,3,'stale preview cannot import');

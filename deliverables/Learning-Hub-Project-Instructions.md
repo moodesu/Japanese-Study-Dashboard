@@ -36,13 +36,15 @@ Corrections additionally use `intent_english`, `original_japanese`, `original_ja
 
 ## Canonical grammar annotations
 
-Every `grammar_points` item contains exactly:
+Every `grammar_points` item contains:
 
 - `canonical`: recognised learner-facing construction, e.g. `〜たら`.
 - `surface`: exact form present in the sentence, e.g. `見てたら`.
 - `note`: how that surface demonstrates the canonical construction; empty string is allowed.
 
 Optional `guide_slug` may identify a particular saved guide when multiple distinct senses share the same visible pattern. Do not invent a slug. Use it only when supplied by the Learning Hub or the user.
+
+
 
 Example:
 

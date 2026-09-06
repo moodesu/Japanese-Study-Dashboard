@@ -27,6 +27,11 @@ const repositoryState = {
 
 const REPOSITORY_STATUSES = ['reference','learning','review','known'];
 const REPOSITORY_REGISTERS = ['neutral','casual','polite','formal','written'];
+const REPOSITORY_IMPORT_UPDATE_FIELDS = [
+  'status','intent_english','original_japanese','original_japanese_furigana',
+  'japanese_furigana','english','explanation','tags','lesson_number','book_id',
+  'register','source_type','source_detail','error_types','notes'
+];
 const REPOSITORY_ERROR_TYPES = [
   'Particles','Verb form','Word choice','Word order','Register','Omission',
   'Grammar pattern','Naturalness','Kanji / spelling','Other'
@@ -741,7 +746,9 @@ function repositoryPlanImport(raw){
     if(!entry.japanese_furigana) warnings.push(`Entry ${index+1}: no japanese_furigana supplied. The app does not generate readings.`);
     const annotations=repositoryValidateGrammarAnnotations(row.grammar_points||[],entry.japanese);
     entry.grammar_points=[...new Set(annotations.map(item=>item.canonical))];
-    return {entry,grammar_points:annotations};
+    const existing=entry.entry_type==='sentence'?repositoryState.entries.find(item=>item.entry_type==='sentence'&&item.japanese===entry.japanese):null;
+    const import_fields=REPOSITORY_IMPORT_UPDATE_FIELDS.filter(field=>Object.hasOwn(row,field));
+    return {entry,grammar_points:annotations,import_fields,existing_id:existing?.id||null};
   });
   return {items,warnings};
 }
@@ -765,8 +772,10 @@ function previewRepositoryImport(){
     }
     const plan=repositoryPlanImport(parsed);
     pendingRepositoryImport={kind:'sentences',payload:plan.items};
-    const links=plan.items.reduce((sum,item)=>sum+item.grammar_points.length,0),placeholders=new Set(plan.items.flatMap(item=>item.grammar_points).filter(point=>!repositoryState.grammarGuides.some(guide=>repositoryGrammarKey(guide.pattern)===repositoryGrammarKey(point.canonical))).map(point=>point.canonical));
-    $('#repoImportPreview').innerHTML=`<strong>${plan.items.length} sentence${plan.items.length===1?'':'s'} · ${links} canonical grammar link${links===1?'':'s'}</strong>${placeholders.size?`<span>${placeholders.size} missing canonical guide${placeholders.size===1?'':'s'} will be created as minimal placeholders: ${[...placeholders].map(esc).join(', ')}</span>`:''}${plan.items.slice(0,5).map(item=>`<span lang="ja">${repositoryJapanese(item.entry)}</span>`).join('')}${plan.warnings.map(value=>`<p>${esc(value)}</p>`).join('')}`;
+    const links=plan.items.reduce((sum,item)=>sum+item.grammar_points.length,0),existing=plan.items.filter(item=>item.existing_id).length,created=plan.items.length-existing;
+    const sentenceSummary=[existing?`${existing} existing sentence${existing===1?'':'s'} will be updated`:'',created?`${created} new sentence${created===1?'':'s'} will be added`:''].filter(Boolean).join(' · ');
+    const placeholders=new Set(plan.items.flatMap(item=>item.grammar_points).filter(point=>!repositoryState.grammarGuides.some(guide=>repositoryGrammarKey(guide.pattern)===repositoryGrammarKey(point.canonical))).map(point=>point.canonical));
+    $('#repoImportPreview').innerHTML=`<strong>${sentenceSummary} · ${links} canonical grammar link${links===1?'':'s'}</strong>${placeholders.size?`<span>${placeholders.size} missing canonical guide${placeholders.size===1?'':'s'} will be created as minimal placeholders: ${[...placeholders].map(esc).join(', ')}</span>`:''}${plan.items.slice(0,5).map(item=>`<span lang="ja">${repositoryJapanese(item.entry)}</span>`).join('')}${plan.warnings.map(value=>`<p>${esc(value)}</p>`).join('')}`;
     $('#repoRunImport').textContent='Import sentences';$('#repoRunImport').disabled=false;
   }catch(error){pendingRepositoryImport=null;repositoryImportSnapshot='';$('#repoImportPreview').innerHTML=`<span class="repo-import-error">${esc(error.message)}</span>`;$('#repoRunImport').textContent='Import';$('#repoRunImport').disabled=true;}
 }
@@ -779,13 +788,15 @@ async function runRepositoryImport(){
   repositoryImportRunning=true; button.disabled=true;
   const input=$('#repoImportJson'); if(input)input.disabled=true;
   try{
-    const calls={sentences:['import_repository_with_canonical_grammar',{p_entries:pending.payload}],guide:['upsert_canonical_grammar_guide',{p_guide:pending.payload}],clarification:['append_canonical_grammar_clarification',{p_clarification:pending.payload}]};
+    const sentencePayload=pending.kind==='sentences'?pending.payload.map(({existing_id,...item})=>item):null;
+    const calls={sentences:['import_repository_with_canonical_grammar',{p_entries:sentencePayload}],guide:['upsert_canonical_grammar_guide',{p_guide:pending.payload}],clarification:['append_canonical_grammar_clarification',{p_clarification:pending.payload}]};
     const [name,args]=calls[pending.kind],{data,error}=await db.rpc(name,args);if(error)throw error;
     if(state.user?.id!==userId) return;
     pendingRepositoryImport=null;repositoryImportSnapshot='';
     repositoryState.mode=pending.kind==='guide'||pending.kind==='clarification'?'grammar-library':'browse';
     await loadRepositoryData(true);
-    toast(pending.kind==='sentences'?`${data.entries.length} repository entr${data.entries.length===1?'y':'ies'} imported`:pending.kind==='guide'?`Canonical guide ${data.guide.pattern} saved`:`Clarification saved to ${data.guide.pattern}; sentences unchanged`);
+    const sentenceResult=data=>[data.updated_count?`${data.updated_count} updated`:'',data.created_count?`${data.created_count} added`:''].filter(Boolean).join(' · ')||`${data.entries.length} imported`;
+    toast(pending.kind==='sentences'?`Repository sentences: ${sentenceResult(data)}`:pending.kind==='guide'?`Canonical guide ${data.guide.pattern} saved`:`Clarification saved to ${data.guide.pattern}; sentences unchanged`);
   }catch(error){
     if(state.user?.id===userId) toast(`${error?.message||'Import failed.'} Reload and check your entries before retrying if the connection was interrupted.`);
   }finally{
