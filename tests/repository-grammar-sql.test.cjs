@@ -10,6 +10,7 @@ const root=path.resolve(__dirname,'..'),owner='00000000-0000-4000-8000-000000000
   await db.exec(`set role authenticated;set request.jwt.claim.sub='${owner}';insert into public.japanese_repository(user_id,japanese,grammar_points)values('${owner}','legacy',array['〜てたら']);reset role;`);
   await db.exec(fs.readFileSync(path.join(root,'migrations/20260906_canonical_grammar_redesign.sql'),'utf8'));
   await db.exec(fs.readFileSync(path.join(root,'migrations/20260906_duplicate_safe_sentence_import.sql'),'utf8'));
+  await db.exec(fs.readFileSync(path.join(root,'migrations/20260906_pending_grammar_guides.sql'),'utf8'));
   await db.exec(`set role authenticated;set request.jwt.claim.sub='${owner}';`);
   const sentence=JSON.parse(fs.readFileSync(path.join(root,'examples/repository-grammar-import.json'),'utf8'));
   const entry={...sentence,grammar_points:sentence.grammar_points.map(x=>x.canonical)};
@@ -17,6 +18,11 @@ const root=path.resolve(__dirname,'..'),owner='00000000-0000-4000-8000-000000000
   const payload=[{entry,grammar_points:sentence.grammar_points,import_fields:updateFields.filter(field=>Object.hasOwn(sentence,field))}];
   const imported=(await db.query('select public.import_repository_with_canonical_grammar($1::jsonb) result',[JSON.stringify(payload)])).rows[0].result;
   assert.equal(imported.links.length,3);assert.equal(imported.created_count,1);assert.equal(imported.updated_count,0);
+  assert.equal(Number((await db.query("select count(*) from public.japanese_grammar_guides where guide_status='pending' and discovered_from_sentence")).rows[0].count),3);
+  const second={...payload[0],entry:{...payload[0].entry,japanese:'何してる？',japanese_furigana:'[何|なに]してる？',english:'What are you doing?',grammar_points:['〜ている','〜てしまう']},grammar_points:[{canonical:'〜ている',surface:'してる',note:'Spoken ongoing form.'},{canonical:'〜てしまう',surface:'してる',note:'Test shared surface.'}]};
+  await db.query('select public.import_repository_with_canonical_grammar($1::jsonb)',[JSON.stringify([second])]);
+  assert.equal(Number((await db.query("select count(*) from public.japanese_grammar_guides where guide_status='pending'")).rows[0].count),4,'pending canonicals are unique');
+  assert.equal(Number((await db.query("select count(distinct l.repository_id) from public.japanese_repository_grammar l join public.japanese_grammar_guides g on g.id=l.grammar_id where g.pattern='〜ている'")).rows[0].count),2,'shared canonical counts both linked sentences');
   const sentenceId=imported.entries[0].id;await db.query("update public.japanese_repository set status='known',lesson_number=12,migaku_exported_at=now() where id=$1",[sentenceId]);
   const repeated=(await db.query('select public.import_repository_with_canonical_grammar($1::jsonb) result',[JSON.stringify(payload)])).rows[0].result;
   assert.equal(repeated.created_count,0);assert.equal(repeated.updated_count,1);assert.equal(repeated.entries[0].id,sentenceId);assert.equal(repeated.links.length,3);
@@ -31,10 +37,11 @@ const root=path.resolve(__dirname,'..'),owner='00000000-0000-4000-8000-000000000
   assert.equal(Number((await db.query("select count(*) from public.japanese_repository where japanese=$1 and entry_type='correction'",[sentence.japanese])).rows[0].count),2,'corrections may share final Japanese');
   const patterns=(await db.query('select pattern from public.japanese_grammar_guides order by pattern')).rows.map(x=>x.pattern);assert.ok(patterns.includes('〜たら'));assert.ok(!patterns.includes('〜てたら'));
   const guide=JSON.parse(fs.readFileSync(path.join(root,'examples/canonical-grammar-guide-import.json'),'utf8')),combined=guide.combined_forms,{combined_forms,...guideCore}=guide;
+  const pendingTara=(await db.query("select id from public.japanese_grammar_guides where pattern='〜たら'")).rows[0].id;
   let saved=(await db.query('select public.upsert_canonical_grammar_guide($1::jsonb) result',[JSON.stringify({...guideCore,variants:[...guide.variants,...combined.map(item=>({...item,variant_type:'combined_form'}))]})])).rows[0].result;
-  assert.equal(saved.guide.pattern,'〜たら');assert.equal(saved.guide.is_placeholder,false);assert.equal(Number((await db.query("select count(*) from public.japanese_grammar_variants where form='〜てたら'")).rows[0].count),1);
+  assert.equal(saved.guide.pattern,'〜たら');assert.equal(saved.guide.id,pendingTara);assert.equal(saved.guide.is_placeholder,false);assert.equal(saved.guide.guide_status,'complete');assert.equal(Number((await db.query("select count(*) from public.japanese_grammar_variants where form='〜てたら'")).rows[0].count),1);
   const clarification=JSON.parse(fs.readFileSync(path.join(root,'examples/grammar-clarification-import.json'),'utf8'));await db.query('select public.append_canonical_grammar_clarification($1::jsonb)',[JSON.stringify({...clarification,guide_slug:''})]);
-  assert.equal(Number((await db.query('select count(*) from public.japanese_grammar_clarifications')).rows[0].count),1);assert.equal(Number((await db.query('select count(*) from public.japanese_repository')).rows[0].count),4);
+  assert.equal(Number((await db.query('select count(*) from public.japanese_grammar_clarifications')).rows[0].count),1);assert.equal(Number((await db.query('select count(*) from public.japanese_repository')).rows[0].count),5);
   await db.query('select public.upsert_canonical_grammar_guide($1::jsonb)',[JSON.stringify({...guideCore,variants:[...guide.variants,...combined.map(item=>({...item,variant_type:'combined_form'}))]})]);
   assert.equal(Number((await db.query('select count(*) from public.japanese_grammar_clarifications')).rows[0].count),1,'guide updates preserve separately imported clarifications');
   assert.equal((await db.query("select grammar_points from public.japanese_repository where japanese='legacy'")).rows[0].grammar_points.length,0,'legacy grammar metadata reset without deleting sentence');
