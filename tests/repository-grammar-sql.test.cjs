@@ -11,6 +11,7 @@ const root=path.resolve(__dirname,'..'),owner='00000000-0000-4000-8000-000000000
   await db.exec(fs.readFileSync(path.join(root,'migrations/20260906_canonical_grammar_redesign.sql'),'utf8'));
   await db.exec(fs.readFileSync(path.join(root,'migrations/20260906_duplicate_safe_sentence_import.sql'),'utf8'));
   await db.exec(fs.readFileSync(path.join(root,'migrations/20260906_pending_grammar_guides.sql'),'utf8'));
+  await db.exec(fs.readFileSync(path.join(root,'migrations/20260907_grammar_guide_batch_identity.sql'),'utf8'));
   await db.exec(`set role authenticated;set request.jwt.claim.sub='${owner}';`);
   const sentence=JSON.parse(fs.readFileSync(path.join(root,'examples/repository-grammar-import.json'),'utf8'));
   const entry={...sentence,grammar_points:sentence.grammar_points.map(x=>x.canonical)};
@@ -37,6 +38,31 @@ const root=path.resolve(__dirname,'..'),owner='00000000-0000-4000-8000-000000000
   assert.equal(Number((await db.query("select count(*) from public.japanese_repository where japanese=$1 and entry_type='correction'",[sentence.japanese])).rows[0].count),2,'corrections may share final Japanese');
   const patterns=(await db.query('select pattern from public.japanese_grammar_guides order by pattern')).rows.map(x=>x.pattern);assert.ok(patterns.includes('〜たら'));assert.ok(!patterns.includes('〜てたら'));
   const guide=JSON.parse(fs.readFileSync(path.join(root,'examples/canonical-grammar-guide-import.json'),'utf8')),combined=guide.combined_forms,{combined_forms,...guideCore}=guide;
+  const batchCanonicals=['〜ている','〜たら','〜てくる','〜てしまう'];
+  const originalGuideIds=Object.fromEntries((await db.query('select id,pattern from public.japanese_grammar_guides where pattern=any($1::text[])',[batchCanonicals])).rows.map(row=>[row.pattern,row.id]));
+  assert.equal(Object.keys(originalGuideIds).length,4,'four distinct pending placeholders exist before completion');
+  const completeGuide=(canonical,index,revision='sequential')=>({...guideCore,slug:`identity-${index}`,canonical,meaning:`${revision} meaning for ${canonical}`,summary:`${revision} summary for ${canonical}`,variants:[],clarifications:[],related_grammar:[],reference_examples:[],references:[]});
+  for(const [index,canonical] of batchCanonicals.entries()){
+    const result=(await db.query('select public.upsert_canonical_grammar_guide($1::jsonb) result',[JSON.stringify(completeGuide(canonical,index))])).rows[0].result;
+    assert.equal(result.guide.pattern,canonical,'single-guide RPC returns the incoming canonical');
+    assert.equal(result.guide.id,originalGuideIds[canonical],'single-guide completion retains the placeholder ID');
+  }
+  const completedRows=(await db.query('select id,pattern,meaning,guide_status,is_placeholder from public.japanese_grammar_guides where pattern=any($1::text[])',[batchCanonicals])).rows;
+  assert.equal(completedRows.length,4,'canonical completion creates no duplicate guide rows');
+  for(const [index,canonical] of batchCanonicals.entries()){
+    const row=completedRows.find(candidate=>candidate.pattern===canonical);
+    assert.equal(row.id,originalGuideIds[canonical]);assert.equal(row.meaning,`sequential meaning for ${canonical}`);assert.equal(row.guide_status,'complete');assert.equal(row.is_placeholder,false);
+  }
+  const batchPayload=batchCanonicals.map((canonical,index)=>completeGuide(canonical,index,'batch'));
+  const batchResult=(await db.query('select public.upsert_canonical_grammar_guides($1::jsonb) result',[JSON.stringify(batchPayload)])).rows[0].result;
+  assert.equal(batchResult.items.length,4);assert.equal(batchResult.guides.length,4);
+  batchResult.items.forEach((item,index)=>{assert.equal(item.incoming_canonical,batchCanonicals[index]);assert.equal(item.returned_pattern,batchCanonicals[index]);assert.equal(item.guide_id,originalGuideIds[batchCanonicals[index]]);assert.equal(item.guide_status,'complete');assert.equal(item.is_placeholder,false);});
+  const batchRows=(await db.query('select id,pattern,meaning from public.japanese_grammar_guides where pattern=any($1::text[])',[batchCanonicals])).rows;
+  batchRows.forEach((row,index)=>{assert.equal(row.id,originalGuideIds[row.pattern]);assert.equal(row.meaning,`batch meaning for ${row.pattern}`);});
+  const taraBefore=batchRows.find(row=>row.pattern==='〜たら').meaning;
+  const atomicFailure=[{...completeGuide('〜たら',1,'must-roll-back'),slug:'identity-1'},{...completeGuide('〜ている',0,'must-not-save'),slug:'identity-1'}];
+  await assert.rejects(db.query('select public.upsert_canonical_grammar_guides($1::jsonb)',[JSON.stringify(atomicFailure)]),/belongs to a different canonical guide/);
+  assert.equal((await db.query("select meaning from public.japanese_grammar_guides where pattern='〜たら'")).rows[0].meaning,taraBefore,'a later batch failure rolls back earlier guide updates');
   const pendingTara=(await db.query("select id from public.japanese_grammar_guides where pattern='〜たら'")).rows[0].id;
   let saved=(await db.query('select public.upsert_canonical_grammar_guide($1::jsonb) result',[JSON.stringify({...guideCore,variants:[...guide.variants,...combined.map(item=>({...item,variant_type:'combined_form'}))]})])).rows[0].result;
   assert.equal(saved.guide.pattern,'〜たら');assert.equal(saved.guide.id,pendingTara);assert.equal(saved.guide.is_placeholder,false);assert.equal(saved.guide.guide_status,'complete');assert.equal(Number((await db.query("select count(*) from public.japanese_grammar_variants where form='〜てたら'")).rows[0].count),1);
@@ -45,5 +71,5 @@ const root=path.resolve(__dirname,'..'),owner='00000000-0000-4000-8000-000000000
   await db.query('select public.upsert_canonical_grammar_guide($1::jsonb)',[JSON.stringify({...guideCore,variants:[...guide.variants,...combined.map(item=>({...item,variant_type:'combined_form'}))]})]);
   assert.equal(Number((await db.query('select count(*) from public.japanese_grammar_clarifications')).rows[0].count),1,'guide updates preserve separately imported clarifications');
   assert.equal((await db.query("select grammar_points from public.japanese_repository where japanese='legacy'")).rows[0].grammar_points.length,0,'legacy grammar metadata reset without deleting sentence');
-  console.log('PASS: canonical imports update exact sentence matches, rebuild links idempotently, preserve unrelated metadata, exempt corrections, and keep grammar isolation.');
+  console.log('PASS: canonical imports keep sentence and guide identities stable, complete batches atomically, preserve unrelated metadata, and keep grammar isolation.');
 }finally{await db.close();}})().catch(error=>{console.error(error);process.exitCode=1;});

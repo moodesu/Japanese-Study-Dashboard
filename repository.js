@@ -900,18 +900,38 @@ async function runRepositoryImport(){
     const sentencePayload=pending.kind==='sentences'?pending.payload.map(({existing_id,...item})=>item):null;
     let data;
     if(pending.kind==='guides'){
-      const saved=[];
-      for(const guide of pending.payload){const result=await db.rpc('upsert_canonical_grammar_guide',{p_guide:guide});if(result.error)throw result.error;saved.push(result.data.guide);}
-      data={guides:saved};
+      const result=await db.rpc('upsert_canonical_grammar_guides',{p_guides:pending.payload});
+      if(result.error)throw result.error;
+      data=result.data;
+      if(!Array.isArray(data?.items)||data.items.length!==pending.payload.length) throw new Error('Grammar guide batch import returned incomplete diagnostic data.');
+      pending.payload.forEach((guide,index)=>{
+        const returned=data.items[index];
+        if(repositoryGrammarKey(returned?.incoming_canonical)!==repositoryGrammarKey(guide.canonical)||repositoryGrammarKey(returned?.returned_pattern)!==repositoryGrammarKey(guide.canonical)){
+          throw new Error(`Grammar guide import mismatch: expected ${guide.canonical}, database updated ${returned?.returned_pattern||'an unknown guide'}`);
+        }
+      });
     }else{
       const calls={sentences:['import_repository_with_canonical_grammar',{p_entries:sentencePayload}],guide:['upsert_canonical_grammar_guide',{p_guide:pending.payload}],clarification:['append_canonical_grammar_clarification',{p_clarification:pending.payload}]};
       const [name,args]=calls[pending.kind],result=await db.rpc(name,args);if(result.error)throw result.error;data=result.data;
+      if(pending.kind==='guide'&&repositoryGrammarKey(data?.guide?.pattern)!==repositoryGrammarKey(pending.payload.canonical)){
+        throw new Error(`Grammar guide import mismatch: expected ${pending.payload.canonical}, database updated ${data?.guide?.pattern||'an unknown guide'}`);
+      }
     }
     if(state.user?.id!==userId) return;
-    repositoryClearImportDraft();
-    pendingRepositoryImport=null;repositoryImportSnapshot='';
     repositoryState.mode=['guide','guides','clarification'].includes(pending.kind)?'grammar-library':'browse';
     await loadRepositoryData(true);
+    if(pending.kind==='guides'){
+      const incomplete=pending.payload.filter(imported=>{
+        const guide=repositoryState.grammarGuides.find(candidate=>repositoryGrammarKey(candidate.pattern)===repositoryGrammarKey(imported.canonical));
+        return !guide||guide.guide_status!=='complete'||guide.is_placeholder!==false;
+      });
+      if(incomplete.length){
+        const completed=pending.payload.length-incomplete.length;
+        throw new Error(`Batch import incomplete: ${completed} of ${pending.payload.length} guides completed. Still pending: ${incomplete.map(guide=>guide.canonical).join(', ')}`);
+      }
+    }
+    repositoryClearImportDraft();
+    pendingRepositoryImport=null;repositoryImportSnapshot='';
     const sentenceResult=data=>[data.updated_count?`${data.updated_count} updated`:'',data.created_count?`${data.created_count} added`:''].filter(Boolean).join(' · ')||`${data.entries.length} imported`;
     toast(pending.kind==='sentences'?`Repository sentences: ${sentenceResult(data)}`:pending.kind==='guide'?`Canonical guide ${data.guide.pattern} saved`:pending.kind==='guides'?`${data.guides.length} canonical grammar guides saved`:`Clarification saved to ${data.guide.pattern}; sentences unchanged`);
   }catch(error){
