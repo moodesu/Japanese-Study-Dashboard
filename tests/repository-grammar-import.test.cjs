@@ -4,14 +4,17 @@ const vm=require('node:vm');
 const path=require('node:path');
 const root=path.resolve(__dirname,'..');
 const nodes=new Map();
-function node(){return {value:'',innerHTML:'',textContent:'',disabled:false,isConnected:true,handlers:{},addEventListener(k,fn){this.handlers[k]=fn;}};}
-for(const id of ['#repoImportJson','#repoImportPreview','#repoRunImport'])nodes.set(id,node());
+function node(){return {value:'',innerHTML:'',textContent:'',disabled:false,isConnected:true,handlers:{},addEventListener(k,fn){this.handlers[k]=fn;},focus(){}};}
+for(const id of ['#repoImportJson','#repoImportPreview','#repoRunImport','#repoClearImport'])nodes.set(id,node());
 const messages=[];
+const sessionValues=new Map();
 const context={console,URL,TextEncoder,localStorage:{getItem:()=>null},state:{user:{id:'user'},view:'repository'},
+  sessionStorage:{getItem:key=>sessionValues.get(key)||null,setItem:(key,value)=>sessionValues.set(key,value),removeItem:key=>sessionValues.delete(key)},
   $:s=>nodes.get(s)||null,document:{querySelectorAll:()=>[]},toast:x=>messages.push(x),
   esc:x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))};
 context.window=context;vm.createContext(context);vm.runInContext(fs.readFileSync(path.join(root,'repository.js'),'utf8'),context);
 const state=vm.runInContext('repositoryState',context);state.grammarLibraryReady=true;
+context.repositorySaveImportDraft('{"draft":true}');assert.match(context.repositoryImportMarkup(),/\{&quot;draft&quot;:true\}/);assert.match(context.repositoryImportMarkup(),/Draft restored/);assert.equal(sessionValues.get('learningHub.repositoryImportDraft'),'{"draft":true}');context.bindRepositoryEvents(null);nodes.get('#repoImportJson').value='edited draft';nodes.get('#repoImportJson').handlers.input();assert.equal(sessionValues.get('learningHub.repositoryImportDraft'),'edited draft','input changes persist without waiting for blur');nodes.get('#repoClearImport').handlers.click();assert.equal(sessionValues.has('learningHub.repositoryImportDraft'),false,'Clear explicitly discards the draft');
 const sentence=JSON.parse(fs.readFileSync(path.join(root,'examples/repository-grammar-import.json'),'utf8'));
 const plan=context.repositoryPlanImport(sentence);
 assert.deepEqual(Array.from(plan.items[0].entry.grammar_points),['〜たら','〜ている','〜てくる']);
@@ -37,10 +40,11 @@ assert.throws(()=>context.repositoryValidateClarification({...clarificationRaw,c
   let calls=[];context.renderRepository=()=>{};context.loadRepositoryData=async()=>{};
   context.db={rpc:async(name,args)=>{calls.push([name,args]);if(name==='import_repository_with_canonical_grammar')return {data:{entries:[{id:'sentence'}],created_count:0,updated_count:1}};if(name==='upsert_canonical_grammar_guide')return {data:{guide:{pattern:args.p_guide.canonical}}};return {data:{guide:{pattern:'〜たら'}}};}};
   state.entries=[{id:'existing',entry_type:'sentence',japanese:sentence.japanese}];
-  nodes.get('#repoImportJson').value=JSON.stringify(sentence);context.previewRepositoryImport();assert.match(nodes.get('#repoImportPreview').innerHTML,/1 existing sentence will be updated · 3 canonical grammar links/);await context.runRepositoryImport();assert.equal(calls[0][0],'import_repository_with_canonical_grammar');assert.equal(calls[0][1].p_entries[0].grammar_points[0].canonical,'〜たら');assert.equal(calls[0][1].p_entries[0].existing_id,undefined);assert.ok(calls[0][1].p_entries[0].import_fields.includes('english'));
+  nodes.get('#repoImportJson').value=JSON.stringify(sentence);context.repositorySaveImportDraft(nodes.get('#repoImportJson').value);context.previewRepositoryImport();assert.match(nodes.get('#repoImportPreview').innerHTML,/1 existing sentence will be updated · 3 canonical grammar links/);await context.runRepositoryImport();assert.equal(calls[0][0],'import_repository_with_canonical_grammar');assert.equal(calls[0][1].p_entries[0].grammar_points[0].canonical,'〜たら');assert.equal(calls[0][1].p_entries[0].existing_id,undefined);assert.ok(calls[0][1].p_entries[0].import_fields.includes('english'));assert.equal(sessionValues.has('learningHub.repositoryImportDraft'),false,'successful import clears the draft');
   nodes.get('#repoImportJson').value=JSON.stringify(guideRaw);context.previewRepositoryImport();await context.runRepositoryImport();assert.equal(calls[1][0],'upsert_canonical_grammar_guide');
   const guideBatch=[guideRaw,{...guideRaw,slug:'teiru',canonical:'〜ている'}];state.grammarGuides=[{id:'pending',pattern:'〜たら',is_placeholder:true,guide_status:'pending'}];nodes.get('#repoImportJson').value=JSON.stringify(guideBatch);context.previewRepositoryImport();assert.match(nodes.get('#repoImportPreview').innerHTML,/2 grammar guides/);assert.match(nodes.get('#repoImportPreview').innerHTML,/1 pending guides will be completed · 1 new guides/);await context.runRepositoryImport();assert.equal(calls[2][0],'upsert_canonical_grammar_guide');assert.equal(calls[3][1].p_guide.canonical,'〜ている');
   nodes.get('#repoImportJson').value=JSON.stringify(clarificationRaw);context.previewRepositoryImport();await context.runRepositoryImport();assert.equal(calls[4][0],'append_canonical_grammar_clarification');
-  nodes.get('#repoImportJson').value=JSON.stringify(sentence);context.previewRepositoryImport();nodes.get('#repoImportJson').value+=' ';await context.runRepositoryImport();assert.equal(calls.length,5,'stale preview cannot import');
+  context.repositorySaveImportDraft('{invalid');nodes.get('#repoImportJson').value='{invalid';context.previewRepositoryImport();assert.equal(sessionValues.get('learningHub.repositoryImportDraft'),'{invalid','failed preview keeps the draft');
+  nodes.get('#repoImportJson').value=JSON.stringify(sentence);context.repositorySaveImportDraft(nodes.get('#repoImportJson').value);context.previewRepositoryImport();nodes.get('#repoImportJson').value+=' ';await context.runRepositoryImport();assert.equal(calls.length,5,'stale preview cannot import');assert.ok(sessionValues.has('learningHub.repositoryImportDraft'),'stale or failed import keeps the draft');
   console.log('PASS: canonical sentence annotations, contractions, guide/clarification validation, furigana and isolated import RPCs.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

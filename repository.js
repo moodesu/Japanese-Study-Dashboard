@@ -38,6 +38,19 @@ const REPOSITORY_ERROR_TYPES = [
   'Particles','Verb form','Word choice','Word order','Register','Omission',
   'Grammar pattern','Naturalness','Kanji / spelling','Other'
 ];
+const REPOSITORY_IMPORT_DRAFT_KEY = 'learningHub.repositoryImportDraft';
+
+function repositoryImportDraft(){
+  try{return window.sessionStorage?.getItem(REPOSITORY_IMPORT_DRAFT_KEY)||'';}catch{return '';}
+}
+
+function repositorySaveImportDraft(value){
+  try{window.sessionStorage?.setItem(REPOSITORY_IMPORT_DRAFT_KEY,String(value||''));}catch{}
+}
+
+function repositoryClearImportDraft(){
+  try{window.sessionStorage?.removeItem(REPOSITORY_IMPORT_DRAFT_KEY);}catch{}
+}
 
 function repositoryArray(value){
   if(Array.isArray(value)) return value.filter(Boolean).map(String);
@@ -455,7 +468,7 @@ function repositoryFormMarkup(entry={}){
 }
 
 function repositoryImportMarkup(){
-  return `<section class="repo-page repo-form-page"><div class="repo-detail-toolbar"><button class="smallbtn" id="repoCancel">← Cancel</button></div><section class="repo-form-head"><div class="eyebrow">Canonical grammar</div><h1>Import Learning Hub JSON</h1><p>Import sentences, one <code>grammar_guide</code>, a JSON array of grammar guides, or one <code>grammar_clarification</code>.</p><p>Sentence surfaces such as <code>見てたら</code> and <code>食べちゃった</code> are evidence for canonical concepts; they never become guides automatically.</p><p>All readings must use <code>[漢字|かんじ]</code>. Preview before saving.</p></section><section class="panel repo-import"><label><span>JSON</span><textarea id="repoImportJson" spellcheck="false" placeholder="Paste Learning Hub JSON here…"></textarea></label><div id="repoImportPreview" class="repo-import-preview" role="status" aria-live="polite">Paste JSON, then preview it.</div><div class="repo-form-actions"><button class="smallbtn" id="repoPreviewImport" type="button">Preview</button><button class="smallbtn primary" id="repoRunImport" type="button" disabled>Import</button></div></section></section>`;
+  return `<section class="repo-page repo-form-page"><div class="repo-detail-toolbar"><button class="smallbtn" id="repoCancel">← Cancel</button></div><section class="repo-form-head"><div class="eyebrow">Canonical grammar</div><h1>Import Learning Hub JSON</h1><p>Import sentences, one <code>grammar_guide</code>, a JSON array of grammar guides, or one <code>grammar_clarification</code>.</p><p>Sentence surfaces such as <code>見てたら</code> and <code>食べちゃった</code> are evidence for canonical concepts; they never become guides automatically.</p><p>All readings must use <code>[漢字|かんじ]</code>. Preview before saving.</p></section><section class="panel repo-import"><label><span>JSON</span><textarea id="repoImportJson" spellcheck="false" placeholder="Paste Learning Hub JSON here…">${esc(repositoryImportDraft())}</textarea></label><div id="repoImportPreview" class="repo-import-preview" role="status" aria-live="polite">${repositoryImportDraft()?'Draft restored. Preview it again before importing.':'Paste JSON, then preview it.'}</div><div class="repo-form-actions repo-import-actions"><button class="smallbtn" id="repoClearImport" type="button" ${repositoryImportDraft()?'':'disabled'}>Clear</button><span class="repo-import-action-spacer"></span><button class="smallbtn" id="repoPreviewImport" type="button">Preview</button><button class="smallbtn primary" id="repoRunImport" type="button" disabled>Import</button></div></section></section>`;
 }
 
 function renderRepository(){
@@ -645,10 +658,17 @@ function bindRepositoryEvents(selected){
   $('#repoPreviewImport')?.addEventListener('click',previewRepositoryImport);
   $('#repoRunImport')?.addEventListener('click',runRepositoryImport);
   $('#repoImportJson')?.addEventListener('input',()=>{
+    repositorySaveImportDraft($('#repoImportJson').value);
     pendingRepositoryImport=null; repositoryImportSnapshot='';
     $('#repoRunImport').disabled=true;
+    if($('#repoClearImport'))$('#repoClearImport').disabled=!$('#repoImportJson').value;
     $('#repoRunImport').textContent='Import';
     $('#repoImportPreview').textContent='JSON changed. Preview again before importing.';
+  });
+  $('#repoClearImport')?.addEventListener('click',()=>{
+    repositoryClearImportDraft();pendingRepositoryImport=null;repositoryImportSnapshot='';
+    $('#repoImportJson').value='';$('#repoImportPreview').textContent='Draft cleared. Paste JSON, then preview it.';
+    $('#repoRunImport').disabled=true;$('#repoRunImport').textContent='Import';$('#repoClearImport').disabled=true;$('#repoImportJson').focus();
   });
 }
 
@@ -888,6 +908,7 @@ async function runRepositoryImport(){
       const [name,args]=calls[pending.kind],result=await db.rpc(name,args);if(result.error)throw result.error;data=result.data;
     }
     if(state.user?.id!==userId) return;
+    repositoryClearImportDraft();
     pendingRepositoryImport=null;repositoryImportSnapshot='';
     repositoryState.mode=['guide','guides','clarification'].includes(pending.kind)?'grammar-library':'browse';
     await loadRepositoryData(true);
