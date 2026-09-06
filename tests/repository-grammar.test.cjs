@@ -21,8 +21,14 @@ state.grammarClarifications=[{id:'c1',grammar_id:tara.id,title:'見たら vs 見
 state.selectedId=entry.id;state.grammarGuideId=tara.id;state.grammarLabel='〜たら';state.mode='grammar';
 let html=context.repositoryGrammarMarkup(entry);
 for(const heading of ['Overview','Formation','Usage and nuance','Combined forms','Clarifications','My examples','Reference examples','Related grammar'])assert.ok(html.includes(`<h2>${heading}</h2>`),heading);
-assert.ok(html.includes('見てたら'));assert.ok(html.includes('data-repo-entry="sentence"'));assert.ok(!html.includes('〜てたら</h1>'));
+assert.ok(html.includes('<h2>In this sentence</h2>'));assert.ok(!html.includes('Your saved sentence'));
+assert.ok(html.includes('<mark class="repo-grammar-surface">見</mark><rt>み</rt>'));assert.ok(html.includes('<mark class="repo-grammar-surface">てたら</mark>'));assert.equal((html.match(/<rt>み<\/rt>/g)||[]).length,2,'the context and My example each render one reading without duplication');
+assert.ok(html.includes('<span lang="ja">見てたら</span><span aria-hidden="true">→</span><strong lang="ja">〜たら</strong>'));assert.ok(html.includes('Contracted ongoing form.'));assert.ok(!html.includes('Ongoing aspect.'),'sentence context shows only the current guide link note');
+assert.ok(html.includes('data-repo-entry="sentence"'));assert.ok(!html.includes('〜てたら</h1>'));
 assert.match(context.repositoryGrammarLinks(entry),/〜たら/);assert.match(context.repositoryGrammarLinks(entry),/〜ている/);
+state.grammarGuideId=teiru.id;state.grammarLabel='〜ている';html=context.repositoryGrammarMarkup(entry);assert.ok(html.includes('<span lang="ja">見てたら</span><span aria-hidden="true">→</span><strong lang="ja">〜ている</strong>'));assert.ok(html.includes('Ongoing aspect.'));assert.ok(!html.includes('Contracted ongoing form.'),'the same surface resolves to the current canonical guide only');
+const iku={japanese:'今日レクサスのディーラーに行ってきた。',japanese_furigana:'[今日|きょう]レクサスのディーラーに[行|い]ってきた。'};const ikuHtml=context.repositoryJapaneseWithSurfaces(iku,['行ってきた']);assert.ok(ikuHtml.includes('<ruby><mark class="repo-grammar-surface">行</mark><rt>い</rt></ruby><mark class="repo-grammar-surface">ってきた</mark>'));assert.equal((ikuHtml.match(/<rt>い<\/rt>/g)||[]).length,1);
+const standalone={routeStandalone:true};html=context.repositoryGrammarMarkup(standalone);assert.ok(!html.includes('<h2>In this sentence</h2>'));assert.ok(html.includes('<h2>My examples</h2>'));assert.ok(html.includes('<mark class="repo-grammar-surface">てたら</mark>'));
 state.grammarQuery='てたら';html=context.repositoryGrammarLibraryMarkup();assert.ok(html.includes('〜たら'));assert.ok(html.includes('Matched: 〜てたら'));assert.ok(html.includes('Related match via 〜たら: 〜てたら'));assert.equal((html.match(/class="repo-grammar-card"/g)||[]).length,2,'combined-form search also discovers its related canonical guide');assert.ok(!html.includes('data-repo-guide="v2"'),'variants are not cards');
 state.grammarQuery='';html=context.repositoryGrammarLibraryMarkup();assert.equal((html.match(/class="repo-grammar-card"/g)||[]).length,2,'only canonical guides become cards');
 assert.equal(context.repositorySavedGuide(tara).myExamples.length,1);

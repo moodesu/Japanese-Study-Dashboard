@@ -89,6 +89,49 @@ function repositoryJapanese(entry,original=false){
   return renderRepositoryFurigana(notation,plain);
 }
 
+function repositorySurfaceRanges(plain,surfaces){
+  const ranges=[];
+  for(const surface of [...new Set((surfaces||[]).filter(Boolean))]){
+    const start=String(plain||'').indexOf(surface);
+    if(start>=0) ranges.push([start,start+surface.length]);
+  }
+  ranges.sort((a,b)=>a[0]-b[0]);
+  return ranges.reduce((merged,range)=>{
+    const previous=merged.at(-1);
+    if(previous&&range[0]<=previous[1]) previous[1]=Math.max(previous[1],range[1]);
+    else merged.push([...range]);
+    return merged;
+  },[]);
+}
+
+function repositoryMarkedSegment(value,offset,ranges){
+  let html='',cursor=0;
+  for(const [start,end] of ranges){
+    const from=Math.max(0,start-offset),to=Math.min(value.length,end-offset);
+    if(from>=to) continue;
+    html+=esc(value.slice(cursor,from));
+    html+=`<mark class="repo-grammar-surface">${esc(value.slice(from,to))}</mark>`;
+    cursor=to;
+  }
+  return html+esc(value.slice(cursor));
+}
+
+function repositoryJapaneseWithSurfaces(entry,surfaces){
+  const plain=String(entry.japanese||''),notation=String(entry.japanese_furigana||''),ranges=repositorySurfaceRanges(plain,surfaces);
+  if(!ranges.length) return repositoryJapanese(entry);
+  if(!notation||repositoryPlainFromFurigana(notation)!==plain) return repositoryMarkedSegment(plain,0,ranges);
+  const pattern=/\[([^\]|]+)\|([^\]]+)\]/g;
+  let html='',notationCursor=0,plainCursor=0,match;
+  while((match=pattern.exec(notation))){
+    const before=notation.slice(notationCursor,match.index);
+    html+=repositoryMarkedSegment(before,plainCursor,ranges);plainCursor+=before.length;
+    html+=`<ruby>${repositoryMarkedSegment(match[1],plainCursor,ranges)}<rt>${esc(match[2])}</rt></ruby>`;
+    plainCursor+=match[1].length;notationCursor=pattern.lastIndex;
+  }
+  html+=repositoryMarkedSegment(notation.slice(notationCursor),plainCursor,ranges);
+  return html;
+}
+
 function filteredRepositoryEntries(){
   const q=repositoryState.query.trim().toLowerCase();
   return repositoryState.entries.filter(entry=>{
@@ -232,6 +275,7 @@ function closeRepositoryGrammar(){
 function repositoryGrammarMarkup(entry){
   const label=repositoryState.grammarLabel, guide=repositoryGrammarGuide(label,entry);
   const lessons=repositoryGrammarCatalogue().filter(row=>repositoryGrammarKey(row.label)===repositoryGrammarKey(guide?.pattern||label));
+  const contextLinks=guide&&!entry.routeStandalone?repositoryState.grammarLinks.filter(link=>link.repository_id===entry.id&&link.grammar_id===guide.id):[];
   const text=value=>renderRepositoryFurigana(value,repositoryPlainFromFurigana(value));
   const body=guide?`
     <section class="panel"><h2>Overview</h2><p><strong>${text(guide.meaning)}</strong></p>${guide.summary?`<p>${text(guide.summary)}</p>`:''}${guide.is_placeholder?'<p class="subtitle">This canonical guide is waiting for a full grammar-guide import.</p>':''}</section>
@@ -248,7 +292,7 @@ function repositoryGrammarMarkup(entry){
     <div class="repo-detail-toolbar"><button type="button" class="smallbtn" id="repoGrammarBack">← ${entry.routeStandalone?'Grammar Library':'Back to sentence'}</button></div>
     <header><div class="eyebrow">Grammar reference</div><h1 id="repoGrammarTitle" tabindex="-1">${guide?text(guide.title):esc(label)}</h1></header>
     <div class="repo-grammar-content">
-      ${entry.routeStandalone?'':`<section class="panel"><h2>Your saved sentence</h2><p lang="ja"><strong>${repositoryJapanese(entry)}</strong></p>${entry.english?`<p>${esc(entry.english)}</p>`:''}${entry.explanation?`<h3>Saved sentence explanation</h3><p class="repo-grammar-context">${esc(entry.explanation)}</p>`:''}</section>`}
+      ${entry.routeStandalone?'':`<section class="panel repo-sentence-context"><h2>In this sentence</h2><p class="repo-context-sentence" lang="ja"><strong>${repositoryJapaneseWithSurfaces(entry,contextLinks.map(link=>link.surface))}</strong></p>${contextLinks.map(link=>`<div class="repo-context-link"><div class="repo-context-mapping"><span lang="ja">${esc(link.surface)}</span><span aria-hidden="true">→</span><strong lang="ja">${esc(guide?.pattern||label)}</strong></div>${link.note?`<p class="repo-context-note">${esc(link.note)}</p>`:''}</div>`).join('')}${entry.english?`<p>${esc(entry.english)}</p>`:''}${entry.explanation?`<h3>Saved sentence explanation</h3><p class="repo-grammar-context">${esc(entry.explanation)}</p>`:''}</section>`}
       ${window.JLHDictionary?.referenceMarkup()||''}
       ${window.JLHNinjal?.panelMarkup(label)||''}
       ${body}
@@ -271,7 +315,7 @@ function repositoryClarificationsMarkup(guide,text){
 }
 
 function repositoryMyExamplesMarkup(guide){
-  return `<section class="panel"><h2>My examples</h2>${guide.myExamples.length?guide.myExamples.map(({entry,link})=>`<button type="button" class="repo-my-example" data-repo-entry="${esc(entry.id)}"><strong lang="ja">${repositoryJapanese(entry)}</strong>${entry.english?`<span>${esc(entry.english)}</span>`:''}${link.surface?`<small>Surface: ${esc(link.surface)}${link.note?' · '+esc(link.note):''}</small>`:''}</button>`).join(''):'<p class="subtitle">No saved sentences are linked to this grammar yet.</p>'}</section>`;
+  return `<section class="panel"><h2>My examples</h2>${guide.myExamples.length?guide.myExamples.map(({entry,link})=>`<button type="button" class="repo-my-example" data-repo-entry="${esc(entry.id)}"><strong lang="ja">${repositoryJapaneseWithSurfaces(entry,[link.surface])}</strong>${link.surface?`<span class="repo-example-mapping" lang="ja">${esc(link.surface)} → ${esc(guide.pattern)}</span>`:''}${link.note?`<small>${esc(link.note)}</small>`:''}${entry.english?`<span>${esc(entry.english)}</span>`:''}</button>`).join(''):'<p class="subtitle">No saved sentences are linked to this grammar yet.</p>'}</section>`;
 }
 
 function repositoryReferenceExamplesMarkup(guide,text){
