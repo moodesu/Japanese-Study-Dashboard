@@ -11,6 +11,7 @@
 - Keeps JSON textarea horizontal scrolling local to the textarea.
 - Allows long English match/metadata text to wrap without applying destructive global Japanese word breaking.
 - Preserves horizontal ruby typography for grammar labels and contains exceptional long navigation labels locally.
+- Sets Repository text-entry controls to a computed mobile font size of at least 16px to prevent iOS focus zoom without restricting accessibility zoom.
 
 ## Smoke-test checklist
 
@@ -24,6 +25,7 @@
 - Paste another draft and press Clear; confirm it is intentionally removed.
 - Search Grammar Library using a long match and inspect pending metadata; confirm cards do not extend past the viewport.
 - Confirm Japanese canonical labels and furigana remain horizontal and readable.
+- On physical iPhone Edge, focusing the Repository JSON textarea must not change the visual viewport scale.
 
 ## Suggested commit message
 
