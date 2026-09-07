@@ -56,16 +56,24 @@ assert.equal(context.printedToLocalPdfPage(51,pdfs[11]),null,'A printed page can
 
 assert.match(source,/data-textbook-lesson="\$\{l\.n\}"[^>]*data-textbook-label="\$\{esc\(sec\.label\)\}"[^>]*data-textbook-pages="\$\{esc\(sec\.pages\|\|''\)\}"/);
 assert.match(source,/data-textbook-lesson="\$\{l\.n\}"[^>]*data-textbook-label="\$\{esc\(step\.title\)\}"[^>]*data-textbook-pages="\$\{esc\(step\.page\)\}"/,'Guided textbook tasks can open their lesson-specific PDF');
-assert.match(source,/frame\.src=`\$\{url\}#page=\$\{pdfPage\}&zoom=page-width`/);
+assert.match(source,/const tab=window\.open\('about:blank','_blank'\)/,'A browser tab is reserved synchronously from the user action');
+assert.match(source,/tab\.opener=null/,'The reserved textbook tab cannot control the Hub tab');
+assert.match(source,/const tab=reserveTextbookPdfTab\(label\);[\s\S]*?const url=await signedTextbookPdfUrl\(config\)/,'The tab is reserved before signed URL generation can yield');
+assert.match(source,/const targetUrl=`\$\{url\}#page=\$\{pdfPage\}&zoom=page-width`/);
+assert.match(source,/tab\.location\.replace\(targetUrl\)/,'The signed lesson PDF replaces only the reserved tab');
+assert.match(source,/showTextbookPdfFallback\(label,range,'Your browser blocked the new textbook tab\.[^']*',targetUrl\)/,'A blocked popup exposes a safe fallback without changing the Hub route');
 assert.match(source,/createSignedUrl\(config\.path,3600\)/,'PDF access uses a temporary signed URL');
 for(let lesson=11;lesson<=20;lesson++)assert.equal(pdfs[lesson].path,`lesson-${lesson}.pdf`);
 assert.ok(!configSource.includes('tobira-beginning-japanese-ii.pdf'),'There is no whole-book PDF dependency');
 assert.ok(html.indexOf('textbook-pdf.js')<html.indexOf('app.js'));
 assert.ok(html.includes('id="textbookPdfDialog"'));
-assert.match(headers,/frame-src[^;]*youtube-nocookie\.com[^;]*\*\.supabase\.co/);
+assert.ok(!html.includes('id="textbookPdfFrame"'),'Ordinary textbook viewing no longer embeds or replaces the Hub surface');
+assert.match(html,/id="openFullTextbookPdf"[^>]*target="_blank"[^>]*rel="noopener noreferrer"/);
+assert.match(headers,/frame-src[^;]*youtube-nocookie\.com/);
+assert.doesNotMatch(headers,/frame-src[^;]*supabase/,'Private PDFs are no longer embedded as frames');
 assert.match(styles,/\.lesson-video-frame\{[^}]*aspect-ratio:16\/9/);
-assert.match(styles,/\.textbook-pdf-dialog \{[^}]*width:min\(1120px,94vw\)/);
-assert.match(styles,/@media\(max-width:760px\)[\s\S]*?\.textbook-pdf-dialog \{ width:100vw;height:100dvh/);
+assert.match(styles,/\.textbook-pdf-dialog \{[^}]*width:min\(560px,calc\(100% - 28px\)\)/);
+assert.ok(!styles.includes('.textbook-pdf-frame'));
 assert.match(styles,/\.dashboard-lower\.single \.timebar-row \{ grid-template-columns:minmax\(0,1fr\) auto/);
 assert.match(styles,/\.dashboard-lower\.single \.timebar-row>span \{ white-space:normal/);
 assert.match(styles,/\.dashboard-lower\.single \.timebar-track \{ display:none; \}/);
@@ -75,4 +83,4 @@ for(const sql of [schema,migration]){
   assert.match(sql,/array\['application\/pdf'\]/);
 }
 
-console.log('PASS: mobile activity layout, safe lazy YouTube embeds, and lesson-specific private textbook PDF viewing.');
+console.log('PASS: mobile activity layout, safe lazy YouTube embeds, and lesson-specific private PDFs opened in reserved tabs.');

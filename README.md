@@ -187,13 +187,14 @@ repository.
    page with `printed page − lesson start page + 1`; task and reference labels
    continue showing the printed textbook pages.
 4. Open a textbook task or **Lesson reference → Textbook**, then choose
-   **View pages**. The correct lesson PDF opens at the first page of the mapped
-   printed range and leaves the lesson/reference workspace in place when
-   closed.
+   **View pages**. The correct lesson PDF opens in a new browser tab at the
+   first page of the mapped printed range. The Learning Hub tab stays on the
+   same lesson, task, reference state and scroll position.
 
 Signed PDF URLs are kept only in the current in-memory cache. Lesson filenames
 and printed page boundaries are public configuration, but the PDFs and their
-usable signed URLs remain private.
+usable signed URLs remain private. If the browser blocks the initially reserved
+tab, the Hub displays a safe explicit new-tab link instead of navigating away.
 
 The browser has read-only access to this table, protected by the same sole-owner
 check used for private audio. Add and update video mappings only through the

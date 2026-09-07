@@ -1236,42 +1236,58 @@ async function signedTextbookPdfUrl(config){
   textbookPdfUrlCache.set(key,{url:data.signedUrl,expiresAt:Date.now()+3600000});
   return data.signedUrl;
 }
-function closeTextbookPdfViewer(){
-  const dialog=$('#textbookPdfDialog'),frame=$('#textbookPdfFrame');
-  if(frame){frame.src='about:blank';frame.hidden=true;}
+function closeTextbookPdfFallback(){
+  const dialog=$('#textbookPdfDialog');
   if(dialog?.open)dialog.close();
 }
-async function openTextbookPdfViewer(lesson,label,pages){
-  const dialog=$('#textbookPdfDialog'),frame=$('#textbookPdfFrame'),status=$('#textbookPdfStatus'),full=$('#openFullTextbookPdf');
-  const range=parsePrintedPageRange(pages),config=textbookPdfConfig(lesson);
-  if(!dialog||!frame||!status||!full)return;
+function showTextbookPdfFallback(label,range,message,url=''){
+  const dialog=$('#textbookPdfDialog'),status=$('#textbookPdfStatus'),link=$('#openFullTextbookPdf');
+  if(!dialog||!status||!link)return;
   $('#textbookPdfTitle').textContent=label||'Textbook pages';
-  $('#textbookPdfRange').textContent=range?`Printed pages ${range.start}${range.end!==range.start?`–${range.end}`:''}`:'Mapped textbook section';
-  status.hidden=false;status.textContent='Preparing private PDF…';frame.hidden=true;full.hidden=true;
+  $('#textbookPdfRange').textContent=range?`Printed pages ${range.start}${range.end!==range.start?`–${range.end}`:''}`:'';
+  status.textContent=message;
+  link.hidden=!url;
+  if(url)link.href=url;
   if(!dialog.open)dialog.showModal();
+}
+function reserveTextbookPdfTab(label){
+  const tab=window.open('about:blank','_blank');
+  if(!tab)return null;
   try{
-    if(!range)throw new Error('This textbook section does not have a readable page range.');
-    if(!config)throw new Error(`No private textbook PDF is mapped for Lesson ${lesson}.`);
-    const pdfPage=printedToLocalPdfPage(range.start,config);
-    const pdfEndPage=printedToLocalPdfPage(range.end,config);
-    if(pdfPage===null||pdfEndPage===null)throw new Error(`Printed pages ${range.start}–${range.end} fall outside the mapped Lesson ${lesson} PDF range.`);
+    tab.opener=null;
+    tab.document.title=label||'Private textbook';
+    tab.document.body.textContent='Preparing private textbook…';
+  }catch(error){}
+  return tab;
+}
+async function openTextbookPdfInNewTab(lesson,label,pages){
+  const range=parsePrintedPageRange(pages),config=textbookPdfConfig(lesson);
+  if(!range){showTextbookPdfFallback(label,null,'This textbook section does not have a readable page range.');return;}
+  if(!config){showTextbookPdfFallback(label,range,`No private textbook PDF is mapped for Lesson ${lesson}.`);return;}
+  const pdfPage=printedToLocalPdfPage(range.start,config),pdfEndPage=printedToLocalPdfPage(range.end,config);
+  if(pdfPage===null||pdfEndPage===null){showTextbookPdfFallback(label,range,`Printed pages ${range.start}–${range.end} fall outside the mapped Lesson ${lesson} PDF range.`);return;}
+  // Reserve the tab synchronously inside the click handler. This keeps iOS and
+  // other mobile browsers from treating the later signed-URL navigation as a popup.
+  const tab=reserveTextbookPdfTab(label);
+  try{
     const url=await signedTextbookPdfUrl(config);
-    frame.src=`${url}#page=${pdfPage}&zoom=page-width`;
-    frame.hidden=false;status.hidden=true;full.href=url;full.hidden=false;
-    $('#textbookPdfRange').textContent=`Printed pp.${range.start}${range.end!==range.start?`–${range.end}`:''} · Lesson ${lesson} PDF pp.${pdfPage}${range.end!==range.start?`–${pdfEndPage}`:''}`;
+    const targetUrl=`${url}#page=${pdfPage}&zoom=page-width`;
+    if(tab&&!tab.closed){tab.location.replace(targetUrl);return;}
+    showTextbookPdfFallback(label,range,'Your browser blocked the new textbook tab. Use the link below to open it.',targetUrl);
   }catch(error){
-    status.textContent=error?.message||'Unable to open the private textbook.';
+    try{tab?.close();}catch(closeError){}
+    showTextbookPdfFallback(label,range,error?.message||'Unable to open the private textbook.');
   }
 }
 
-function initTextbookPdfViewer(){
+function initTextbookPdfLinks(){
   const dialog=$('#textbookPdfDialog');if(!dialog)return;
-  $('#closeTextbookPdf').onclick=closeTextbookPdfViewer;
-  $('#closeTextbookPdfBottom').onclick=closeTextbookPdfViewer;
-  dialog.onclick=event=>{if(event.target===dialog)closeTextbookPdfViewer();};
+  $('#closeTextbookPdf').onclick=closeTextbookPdfFallback;
+  $('#closeTextbookPdfBottom').onclick=closeTextbookPdfFallback;
+  dialog.onclick=event=>{if(event.target===dialog)closeTextbookPdfFallback();};
   document.querySelectorAll('[data-textbook-pages]').forEach(button=>button.onclick=event=>{
     event.preventDefault();event.stopPropagation();
-    openTextbookPdfViewer(Number(button.dataset.textbookLesson),button.dataset.textbookLabel,button.dataset.textbookPages);
+    openTextbookPdfInNewTab(Number(button.dataset.textbookLesson),button.dataset.textbookLabel,button.dataset.textbookPages);
   });
 }
 
@@ -1824,7 +1840,7 @@ function renderLesson(n){
   initGuideTaskWorkspaces(l);
   initLessonAudio(n);
   initLessonVideoEmbeds();
-  initTextbookPdfViewer();
+  initTextbookPdfLinks();
   const lessonReference=$('#lessonReference');
   const showReferenceSection=section=>{
     lessonReference.querySelectorAll('[data-lesson-reference-tab]').forEach(button=>{const active=button.dataset.lessonReferenceTab===section;button.classList.toggle('active',active);button.setAttribute('aria-selected',String(active));});

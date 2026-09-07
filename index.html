@@ -50,10 +50,9 @@
 <dialog id="authDialog" class="modal"><form id="loginForm" class="authbox"><h2>Private study login</h2><p class="subtitle">Sign in with your single Supabase account.</p><p class="config-note">Your study data is only shown after authentication.</p><label>Email<input id="email" type="email" autocomplete="username" required></label><label>Password<input id="password" type="password" autocomplete="current-password" required></label><div class="modalactions"><button type="button" id="closeLogin" class="smallbtn">Cancel</button><button type="submit" class="smallbtn primary">Sign in</button></div></form></dialog>
 <dialog id="textbookPdfDialog" class="textbook-pdf-dialog">
   <div class="textbook-pdf-shell">
-    <header class="textbook-pdf-head"><div><span class="eyebrow">Private textbook</span><h2 id="textbookPdfTitle">Textbook pages</h2><p id="textbookPdfRange" class="subtitle"></p></div><button id="closeTextbookPdf" class="pomo-close" type="button" aria-label="Close textbook viewer">×</button></header>
-    <div id="textbookPdfStatus" class="textbook-pdf-status">Preparing private PDF…</div>
-    <iframe id="textbookPdfFrame" class="textbook-pdf-frame" title="Private textbook PDF viewer" hidden></iframe>
-    <footer class="textbook-pdf-actions"><a id="openFullTextbookPdf" class="smallbtn" target="_blank" rel="noopener noreferrer" hidden>Open full PDF ↗</a><button id="closeTextbookPdfBottom" class="smallbtn primary" type="button">Back to lesson</button></footer>
+    <header class="textbook-pdf-head"><div><span class="eyebrow">Private textbook</span><h2 id="textbookPdfTitle">Textbook pages</h2><p id="textbookPdfRange" class="subtitle"></p></div><button id="closeTextbookPdf" class="pomo-close" type="button" aria-label="Close textbook message">×</button></header>
+    <div id="textbookPdfStatus" class="textbook-pdf-status"></div>
+    <footer class="textbook-pdf-actions"><a id="openFullTextbookPdf" class="smallbtn" target="_blank" rel="noopener noreferrer" hidden>Open PDF in new tab ↗</a><button id="closeTextbookPdfBottom" class="smallbtn primary" type="button">Close</button></footer>
   </div>
 </dialog>
 <button id="backToTop" class="back-to-top" type="button" title="Back to top" aria-label="Back to top" hidden>↑</button>

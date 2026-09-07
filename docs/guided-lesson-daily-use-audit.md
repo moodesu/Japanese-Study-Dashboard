@@ -14,7 +14,7 @@
 - Lesson reference was a long DOM-only disclosure, so re-renders could collapse it and audio controls were buried among unrelated maps. Its open state and active resource tab now persist for the lesson; compact tabs foreground one resource, while the shared audio player retains track, position and speed and pauses task audio when necessary.
 - Study time by activity inherited a desktop track column on phones. Its mobile card now fills the available width and uses a readable activity/duration row without page overflow.
 - Lesson video links previously left the study workspace. Guided tasks and Lesson reference now use one lazy, responsive YouTube embed at a time, with the original link retained as a fallback.
-- Textbook page mappings previously identified the paper pages but could not open the private book. Textbook tasks and the Textbook reference tab now open a full-size signed-PDF viewer using the matching lesson-specific PDF; printed page labels remain unchanged and the PDF itself remains outside Git.
+- Textbook page mappings previously identified the paper pages but could not open the private book. Textbook tasks and the Textbook reference tab now open the matching signed lesson PDF in a separate browser tab; the Hub keeps its task/reference state and printed page labels remain unchanged.
 - Obsolete task-rating styles remained after removal of Mastery and Confidence. Those unused selectors were removed.
 
 ## Deferred
@@ -35,7 +35,7 @@
 - Open inline audio, select a track, pause after several seconds, switch tabs and return; the same task, panel, track and approximate position should remain.
 - Use browser Back/Forward between lesson activities and confirm the routed workspace remains current.
 - Open a mapped publisher video from both a Guided task and Lesson reference. Confirm it plays inline, only one lesson embed is active, and **Open on YouTube ↗** still works.
-- Open Lesson reference → Textbook → Kanji and Grammar. Confirm each loads the current lesson PDF at the converted local page and closes back to the same lesson/reference state.
+- Open Lesson reference → Textbook → Kanji and Grammar. Confirm each opens the current lesson PDF in a new tab at the converted local page; switching back should reveal the unchanged lesson/reference state and scroll position.
 
 ## iPhone Edge smoke test
 
@@ -50,7 +50,7 @@
 - Complete the task and confirm the next unfinished activity opens without an unexpected sideways movement or navigation jump.
 - On Study history, confirm Study time by activity spans the full card, labels wrap naturally, durations align right and the page cannot be dragged sideways.
 - Open a lesson video and confirm its 16:9 player uses nearly the full available width without leaving the lesson.
-- Open the Kanji textbook range, confirm the PDF viewer fills the phone screen, then close it and confirm the same Textbook reference tab is still selected.
+- Open the Kanji textbook range, confirm the PDF opens in a new Edge tab, then switch back and confirm the same task/reference tab is still selected.
 
 ## Database setup for the private textbook
 
@@ -64,3 +64,4 @@
 - `feat(media): embed lesson youtube videos`
 - `feat(reference): add private textbook page viewer`
 - `fix(textbook): use lesson-specific Tobira II PDFs`
+- `fix(textbook): open private lesson PDFs in new tab`

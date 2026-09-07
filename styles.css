@@ -2742,10 +2742,8 @@ html[data-theme="dark"] .programme-card.active-programme {
 .lesson-reference-panel>.panel,.lesson-reference-panel>.lesson-grid { margin-top:0; min-width:0; }
 
 .textbook-pdf-dialog {
-  width:min(1120px,94vw);
+  width:min(560px,calc(100% - 28px));
   max-width:none;
-  height:min(900px,92dvh);
-  max-height:none;
   padding:0;
   overflow:hidden;
   border:1px solid var(--line);
@@ -2755,12 +2753,11 @@ html[data-theme="dark"] .programme-card.active-programme {
   box-shadow:0 24px 80px rgba(10,20,35,.3);
 }
 .textbook-pdf-dialog::backdrop { background:rgba(10,20,35,.66); }
-.textbook-pdf-shell { height:100%;min-width:0;display:flex;flex-direction:column; }
+.textbook-pdf-shell { min-width:0;display:flex;flex-direction:column; }
 .textbook-pdf-head { display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:14px 16px;border-bottom:1px solid var(--line); }
 .textbook-pdf-head h2 { margin:2px 0 0;font-size:19px; }
 .textbook-pdf-head p { margin-top:4px; }
-.textbook-pdf-status { margin:auto;padding:24px;max-width:680px;color:var(--muted);line-height:1.55;text-align:center;overflow-wrap:anywhere; }
-.textbook-pdf-frame { width:100%;min-width:0;min-height:0;flex:1;border:0;background:#d8d8d8; }
+.textbook-pdf-status { padding:20px 16px;color:var(--muted);line-height:1.55;overflow-wrap:anywhere; }
 .textbook-pdf-actions { display:flex;align-items:center;justify-content:flex-end;gap:9px;padding:10px 14px;border-top:1px solid var(--line); }
 
 html[data-theme="dark"] :is(.guide-step,.guide-check,.guide-action,.lesson-reference) {
@@ -2846,9 +2843,9 @@ html[data-theme="dark"] .guide-action:hover { background:#1d2d3a; border-color:#
   .lesson-reference-panel .lesson-audio-panel { padding:12px; }
   .lesson-reference-panel .audio-player-card { width:100%; max-width:100%; padding:12px; }
   .lesson-reference-panel .audio-speed select { font-size:16px; }
-  .textbook-pdf-dialog { width:100vw;height:100dvh;margin:0;border:0;border-radius:0; }
-  .textbook-pdf-head { padding:max(12px,env(safe-area-inset-top)) 12px 12px; }
-  .textbook-pdf-actions { padding:10px 12px max(10px,env(safe-area-inset-bottom)); }
+  .textbook-pdf-dialog { width:calc(100% - 20px); }
+  .textbook-pdf-head { padding:12px; }
+  .textbook-pdf-actions { flex-wrap:wrap;padding:10px 12px; }
   .textbook-pdf-actions .smallbtn { min-height:42px; }
 }
 /* Japanese Repository ----------------------------------------------------- */
