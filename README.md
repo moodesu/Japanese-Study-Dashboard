@@ -153,7 +153,9 @@ the public frontend source.
    creates those values automatically.
 5. Reload the signed-in app. Imported links appear at the correct point in the
    lesson's numbered Guided lesson path. The complete grouped video library is
-   also retained inside **Lesson reference**.
+   also retained inside **Lesson reference**. Select **Play here** to use the
+   responsive privacy-enhanced YouTube embed without leaving the lesson. The
+   original **Open on YouTube ↗** link remains available as a fallback.
 
 For grammar videos, `grammar_index` is the one-based position of the grammar
 item in the lesson's Target grammar list. Leave `grammar_index` empty for
@@ -168,6 +170,32 @@ lesson,video_type,grammar_index,title,youtube_url,sort_order
 11,grammar,1,First grammar item,https://www.youtube.com/watch?v=VIDEO_ID,1
 11,dialogue,,Lesson 11 dialogue,https://www.youtube.com/watch?v=VIDEO_ID,1
 ```
+
+## Private textbook PDF
+
+The textbook viewer uses a private Supabase Storage object and a one-hour
+signed URL. The copyrighted PDF must not be committed to this repository.
+
+1. For an existing database, run
+   `migrations/20260908_private_textbook_pdf.sql` in the Supabase SQL Editor.
+   A fresh setup can run the complete `supabase-schema.sql` instead.
+2. Upload the PDF to the private `textbook-pdfs` bucket as
+   `tobira-beginning-japanese-ii.pdf`.
+3. Check one known printed page against the physical page number shown by the
+   PDF viewer. In `textbook-pdf.js`, set `printedPageOffset` to:
+
+   `physical PDF page − printed textbook page`
+
+   For example, if printed page 14 is physical PDF page 22, the offset is `8`.
+   The default is deliberately `null`; the app will not guess this mapping.
+4. Open a lesson, expand **Lesson reference → Textbook**, and choose
+   **View pages** beside a mapped section. The viewer opens at the calculated
+   physical PDF page and leaves the lesson/reference workspace in place when
+   closed.
+
+Signed PDF URLs are kept only in the current in-memory cache. The object path
+and explicit page offset are public configuration, but the PDF and its usable
+signed URL remain private.
 
 The browser has read-only access to this table, protected by the same sole-owner
 check used for private audio. Add and update video mappings only through the

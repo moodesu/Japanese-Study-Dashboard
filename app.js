@@ -241,6 +241,7 @@ const POMO_DURATIONS = { work: 25*60, short: 5*60, long: 15*60 }; // fallback de
 const POMO_CYCLE_LENGTH = 4; // fallback default
 const LESSON_MEDIA_STATE_KEY = 'learningHub.lessonMediaState';
 const LESSON_REFERENCE_STATE_KEY = 'learningHub.lessonReferenceState';
+const LESSON_VIDEO_STATE_KEY = 'learningHub.lessonVideoState';
 
 function emptyLessonMediaState(){
   return {taskId:null,lesson:null,mediaType:null,category:null,open:false,selectedTrack:null,currentTime:0,wasPlaying:false};
@@ -259,6 +260,13 @@ function loadLessonReferenceState(){
     const saved=JSON.parse(window.sessionStorage?.getItem(LESSON_REFERENCE_STATE_KEY)||'null');
     return saved&&typeof saved==='object'?{...emptyLessonReferenceState(),...saved}:emptyLessonReferenceState();
   }catch(e){return emptyLessonReferenceState();}
+}
+function emptyLessonVideoState(){ return {lesson:null,area:null,videoId:null}; }
+function loadLessonVideoState(){
+  try{
+    const saved=JSON.parse(window.sessionStorage?.getItem(LESSON_VIDEO_STATE_KEY)||'null');
+    return saved&&typeof saved==='object'?{...emptyLessonVideoState(),...saved}:emptyLessonVideoState();
+  }catch(e){return emptyLessonVideoState();}
 }
 
 const state = {
@@ -285,6 +293,7 @@ const state = {
   activeGuideTaskId: null,
   lessonMedia: loadLessonMediaState(),
   lessonReference: loadLessonReferenceState(),
+  lessonVideo: loadLessonVideoState(),
   pomoOpen: localStorage.getItem('pomodoroOpen') === 'true',
   focusMode: false,
   searchOpen: false
@@ -1063,6 +1072,10 @@ function saveLessonReferenceState(){
   try{window.sessionStorage?.setItem(LESSON_REFERENCE_STATE_KEY,JSON.stringify(state.lessonReference));}catch(e){}
 }
 
+function saveLessonVideoState(){
+  try{window.sessionStorage?.setItem(LESSON_VIDEO_STATE_KEY,JSON.stringify(state.lessonVideo));}catch(e){}
+}
+
 function lessonReferenceStateFor(lesson){
   return Number(state.lessonReference?.lesson)===Number(lesson)?{...emptyLessonReferenceState(),...state.lessonReference}:{...emptyLessonReferenceState(),lesson:Number(lesson)};
 }
@@ -1096,6 +1109,42 @@ function safeYouTubeUrl(value){
   }catch(e){ return null; }
 }
 
+function youtubeVideoId(value){
+  const safe=safeYouTubeUrl(value); if(!safe) return null;
+  try{
+    const url=new URL(safe), host=url.hostname.toLowerCase().replace(/^www\./,'');
+    const id=host==='youtu.be'?url.pathname.split('/').filter(Boolean)[0]:url.searchParams.get('v');
+    return /^[A-Za-z0-9_-]{11}$/.test(id||'')?id:null;
+  }catch(e){return null;}
+}
+
+function lessonVideoEmbedMarkup(videoId,title){
+  return `<div class="lesson-video-embed"><div class="lesson-video-frame"><iframe src="https://www.youtube-nocookie.com/embed/${esc(videoId)}?rel=0" title="${esc(title)}" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div></div>`;
+}
+
+function lessonVideoItemMarkup(video,{lesson,area,label,detail=''}){
+  const url=safeYouTubeUrl(video.youtube_url), videoId=youtubeVideoId(video.youtube_url); if(!url) return '';
+  const active=videoId&&Number(state.lessonVideo?.lesson)===Number(lesson)&&state.lessonVideo.area===area&&state.lessonVideo.videoId===videoId;
+  return `<div class="lesson-video-item">
+    ${videoId?`<button type="button" class="video-link video-embed-toggle" data-lesson-video-id="${esc(videoId)}" data-lesson-video-lesson="${esc(lesson)}" data-lesson-video-area="${esc(area)}" data-lesson-video-title="${esc(video.title)}" aria-expanded="${active?'true':'false'}"><span>${esc(label)}</span><strong>${esc(video.title)}</strong>${detail?`<small>${esc(detail)}</small>`:''}<b>${active?'Hide video':'Play here'}</b></button>`:`<div class="video-link"><span>${esc(label)}</span><strong>${esc(video.title)}</strong>${detail?`<small>${esc(detail)}</small>`:''}<b>Embedding unavailable</b></div>`}
+    <a class="video-fallback" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Open on YouTube ↗</a>
+    ${active?lessonVideoEmbedMarkup(videoId,video.title):''}
+  </div>`;
+}
+
+function initLessonVideoEmbeds(){
+  document.querySelectorAll('[data-lesson-video-id]').forEach(button=>button.onclick=()=>{
+    const lesson=Number(button.dataset.lessonVideoLesson), area=button.dataset.lessonVideoArea, videoId=button.dataset.lessonVideoId;
+    const closing=Number(state.lessonVideo?.lesson)===lesson&&state.lessonVideo.area===area&&state.lessonVideo.videoId===videoId;
+    document.querySelectorAll('.lesson-video-embed').forEach(embed=>embed.remove());
+    document.querySelectorAll('[data-lesson-video-id]').forEach(other=>{other.setAttribute('aria-expanded','false');const label=other.querySelector('b');if(label)label.textContent='Play here';});
+    state.lessonVideo=closing?emptyLessonVideoState():{lesson,area,videoId};saveLessonVideoState();
+    if(closing)return;
+    button.setAttribute('aria-expanded','true');const label=button.querySelector('b');if(label)label.textContent='Hide video';
+    button.closest('.lesson-video-item')?.insertAdjacentHTML('beforeend',lessonVideoEmbedMarkup(videoId,button.dataset.lessonVideoTitle));
+  });
+}
+
 function lessonVideoPanelMarkup(l){
   const videos=(state.lessonVideos||[]).filter(video=>Number(video.lesson)===l.n);
   const typeDefinitions=[
@@ -1115,10 +1164,8 @@ function lessonVideoPanelMarkup(l){
       const rows=videos.filter(video=>video.video_type===type.key).sort((a,b)=>Number(a.sort_order)-Number(b.sort_order));
       if(!rows.length) return '';
       return `<div class="video-group"><div class="video-group-heading"><div><strong>${esc(type.label)}</strong><p>${esc(type.guide)}</p></div><span>${rows.length} ${rows.length===1?'video':'videos'}</span></div><div class="video-link-list">${rows.map(video=>{
-        const url=safeYouTubeUrl(video.youtube_url);
-        if(!url) return '';
         const grammarTarget=type.key==='grammar' && video.grammar_index ? l.textbook.grammar[Number(video.grammar_index)-1] : '';
-        return `<a class="video-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer"><span>${type.key==='grammar'&&video.grammar_index?`Grammar ${esc(video.grammar_index)}`:esc(type.label)}</span><strong>${esc(video.title)}</strong>${grammarTarget?`<small>${esc(grammarTarget)}</small>`:''}<b>Open on YouTube ↗</b></a>`;
+        return lessonVideoItemMarkup(video,{lesson:l.n,area:'reference',label:type.key==='grammar'&&video.grammar_index?`Grammar ${video.grammar_index}`:type.label,detail:grammarTarget});
       }).join('')}</div></div>`;
     }).join('');
   }
@@ -1158,6 +1205,70 @@ async function signedLessonAudioUrl(track){
   if(!signedUrl) throw new Error('No playback URL was returned.');
   audioUrlCache.set(track.path,{url:signedUrl,expiresAt:Date.now()+3600000});
   return signedUrl;
+}
+
+const textbookPdfUrlCache=new Map();
+function textbookPdfConfig(){
+  return window.TEXTBOOK_PDFS?.books?.[state.programmeId]||null;
+}
+function parsePrintedPageRange(value){
+  const pages=String(value||'').match(/\d+/g)?.map(Number).filter(Number.isFinite)||[];
+  if(!pages.length)return null;
+  return {start:pages[0],end:pages[1]||pages[0]};
+}
+function printedToPdfPage(printedPage,offset){
+  return Number.isInteger(offset)&&Number.isInteger(printedPage)&&printedPage>0?printedPage+offset:null;
+}
+async function signedTextbookPdfUrl(config){
+  const key=`${window.TEXTBOOK_PDFS?.bucket||''}/${config?.path||''}`;
+  const cached=textbookPdfUrlCache.get(key);
+  if(cached?.expiresAt>Date.now()+60000)return cached.url;
+  if(!db||!state.user)throw new Error('Sign in to view the private textbook.');
+  if(!config?.path)throw new Error('The private textbook object path is not configured.');
+  const bucket=window.TEXTBOOK_PDFS?.bucket;
+  if(!bucket)throw new Error('The private textbook storage bucket is not configured.');
+  const {data,error}=await db.storage.from(bucket).createSignedUrl(config.path,3600);
+  if(error)throw error;
+  if(!data?.signedUrl)throw new Error('No private textbook URL was returned.');
+  textbookPdfUrlCache.set(key,{url:data.signedUrl,expiresAt:Date.now()+3600000});
+  return data.signedUrl;
+}
+function closeTextbookPdfViewer(){
+  const dialog=$('#textbookPdfDialog'),frame=$('#textbookPdfFrame');
+  if(frame){frame.src='about:blank';frame.hidden=true;}
+  if(dialog?.open)dialog.close();
+}
+async function openTextbookPdfViewer(label,pages){
+  const dialog=$('#textbookPdfDialog'),frame=$('#textbookPdfFrame'),status=$('#textbookPdfStatus'),full=$('#openFullTextbookPdf');
+  const range=parsePrintedPageRange(pages),config=textbookPdfConfig(),offset=config?.printedPageOffset;
+  if(!dialog||!frame||!status||!full)return;
+  $('#textbookPdfTitle').textContent=label||'Textbook pages';
+  $('#textbookPdfRange').textContent=range?`Printed pages ${range.start}${range.end!==range.start?`–${range.end}`:''}`:'Mapped textbook section';
+  status.hidden=false;status.textContent='Preparing private PDF…';frame.hidden=true;full.hidden=true;
+  if(!dialog.open)dialog.showModal();
+  try{
+    if(!range)throw new Error('This textbook section does not have a readable page range.');
+    const pdfPage=printedToPdfPage(range.start,offset);
+    if(pdfPage===null)throw new Error('Set printedPageOffset in textbook-pdf.js after checking the uploaded PDF’s printed-page mapping.');
+    if(pdfPage<1)throw new Error('The configured textbook PDF page offset produces an invalid page number.');
+    const url=await signedTextbookPdfUrl(config);
+    frame.src=`${url}#page=${pdfPage}&zoom=page-width`;
+    frame.hidden=false;status.hidden=true;full.href=url;full.hidden=false;
+    $('#textbookPdfRange').textContent=`Printed pp.${range.start}${range.end!==range.start?`–${range.end}`:''} · PDF pp.${pdfPage}${range.end!==range.start?`–${printedToPdfPage(range.end,offset)}`:''}`;
+  }catch(error){
+    status.textContent=error?.message||'Unable to open the private textbook.';
+  }
+}
+
+function initTextbookPdfViewer(){
+  const dialog=$('#textbookPdfDialog');if(!dialog)return;
+  $('#closeTextbookPdf').onclick=closeTextbookPdfViewer;
+  $('#closeTextbookPdfBottom').onclick=closeTextbookPdfViewer;
+  dialog.onclick=event=>{if(event.target===dialog)closeTextbookPdfViewer();};
+  document.querySelectorAll('[data-textbook-pages]').forEach(button=>button.onclick=event=>{
+    event.preventDefault();event.stopPropagation();
+    openTextbookPdfViewer(button.dataset.textbookLabel,button.dataset.textbookPages);
+  });
 }
 
 function initLessonAudio(n){
@@ -1560,11 +1671,10 @@ function nextGuideActivityId(l,currentId,willComplete){
   return unfinished.find(step=>activities.indexOf(step)>currentIndex)?.id||unfinished[0]?.id||null;
 }
 
-function guideVideoLinks(videos=[]){
+function guideVideoLinks(videos=[],lesson,area){
   return videos.map((video,index)=>{
-    const url=safeYouTubeUrl(video.youtube_url); if(!url) return '';
     const part=videos.length>1?` · Part ${index+1}`:'';
-    return `<a class="guide-action guide-video-action" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Watch video${part} ↗</a>`;
+    return lessonVideoItemMarkup(video,{lesson,area,label:`Publisher video${part}`});
   }).join('');
 }
 
@@ -1582,11 +1692,12 @@ function guideTaskWorkspaceMarkup(l,step,index,steps,isCurrent,nextId){
   const section=guideSectionProgress(step);
   const taskId=step.taskId||step.id, studied=fmtDuration(taskSeconds(taskId));
   const hasOpenMedia=state.lessonMedia?.open&&Number(state.lessonMedia.lesson)===Number(l.n)&&state.lessonMedia.taskId===taskId;
+  const hasOpenVideo=Number(state.lessonVideo?.lesson)===Number(l.n)&&state.lessonVideo?.area===`task:${step.id}`&&Boolean(state.lessonVideo?.videoId);
   const details=step.details?.length?`<div class="guide-workspace-section"><strong>Lesson outcomes</strong><ul>${step.details.map(item=>`<li>${esc(item)}</li>`).join('')}</ul></div>`:'';
   const checklist=step.checklist?.length?`<div class="guide-workspace-section"><strong>Do this</strong><ol>${step.checklist.map(item=>`<li>${esc(item)}</li>`).join('')}</ol></div>`:'';
-  const videos=step.videos?.length?`<div class="guide-workspace-section"><strong>Publisher video${step.videos.length===1?'':'s'}</strong><div class="guide-actions">${guideVideoLinks(step.videos)}</div></div>`:'';
+  const videos=step.videos?.length?`<div class="guide-workspace-section"><strong>Publisher video${step.videos.length===1?'':'s'}</strong><div class="guide-actions guide-video-list">${guideVideoLinks(step.videos,l.n,`task:${step.id}`)}</div></div>`:'';
   const previous=steps[index-1], next=steps[index+1];
-  return `<details class="guide-task-workspace" data-guide-workspace="${esc(step.id)}" ${isCurrent||hasOpenMedia?'open':''}>
+  return `<details class="guide-task-workspace" data-guide-workspace="${esc(step.id)}" ${isCurrent||hasOpenMedia||hasOpenVideo?'open':''}>
     <summary><span>${isCurrent?'Current task':section.complete?'Completed':section.done?'In progress':'Upcoming'}</span><strong>Instructions · resources · notes</strong><b>Open</b></summary>
     <div class="guide-workspace-body">
       <div class="guide-lesson-context"><strong>Lesson ${l.n} · ${esc(l.english)}</strong>${goal?`<span>Can-do connection: ${esc(goal)}</span>`:''}</div>
@@ -1657,7 +1768,7 @@ function renderLesson(n){
     const st=t?ts(t.id):{};
     const items=sec.items?.length?`<div class="section-items"><span>Includes</span><ul>${sec.items.map(x=>`<li>${esc(x.label)}</li>`).join('')}</ul></div>`:'';
     const steps=sec.steps?.length?`<div class="section-steps"><span>Study sequence</span><ol>${sec.steps.map(x=>`<li>${esc(x)}</li>`).join('')}</ol></div>`:'';
-    return `<div class="book-section ${t&&st.completed?'done':''}" data-task="${esc(t?.id||'')}"><div class="book-section-main"><span class="book-section-label">${esc(sec.label)}</span><strong>pp.${esc(sec.pages||'—')}</strong>${items}${steps}</div><span class="book-section-status">${t&&st.completed?'✓ Complete':'Open task'}</span></div>`;
+    return `<div class="book-section ${t&&st.completed?'done':''}" data-task="${esc(t?.id||'')}"><div class="book-section-main"><span class="book-section-label">${esc(sec.label)}</span><strong>pp.${esc(sec.pages||'—')}</strong>${items}${steps}</div><div class="book-section-actions"><button type="button" class="smallbtn textbook-pages-button" data-textbook-label="${esc(sec.label)}" data-textbook-pages="${esc(sec.pages||'')}">View pages</button><span class="book-section-status">${t&&st.completed?'✓ Complete':'Open task'}</span></div></div>`;
   }).join('');
   const wb2Rows=(l.workbookMap?.workbook2||[]).map(x=>{const t=tasks.find(y=>y.key===x.taskKey), st=t?ts(t.id):{};return `<button class="book-section compact ${st.completed?'done':''}" data-task="${esc(t?.id||'')}"><div class="book-section-main"><span class="book-section-label">${esc(x.label)}</span><strong>p.${esc(x.page)}</strong></div><span class="book-section-status">${st.completed?'✓':'Open'}</span></button>`}).join('');
   const wb1Rows=(l.workbookMap?.workbook1||[]).map(x=>{const t=tasks.find(y=>y.key===x.taskKey), st=t?ts(t.id):{};return `<button class="book-section compact ${st.completed?'done':''}" data-task="${esc(t?.id||'')}"><div class="book-section-main"><span class="book-section-label">${esc(x.label)}</span><strong>p.${esc(x.page)}</strong></div><span class="book-section-status">${st.completed?'✓':'Open'}</span></button>`}).join('');
@@ -1707,6 +1818,8 @@ function renderLesson(n){
   });
   initGuideTaskWorkspaces(l);
   initLessonAudio(n);
+  initLessonVideoEmbeds();
+  initTextbookPdfViewer();
   const lessonReference=$('#lessonReference');
   const showReferenceSection=section=>{
     lessonReference.querySelectorAll('[data-lesson-reference-tab]').forEach(button=>{const active=button.dataset.lessonReferenceTab===section;button.classList.toggle('active',active);button.setAttribute('aria-selected',String(active));});
