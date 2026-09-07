@@ -25,6 +25,8 @@ vm.runInContext(`
   function grammarPageFromVideos(rows,fallback){return 'pp.'+fallback;}
   function esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   function guideVideoLinks(videos){return videos.map(v=>esc(v.title)).join('');}
+  function taskSeconds(id){return (state.sessions||[]).filter(session=>session.task_id===id).reduce((total,session)=>total+session.duration_seconds,0);}
+  function fmtDuration(totalSec){const totalMin=Math.round((totalSec||0)/60),hours=Math.floor(totalMin/60),minutes=totalMin%60;return hours?hours+'h '+minutes+'m':minutes+'m';}
 `,context);
 const plain = value => JSON.parse(JSON.stringify(value));
 for (const lesson of context.CURRICULUM.lessons) {
@@ -70,8 +72,12 @@ assert.deepEqual(plain(context.weeklyTasks(10,2)),['unchanged-consolidation',10,
 const l=context.CURRICULUM.lessons[0];
 context.state.lessonVideos=[{lesson:11,video_type:'dialogue',title:'Dialogue'},{lesson:11,video_type:'vocabulary',title:'Vocabulary'},{lesson:11,video_type:'grammar',grammar_index:'1a',title:'Grammar 1'}];
 const steps=context.lessonGuideSteps(l);
+context.state.sessions=[{task_id:'b2-l11-textbook_conversation',duration_seconds:4500}];
 assert.ok(steps[1].support.some(s=>s.id==='b2-l11-guide-video-dialogue'));
 assert.ok(steps[3].support.some(s=>s.id==='b2-l11-guide-video-vocabulary'));
+const conversationWorkspace=context.guideTaskWorkspaceMarkup(l,steps[1],1,steps,true,steps[2].id);
+assert.ok(conversationWorkspace.includes('data-guide-pomodoro="b2-l11-textbook_conversation"'),'Guided task timer uses the exact lesson task ID');
+assert.ok(conversationWorkspace.includes('Studied: 1h 15m'),'Guided task shows its existing accumulated focus time');
 const saved={completed:true,notes:'Existing note',mastery:'studying',confidence:3};
 context.state.taskState['b2-l11-textbook_vocab']=saved;
 assert.equal(context.ts('b2-l11-textbook_vocab'),saved);
@@ -97,4 +103,13 @@ context.document={getElementById:id=>id==='guide-nested'?{parentElement:ancestor
 context.scrollToGuideActivity('nested');
 assert.ok(ancestor.open&&workspace.open&&scrolled,'Nested navigation reveals ancestors and workspace');
 context.scrollToGuideActivity('missing');
+const timerContext={state:{pomoOpen:false,pomodoro:{status:'running',mode:'work',remaining:1200,taskId:'other-task'}},localStorage:{setItem(){}},renderPomodoro(){},renderNav(){},findTaskById(){return {title:'Another task'};},pomodoroDuration(){return 1500;}};
+timerContext.toast=message=>{timerContext.message=message;};timerContext.startPomodoro=taskId=>{timerContext.started=taskId;timerContext.state.pomodoro.status='running';timerContext.state.pomodoro.taskId=taskId;};
+timerContext.window=timerContext;vm.createContext(timerContext);
+const startTaskStart=source.indexOf('function startTaskPomodoro('),startTaskEnd=source.indexOf('\nfunction pausePomodoro',startTaskStart);
+vm.runInContext(source.slice(startTaskStart,startTaskEnd),timerContext);
+assert.equal(timerContext.startTaskPomodoro('new-task'),false,'A running timer is not silently reassigned');
+assert.equal(timerContext.state.pomodoro.taskId,'other-task');assert.match(timerContext.message,/Another task/);
+timerContext.state.pomodoro={status:'idle',mode:'short',remaining:300,taskId:'other-task',endAt:null,startedAt:null};
+assert.equal(timerContext.startTaskPomodoro('new-task'),true);assert.equal(timerContext.state.pomodoro.mode,'work');assert.equal(timerContext.started,'new-task','Starting from a lesson begins work linked to that task');
 console.log('PASS: Lessons 11–20 ordering, exact page lookup, Plan parity, nested resources, stable records, no duplicate targets, consolidation unchanged.');

@@ -485,6 +485,20 @@ function startPomodoro(taskId){
   state.pomoOpen=true; localStorage.setItem('pomodoroOpen','true');
   savePomodoro(); renderPomodoro(); renderNav();
 }
+function startTaskPomodoro(taskId){
+  const p=state.pomodoro, linked=findTaskById(p.taskId);
+  if(p.taskId&&p.taskId!==taskId&&['running','paused'].includes(p.status)){
+    state.pomoOpen=true; localStorage.setItem('pomodoroOpen','true');
+    renderPomodoro(); renderNav();
+    toast(`Timer is already linked to ${linked?.title||'another task'}. Finish or reset it before switching tasks.`);
+    return false;
+  }
+  if(p.status==='idle'&&p.mode!=='work'){
+    p.mode='work';p.remaining=pomodoroDuration('work');p.endAt=null;p.startedAt=null;
+  }
+  startPomodoro(taskId);
+  return true;
+}
 function pausePomodoro(){
   const p=state.pomodoro;
   syncRemaining();
@@ -575,6 +589,18 @@ function renderPomodoro(){
   $('#pomoTask').textContent = task ? task.title : 'No task linked';
   $('#pomoToggle').textContent = p.status==='running' ? 'Pause' : 'Start';
   renderPomodoroQuickLink();
+  renderGuidePomodoroControls();
+}
+function renderGuidePomodoroControls(){
+  document.querySelectorAll('[data-guide-pomodoro]').forEach(button=>{
+    const taskId=button.dataset.guidePomodoro,owns=state.pomodoro.taskId===taskId;
+    const running=owns&&state.pomodoro.status==='running',paused=owns&&state.pomodoro.status==='paused';
+    const otherActive=!owns&&state.pomodoro.taskId&&['running','paused'].includes(state.pomodoro.status);
+    const remaining=`${String(Math.floor(state.pomodoro.remaining/60)).padStart(2,'0')}:${String(state.pomodoro.remaining%60).padStart(2,'0')}`;
+    button.classList.toggle('is-active',running||paused);
+    button.setAttribute('aria-pressed',String(running));
+    button.textContent=running?`🍅 ${remaining} · Pause`:paused?`🍅 ${remaining} · Resume`:otherActive?'🍅 Timer linked elsewhere':'🍅 Start Pomodoro';
+  });
 }
 setInterval(()=>{
   const p=state.pomodoro;
@@ -1252,6 +1278,13 @@ function initGuideTaskWorkspaces(l){
   document.querySelectorAll('[data-guide-notes]').forEach(input=>input.oninput=()=>updateGuideTaskRecord(input.dataset.guideNotes,{notes:input.value}));
   document.querySelectorAll('[data-guide-mastery]').forEach(select=>select.onchange=()=>updateGuideTaskRecord(select.dataset.guideMastery,{mastery:select.value}));
   document.querySelectorAll('[data-guide-confidence]').forEach(select=>select.onchange=()=>updateGuideTaskRecord(select.dataset.guideConfidence,{confidence:select.value?Number(select.value):null}));
+  document.querySelectorAll('[data-guide-pomodoro]').forEach(button=>button.onclick=()=>{
+    const taskId=button.dataset.guidePomodoro, owns=state.pomodoro.taskId===taskId, wasPaused=owns&&state.pomodoro.status==='paused';
+    if(owns&&state.pomodoro.status==='running') pausePomodoro();
+    else if(startTaskPomodoro(taskId)) toast(wasPaused?'Pomodoro resumed for this task':'Pomodoro started for this task');
+    renderGuidePomodoroControls();
+  });
+  renderGuidePomodoroControls();
   document.querySelectorAll('[data-guide-step-nav]').forEach(button=>button.onclick=()=>{
     document.getElementById(`guide-${button.dataset.guideStepNav}`)?.scrollIntoView({behavior:'smooth',block:'center'});
   });
@@ -1437,6 +1470,7 @@ function taskGoalFor(l,step){
 
 function guideTaskWorkspaceMarkup(l,step,index,steps,isNext,nextId){
   const status=ts(step.id), goal=taskGoalFor(l,step);
+  const taskId=step.taskId||step.id, studied=fmtDuration(taskSeconds(taskId));
   const canRate=!!step.taskId||step.id.includes('-guide-grammar-');
   const details=step.details?.length?`<div class="guide-workspace-section"><strong>Lesson outcomes</strong><ul>${step.details.map(item=>`<li>${esc(item)}</li>`).join('')}</ul></div>`:'';
   const checklist=step.checklist?.length?`<div class="guide-workspace-section"><strong>Do this</strong><ol>${step.checklist.map(item=>`<li>${esc(item)}</li>`).join('')}</ol></div>`:'';
@@ -1449,6 +1483,7 @@ function guideTaskWorkspaceMarkup(l,step,index,steps,isNext,nextId){
       ${details}${checklist}${videos}${guideAudioMarkup(l,step)}
       ${step.grammarLabel?window.JLHNinjal?.panelMarkup(step.grammarLabel)||'':''}
       <div class="guide-workspace-section guide-task-record"><strong>Task record</strong>
+        <div class="guide-pomodoro-row"><button type="button" class="guide-pomodoro-button" data-guide-pomodoro="${esc(taskId)}" aria-pressed="false">🍅 Start Pomodoro</button><span>Studied: ${esc(studied)}</span></div>
         <label>Notes<textarea class="guide-task-notes" data-guide-notes="${esc(step.id)}" placeholder="Errors, useful examples, or what needs another pass…">${esc(status.notes||'')}</textarea></label>
         ${canRate?`<div class="guide-rating-grid"><label>Mastery<select data-guide-mastery="${esc(step.id)}">${guideMasteryOptions(status.mastery)}</select></label><label>Confidence<select data-guide-confidence="${esc(step.id)}">${guideConfidenceOptions(status.confidence)}</select></label></div>`:''}
       </div>
@@ -1641,7 +1676,7 @@ function openTask(id){
   $('#confidence').value=s.confidence||''; $('#confidence').onchange=e=>setTask(id,{confidence:e.target.value?+e.target.value:null});
   $('#taskNotes').value=s.notes||''; $('#taskNotes').oninput=e=>{state.taskState[id]={...ts(id),notes:e.target.value};saveLocal();cloudSave(id);};
   if($('#openRelatedLesson')) $('#openRelatedLesson').onclick=()=>{$('#modal').close();openGuidedLesson(t.lesson,t.id);};
-  $('#startTaskPomo').onclick=()=>{startPomodoro(id);toast('Pomodoro started for this task');$('#startTaskPomo').textContent='Timer running for this task';};
+  $('#startTaskPomo').onclick=()=>{if(startTaskPomodoro(id)){toast('Pomodoro started for this task');$('#startTaskPomo').textContent='Timer running for this task';}};
   $('#focusTask').onclick=()=>{state.focusMode=true;document.body.classList.add('focus-mode');$('#modal').classList.add('focus-modal');};
   resetTaskModal(); $('#modal').showModal();
   window.JLHRouter?.taskOpened(id);

@@ -2536,6 +2536,27 @@ html[data-theme="dark"] .programme-card.active-programme {
   padding-top:11px;
   border-top:1px solid var(--line);
 }
+.guide-pomodoro-row {
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:8px 12px;
+  margin-bottom:11px;
+}
+.guide-pomodoro-row>span { color:var(--muted); font-size:11px; font-weight:700; }
+.guide-pomodoro-button {
+  min-width:0;
+  padding:8px 10px;
+  border:1px solid #d59069;
+  border-radius:8px;
+  background:#fff7f0;
+  color:#8d452b;
+  font:inherit;
+  font-size:11px;
+  font-weight:800;
+  cursor:pointer;
+}
+.guide-pomodoro-button:hover,.guide-pomodoro-button.is-active { background:#fbe6d7; border-color:#c66b45; }
 .guide-task-record label { display:grid; gap:5px; color:var(--muted); font-size:10px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; }
 .guide-task-notes {
   min-height:76px;
@@ -2695,6 +2716,8 @@ html[data-theme="dark"] :is(.guide-task-workspace,.guide-task-notes,.guide-ratin
   color:var(--ink);
   border-color:var(--line);
 }
+html[data-theme="dark"] .guide-pomodoro-button { background:#30231f; color:#f2b697; border-color:#81513c; }
+html[data-theme="dark"] .guide-pomodoro-button:hover,html[data-theme="dark"] .guide-pomodoro-button.is-active { background:#493027; border-color:#b26a4a; }
 html[data-theme="dark"] :is(.guide-lesson-context,.task-lesson-brief-head) { background:#203744; }
 html[data-theme="dark"] .guide-inline-audio { background:#172b35; border-color:#456472; }
 html[data-theme="dark"] :is(.guide-progress,.guide-next) {
@@ -2708,6 +2731,8 @@ html[data-theme="dark"] .guide-complete { background:#234638; color:#a9dfc4; }
 html[data-theme="dark"] .guide-action:hover { background:#1d2d3a; border-color:#526779; }
 
 @media(max-width:760px) {
+  .guide-pomodoro-row { align-items:stretch; }
+  .guide-pomodoro-button { flex:1 1 170px; }
   .lesson-guide { padding:16px; }
   .lesson-guide-head { display:block; }
   .guide-progress { margin-top:12px; text-align:left; }
