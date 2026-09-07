@@ -1510,6 +1510,11 @@ function lessonGuideSteps(l){
 
 function flattenGuideSteps(steps){ return steps.flatMap(step=>[step,...flattenGuideSteps(step.support||[])]); }
 
+function guideSectionProgress(step){
+  const activities=flattenGuideSteps([step]), done=activities.filter(item=>ts(item.id).completed).length;
+  return {done,total:activities.length,remaining:activities.length-done,complete:activities.length>0&&done===activities.length,mainComplete:ts(step.id).completed};
+}
+
 function nextGuideActivityId(l,currentId,willComplete){
   if(!willComplete) return currentId;
   const activities=flattenGuideSteps(lessonGuideSteps(l)), currentIndex=activities.findIndex(step=>step.id===currentId);
@@ -1536,6 +1541,7 @@ function taskGoalFor(l,step){
 
 function guideTaskWorkspaceMarkup(l,step,index,steps,isCurrent,nextId){
   const status=ts(step.id), goal=taskGoalFor(l,step);
+  const section=guideSectionProgress(step);
   const taskId=step.taskId||step.id, studied=fmtDuration(taskSeconds(taskId));
   const hasOpenMedia=state.lessonMedia?.open&&Number(state.lessonMedia.lesson)===Number(l.n)&&state.lessonMedia.taskId===taskId;
   const details=step.details?.length?`<div class="guide-workspace-section"><strong>Lesson outcomes</strong><ul>${step.details.map(item=>`<li>${esc(item)}</li>`).join('')}</ul></div>`:'';
@@ -1543,7 +1549,7 @@ function guideTaskWorkspaceMarkup(l,step,index,steps,isCurrent,nextId){
   const videos=step.videos?.length?`<div class="guide-workspace-section"><strong>Publisher video${step.videos.length===1?'':'s'}</strong><div class="guide-actions">${guideVideoLinks(step.videos)}</div></div>`:'';
   const previous=steps[index-1], next=steps[index+1];
   return `<details class="guide-task-workspace" data-guide-workspace="${esc(step.id)}" ${isCurrent||hasOpenMedia?'open':''}>
-    <summary><span>${isCurrent?'Current task':status.completed?'Completed':'Upcoming'}</span><strong>Instructions · resources · notes</strong><b>Open</b></summary>
+    <summary><span>${isCurrent?'Current task':section.complete?'Completed':section.done?'In progress':'Upcoming'}</span><strong>Instructions · resources · notes</strong><b>Open</b></summary>
     <div class="guide-workspace-body">
       <div class="guide-lesson-context"><strong>Lesson ${l.n} · ${esc(l.english)}</strong>${goal?`<span>Can-do connection: ${esc(goal)}</span>`:''}</div>
       ${details}${checklist}${videos}${guideAudioMarkup(l,step)}
@@ -1559,11 +1565,12 @@ function guideTaskWorkspaceMarkup(l,step,index,steps,isCurrent,nextId){
 }
 
 function guideStepMarkup(l,step,index,steps,nextId){
-  const status=ts(step.id), page=step.page?` · ${step.page}`:'';
+  const section=guideSectionProgress(step), page=step.page?` · ${step.page}`:'';
   const isNext=flattenGuideSteps([step]).some(item=>item.id===nextId);
-  return `<article class="guide-step ${index<0?'guide-support-step':''} ${status.completed?'done':''} ${isNext?'current':''}" id="guide-${esc(step.id)}" data-guide-task="${esc(step.taskId||step.id)}">
-    <div class="guide-step-number">${status.completed?'✓':index<0?'↳':index+1}</div>
-    <div class="guide-step-main"><div class="guide-resource">${esc(step.resource)}${esc(page)}</div><h3>${esc(step.title)}</h3><p>${esc(step.instruction)}</p>${guideTaskWorkspaceMarkup(l,step,index,steps,isNext,nextId)}</div>
+  const summary=section.complete?'✓ Section complete':section.mainComplete&&section.remaining?`${section.remaining} supporting task${section.remaining===1?'':'s'} remaining`:`${section.done} of ${section.total} complete`;
+  return `<article class="guide-step ${index<0?'guide-support-step':''} ${section.complete?'done':''} ${isNext?'current':''}" id="guide-${esc(step.id)}" data-guide-task="${esc(step.taskId||step.id)}">
+    <div class="guide-step-number">${section.complete?'✓':index<0?'↳':index+1}</div>
+    <div class="guide-step-main"><div class="guide-resource">${esc(step.resource)}${esc(page)}</div><div class="guide-step-heading"><h3>${esc(step.title)}</h3>${index>=0?`<span class="guide-section-summary ${section.complete?'complete':section.done?'in-progress':''}">${esc(summary)}</span>`:''}</div><p>${esc(step.instruction)}</p>${guideTaskWorkspaceMarkup(l,step,index,steps,isNext,nextId)}</div>
   </article>`;
 }
 

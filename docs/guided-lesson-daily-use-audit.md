@@ -7,6 +7,7 @@
 - Completion advancement could leave the final activity selected or overlook earlier unfinished work. Advancement now follows the flattened curriculum order, including nested grammar, video and workbook activities, then returns to any earlier unfinished activity.
 - Guided Lesson note saves could issue overlapping cloud writes. Input remains locally immediate, cloud writes are debounced, and pending saves flush on blur, completion, tab backgrounding and page exit.
 - Current, completed and upcoming activities were not consistently labelled. The workspace summary and current-card treatment now use factual completion state only.
+- Section cards previously inherited only the main task's completion state, which hid unfinished workbook, video or grammar support when collapsed. Section styling and summaries now use aggregate completion while the main task keeps its own saved state.
 - Mobile Notes and audio selectors used sub-16px text, risking iOS focus zoom. Editable controls now compute to at least 16px at phone widths, and primary task/audio controls have 44px touch targets.
 - Obsolete task-rating styles remained after removal of Mastery and Confidence. Those unused selectors were removed.
 
@@ -22,6 +23,7 @@
 - Verify the task shows its page/resource, instructions, Notes, studied time, Pomodoro and completion control without opening a modal.
 - Edit Notes, blur the field, reload and confirm the text persists.
 - Complete a top-level task, nested grammar item and supporting workbook/video item; each should advance to the correct next unfinished activity and update the `step` URL.
+- Complete only a section's main task, collapse it and confirm the card says a supporting task remains rather than appearing complete; complete the support and confirm the section then receives completed styling.
 - Leave an earlier activity unfinished, complete the last activity and confirm Continue returns to the earlier unfinished activity.
 - Start a linked Pomodoro and complete its task; elapsed time should be logged and the timer should become idle.
 - Open inline audio, select a track, pause after several seconds, switch tabs and return; the same task, panel, track and approximate position should remain.

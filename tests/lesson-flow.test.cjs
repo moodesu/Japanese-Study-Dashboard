@@ -14,7 +14,7 @@ vm.runInContext(fs.readFileSync(path.join(root, 'audio-map.js'), 'utf8'), contex
 context.AUDIO_LIBRARY=context.LESSON_AUDIO;
 vm.runInContext(fs.readFileSync(path.join(root, 'ninjal.js'), 'utf8'), context);
 // Exercise the real pure planning/rendering functions without booting auth.
-for (const name of ['defFor','pageFor','makeTask','lessonTasks','weeklyTasks','ts','taskStudyChecklist','lessonGuideSteps','flattenGuideSteps','nextGuideActivityId','guideAudioMarkup','taskGoalFor','guideTaskWorkspaceMarkup','guideStepMarkup','lessonGuideMarkup','scrollToGuideActivity']) {
+for (const name of ['defFor','pageFor','makeTask','lessonTasks','weeklyTasks','ts','taskStudyChecklist','lessonGuideSteps','flattenGuideSteps','guideSectionProgress','nextGuideActivityId','guideAudioMarkup','taskGoalFor','guideTaskWorkspaceMarkup','guideStepMarkup','lessonGuideMarkup','scrollToGuideActivity']) {
   const start=source.indexOf(`function ${name}(`);
   assert.ok(start>=0, `Missing ${name}`);
   const end=source.indexOf('\nfunction ',start+1);
@@ -106,6 +106,30 @@ assert.equal(context.nextGuideActivityId(l,ordered[nestedIndex].id,true),ordered
 for(const step of ordered) context.state.taskState[step.id]={completed:true};
 context.state.taskState[ordered[0].id]={completed:false};context.state.taskState[ordered.at(-1).id]={completed:false};
 assert.equal(context.nextGuideActivityId(l,ordered.at(-1).id,true),ordered[0].id,'After the last activity, Continue returns to any earlier unfinished work');
+const sectionsWithSupport=steps.filter(step=>step.support?.length).slice(0,2);
+assert.equal(sectionsWithSupport.length,2,'Acceptance coverage includes more than one section with supporting work');
+for(const section of sectionsWithSupport){
+  for(const activity of context.flattenGuideSteps([section])) context.state.taskState[activity.id]={completed:false};
+  context.state.taskState[section.id]={completed:true};
+  const support=section.support[0], progress=context.guideSectionProgress(section);
+  assert.equal(progress.mainComplete,true,'The individual main task remains complete');
+  assert.equal(progress.complete,false,'A completed main task does not complete its section');
+  assert.equal(progress.done,1);assert.ok(progress.remaining>0);
+  const partial=context.guideStepMarkup(l,section,steps.indexOf(section),steps,support.id);
+  assert.ok(!/^<article class="[^"]*\bdone\b/.test(partial),'The outer section does not receive completed styling');
+  assert.match(partial,/supporting tasks? remaining/,'Collapsed section summary exposes unfinished supporting work');
+  assert.match(partial,/data-guide-check="[^"]+" checked><span>Completed<\/span>/,'The main task still displays its own completed state');
+  for(const activity of context.flattenGuideSteps([section])) context.state.taskState[activity.id]={completed:true};
+  const complete=context.guideStepMarkup(l,section,steps.indexOf(section),steps,null);
+  assert.match(complete,/^<article class="[^"]*\bdone\b/,'Only a fully completed section receives completed styling');
+  assert.ok(complete.includes('✓ Section complete'));
+}
+for(const activity of ordered) context.state.taskState[activity.id]={completed:true};
+const kanji=steps.find(step=>step.id.endsWith('-textbook_kanji'));
+assert.ok(kanji?.support.length,'Kanji has independently tracked supporting practice');
+const kanjiSupport=kanji.support[0];
+context.state.taskState[kanjiSupport.id]={completed:false};
+assert.ok(context.lessonGuideMarkup(l).includes(`data-guide-scroll="${kanjiSupport.id}"`),'Continue targets unfinished supporting practice when its main task is complete');
 for(const step of context.flattenGuideSteps(steps)) context.state.taskState[step.id]={completed:true};
 delete context.state.taskState['b2-l11-textbook_conversation_shadowing'];
 assert.ok(context.lessonGuideMarkup(l).includes('data-guide-scroll="b2-l11-textbook_conversation_shadowing"'),'Previously completed lessons continue at the new shadowing step');

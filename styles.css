@@ -2448,7 +2448,7 @@ html[data-theme="dark"] .programme-card.active-programme {
 }
 
 .guide-step.current { border-color:#8dbcc6; box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 12%,transparent); }
-.guide-step.done > .guide-step-main > h3 { text-decoration:line-through; }
+.guide-step.done > .guide-step-main > .guide-step-heading > h3 { text-decoration:line-through; }
 .guide-support { display:grid; gap:12px; min-width:0; }
 .guide-support h4 { margin:0; font-size:14px; }
 .guide-support-step { grid-template-columns:minmax(0,1fr); padding:12px; }
@@ -2472,7 +2472,11 @@ html[data-theme="dark"] .programme-card.active-programme {
 
 .guide-step.done .guide-step-number { background:#3c846b; }
 .guide-resource { color:var(--accent); font-size:10px; font-weight:850; letter-spacing:.08em; text-transform:uppercase; }
+.guide-step-heading { display:flex; align-items:center; justify-content:space-between; gap:8px 12px; min-width:0; flex-wrap:wrap; }
 .guide-step h3 { margin:3px 0 5px; font-size:17px; line-height:1.35; }
+.guide-section-summary { flex:0 0 auto; padding:4px 8px; border:1px solid var(--line); border-radius:999px; color:var(--muted); background:var(--surface); font-size:11px; font-weight:750; line-height:1.25; }
+.guide-section-summary.in-progress { color:var(--accent); border-color:color-mix(in srgb,var(--accent) 35%,var(--line)); }
+.guide-section-summary.complete { color:#28644f; border-color:color-mix(in srgb,#3c846b 40%,var(--line)); background:color-mix(in srgb,#3c846b 9%,var(--surface)); }
 .guide-step p { margin:0; color:var(--muted); font-size:13px; line-height:1.55; }
 
 .guide-details {

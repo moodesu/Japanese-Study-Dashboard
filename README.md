@@ -192,7 +192,9 @@ Publisher videos and workbook practice are inside their matching textbook
 section, with independent completion, notes and accumulated study time. Grammar points remain
 individually tracked inside the grammar section. The Continue button includes
 unfinished supporting activities, even when their textbook section is marked
-complete. An optional conversation replay belongs after grammar, not in place
+complete. A section receives its completed styling only after its main task and
+all supporting activities are complete; until then its collapsed summary shows
+the aggregate activity progress. An optional conversation replay belongs after grammar, not in place
 of the opening first pass.
 
 Task records deliberately remain simple: completion, notes and accumulated
