@@ -239,6 +239,17 @@ function renderWaniKani(){
 
 const POMO_DURATIONS = { work: 25*60, short: 5*60, long: 15*60 }; // fallback defaults
 const POMO_CYCLE_LENGTH = 4; // fallback default
+const LESSON_MEDIA_STATE_KEY = 'learningHub.lessonMediaState';
+
+function emptyLessonMediaState(){
+  return {taskId:null,lesson:null,mediaType:null,category:null,open:false,selectedTrack:null,currentTime:0,wasPlaying:false};
+}
+function loadLessonMediaState(){
+  try{
+    const saved=JSON.parse(window.sessionStorage?.getItem(LESSON_MEDIA_STATE_KEY)||'null');
+    return saved&&typeof saved==='object'?{...emptyLessonMediaState(),...saved}:emptyLessonMediaState();
+  }catch(e){return emptyLessonMediaState();}
+}
 
 const state = {
   view: 'dashboard',
@@ -261,6 +272,7 @@ const state = {
   lessonVideosLoaded: false,
   lessonVideosError: false,
   guideTarget: null,
+  lessonMedia: loadLessonMediaState(),
   pomoOpen: localStorage.getItem('pomodoroOpen') === 'true',
   focusMode: false,
   searchOpen: false
@@ -611,6 +623,7 @@ setInterval(()=>{
 },1000);
 
 function render(){
+  captureActiveLessonMedia();
   if(window.JLHRouter?.beforeRender())return;
   if(!state.ready || !state.user){ renderGate(); return; }
   $('#appShell').hidden=false; $('#loginGate').hidden=true;
@@ -1035,6 +1048,25 @@ function saveAudioPlaybackState(){
   localStorage.setItem('lessonAudioPlayback',JSON.stringify(audioPlaybackState));
 }
 
+function saveLessonMediaState(){
+  try{window.sessionStorage?.setItem(LESSON_MEDIA_STATE_KEY,JSON.stringify(state.lessonMedia));}catch(e){}
+}
+
+function captureActiveLessonMedia(){
+  const box=document.querySelector('.guide-inline-audio:not([hidden])');
+  const player=box?.querySelector('.guide-inline-player');
+  if(!box||!player||!player.dataset.trackPath) return;
+  const currentTime=Number(player.currentTime||0);
+  state.lessonMedia={...state.lessonMedia,taskId:box.dataset.guideTaskId||state.lessonMedia.taskId,lesson:Number(box.dataset.guideLesson||state.lesson),mediaType:'audio',category:box.dataset.guideAudioBox||state.lessonMedia.category,open:true,selectedTrack:player.dataset.trackPath,currentTime,wasPlaying:!player.paused&&!player.ended};
+  audioPlaybackState.positions={...(audioPlaybackState.positions||{}),[player.dataset.trackPath]:currentTime};
+  saveAudioPlaybackState();saveLessonMediaState();
+}
+if(!window.__lessonMediaLifecycleBound){
+  document.addEventListener('visibilitychange',captureActiveLessonMedia);
+  window.addEventListener('pagehide',captureActiveLessonMedia);
+  window.__lessonMediaLifecycleBound=true;
+}
+
 function safeYouTubeUrl(value){
   try{
     const url=new URL(value);
@@ -1194,6 +1226,7 @@ function initGuideAudio(n){
     const box=workspace?.querySelector('.guide-inline-audio');
     if(!box) return;
     const category=toggle.dataset.guideAudio;
+    const taskId=toggle.dataset.guideTaskId;
     const tracks=lessonAudio.groups?.[category]||[];
     const player=box.querySelector('.guide-inline-player');
     const selector=box.querySelector('.guide-audio-select');
@@ -1219,14 +1252,18 @@ function initGuideAudio(n){
       currentIndex=index; updateControls();
       now.innerHTML=`<strong>${esc(track.title)}</strong><small>${esc(track.filename)}</small>`;
       status.textContent='Preparing private audio…';
+      const sameSavedTrack=state.lessonMedia?.taskId===taskId&&state.lessonMedia.selectedTrack===track.path;
+      state.lessonMedia={...emptyLessonMediaState(),...state.lessonMedia,taskId,lesson:n,mediaType:'audio',category,open:true,selectedTrack:track.path,currentTime:sameSavedTrack?Number(state.lessonMedia.currentTime||0):Number(audioPlaybackState.positions?.[track.path]||0),wasPlaying:false};
+      saveLessonMediaState();
       try{
         const url=await signedLessonAudioUrl(track);
         player.src=url;
+        player.dataset.trackPath=track.path;
         player.playbackRate=Number(speed.value);
         audioPlaybackState.lastPath=track.path;
         saveAudioPlaybackState();
         player.onloadedmetadata=()=>{
-          const saved=Number(audioPlaybackState.positions?.[track.path]||0);
+          const saved=state.lessonMedia.taskId===taskId&&state.lessonMedia.selectedTrack===track.path?Number(state.lessonMedia.currentTime||0):Number(audioPlaybackState.positions?.[track.path]||0);
           if(saved>0&&saved<player.duration-2) player.currentTime=saved;
           status.textContent=saved>0?`Resumed at ${Math.floor(saved/60)}:${String(Math.floor(saved%60)).padStart(2,'0')}.`:'Ready to play.';
           if(autoplay) player.play().catch(()=>{});
@@ -1242,11 +1279,14 @@ function initGuideAudio(n){
         if(other!==box){other.hidden=true;other.querySelector('audio')?.pause();}
       });
       box.hidden=false;
-      const remembered=tracks.findIndex(track=>track.path===audioPlaybackState.lastPath);
+      toggle.setAttribute('aria-expanded','true');
+      state.lessonMedia={...emptyLessonMediaState(),taskId,lesson:n,mediaType:'audio',category,open:true,selectedTrack:state.lessonMedia?.taskId===taskId&&state.lessonMedia.category===category?state.lessonMedia.selectedTrack:null,currentTime:state.lessonMedia?.taskId===taskId&&state.lessonMedia.category===category?Number(state.lessonMedia.currentTime||0):0,wasPlaying:false};
+      saveLessonMediaState();
+      const remembered=tracks.findIndex(track=>track.path===(state.lessonMedia.selectedTrack||audioPlaybackState.lastPath));
       loadTrack(remembered>=0?remembered:Math.max(0,currentIndex),true);
       selector.focus({preventScroll:true});
     };
-    box.querySelector('.guide-audio-close').onclick=()=>{player.pause();box.hidden=true;toggle.focus({preventScroll:true});};
+    box.querySelector('.guide-audio-close').onclick=()=>{captureActiveLessonMedia();player.pause();box.hidden=true;toggle.setAttribute('aria-expanded','false');state.lessonMedia={...state.lessonMedia,open:false,wasPlaying:false};saveLessonMediaState();toggle.focus({preventScroll:true});};
     selector.onchange=()=>loadTrack(Number(selector.value),true);
     previous.onclick=()=>loadTrack(currentIndex-1,true);
     next.onclick=()=>loadTrack(currentIndex+1,true);
@@ -1262,15 +1302,25 @@ function initGuideAudio(n){
       const second=Math.floor(player.currentTime||0);
       if(second===lastSavedSecond||second%5!==0) return;
       lastSavedSecond=second;
+      if(state.lessonMedia.taskId!==taskId||state.lessonMedia.selectedTrack!==track.path)return;
       audioPlaybackState.positions={...(audioPlaybackState.positions||{}),[track.path]:second};
-      saveAudioPlaybackState();
+      state.lessonMedia={...state.lessonMedia,currentTime:Number(player.currentTime||0),selectedTrack:track.path};
+      saveAudioPlaybackState();saveLessonMediaState();
     };
+    player.onplay=()=>{if(state.lessonMedia.taskId===taskId&&state.lessonMedia.selectedTrack===player.dataset.trackPath){state.lessonMedia={...state.lessonMedia,open:true,wasPlaying:true,currentTime:Number(player.currentTime||0)};saveLessonMediaState();}};
+    player.onpause=()=>{if(player.dataset.trackPath&&state.lessonMedia.taskId===taskId&&state.lessonMedia.selectedTrack===player.dataset.trackPath){state.lessonMedia={...state.lessonMedia,currentTime:Number(player.currentTime||0),wasPlaying:false};audioPlaybackState.positions={...(audioPlaybackState.positions||{}),[player.dataset.trackPath]:Number(player.currentTime||0)};saveAudioPlaybackState();saveLessonMediaState();}};
     player.onended=()=>{
       const track=tracks[currentIndex];
-      if(track){audioPlaybackState.positions={...(audioPlaybackState.positions||{}),[track.path]:0};saveAudioPlaybackState();}
+      if(track){audioPlaybackState.positions={...(audioPlaybackState.positions||{}),[track.path]:0};state.lessonMedia={...state.lessonMedia,currentTime:0,wasPlaying:false};saveAudioPlaybackState();saveLessonMediaState();}
       status.textContent=currentIndex<tracks.length-1?'Track complete. Choose Next to continue.':'This task’s audio is complete.';
     };
     updateControls();
+    const restore=state.lessonMedia?.open&&Number(state.lessonMedia.lesson)===Number(n)&&state.lessonMedia.taskId===taskId&&state.lessonMedia.category===category;
+    if(restore){
+      box.hidden=false;toggle.setAttribute('aria-expanded','true');
+      const remembered=tracks.findIndex(track=>track.path===state.lessonMedia.selectedTrack);
+      loadTrack(remembered>=0?remembered:0,false);
+    }
   });
 }
 
@@ -1341,9 +1391,11 @@ function guideAudioMarkup(l,step){
   if(!tracks.length) return '<p class="guide-resource-note">No mapped audio tracks are available for this task.</p>';
   const category=(AUDIO_LIBRARY.categories||[]).find(item=>item.key===step.audio)||{};
   const audioGuide=step.audioGuide||category.guide;
+  const taskId=step.taskId||step.id;
+  const isOpen=state.lessonMedia?.open&&Number(state.lessonMedia.lesson)===Number(l.n)&&state.lessonMedia.taskId===taskId&&state.lessonMedia.category===step.audio;
   return `<div class="guide-audio-area">
-    <button type="button" class="guide-action guide-audio-toggle" data-guide-audio="${esc(step.audio)}">▶ Play ${esc(category.english||step.audio)} audio here</button>
-    <div class="guide-inline-audio" data-guide-audio-box="${esc(step.audio)}" hidden>
+    <button type="button" class="guide-action guide-audio-toggle" data-guide-audio="${esc(step.audio)}" data-guide-task-id="${esc(taskId)}" aria-expanded="${isOpen?'true':'false'}">▶ Play ${esc(category.english||step.audio)} audio here</button>
+    <div class="guide-inline-audio" data-guide-audio-box="${esc(step.audio)}" data-guide-task-id="${esc(taskId)}" data-guide-lesson="${esc(l.n)}" ${isOpen?'':'hidden'}>
       <div class="guide-inline-audio-head"><div><span>${esc(category.label||'')}</span><strong>${esc(category.english||step.audio)} · ${tracks.length} ${tracks.length===1?'track':'tracks'}</strong></div><button type="button" class="guide-audio-close" aria-label="Close inline audio">×</button></div>
       ${audioGuide?`<p>${esc(audioGuide)}</p>`:''}
       <label class="guide-audio-select-label">Track <select class="guide-audio-select">${tracks.map((track,index)=>`<option value="${index}">${esc(track.badge||String(index+1).padStart(2,'0'))} · ${esc(track.title)}</option>`).join('')}</select></label>
@@ -1471,12 +1523,13 @@ function taskGoalFor(l,step){
 function guideTaskWorkspaceMarkup(l,step,index,steps,isNext,nextId){
   const status=ts(step.id), goal=taskGoalFor(l,step);
   const taskId=step.taskId||step.id, studied=fmtDuration(taskSeconds(taskId));
+  const hasOpenMedia=state.lessonMedia?.open&&Number(state.lessonMedia.lesson)===Number(l.n)&&state.lessonMedia.taskId===taskId;
   const canRate=!!step.taskId||step.id.includes('-guide-grammar-');
   const details=step.details?.length?`<div class="guide-workspace-section"><strong>Lesson outcomes</strong><ul>${step.details.map(item=>`<li>${esc(item)}</li>`).join('')}</ul></div>`:'';
   const checklist=step.checklist?.length?`<div class="guide-workspace-section"><strong>Do this</strong><ol>${step.checklist.map(item=>`<li>${esc(item)}</li>`).join('')}</ol></div>`:'';
   const videos=step.videos?.length?`<div class="guide-workspace-section"><strong>Publisher video${step.videos.length===1?'':'s'}</strong><div class="guide-actions">${guideVideoLinks(step.videos)}</div></div>`:'';
   const previous=steps[index-1], next=steps[index+1];
-  return `<details class="guide-task-workspace" ${isNext?'open':''}>
+  return `<details class="guide-task-workspace" ${isNext||hasOpenMedia?'open':''}>
     <summary><span>${isNext?'Current task':'Task workspace'}</span><strong>Instructions · resources · notes</strong><b>Open</b></summary>
     <div class="guide-workspace-body">
       <div class="guide-lesson-context"><strong>Lesson ${l.n} · ${esc(l.english)}</strong>${goal?`<span>Can-do connection: ${esc(goal)}</span>`:''}</div>
