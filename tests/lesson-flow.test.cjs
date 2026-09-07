@@ -141,6 +141,11 @@ assert.ok(!source.includes("$('#mastery')"),'Task modal does not read or write m
 assert.ok(!source.includes("$('#confidence')"),'Task modal does not read or write confidence');
 assert.ok(!source.includes('p.mastered'),'Lesson progress does not derive a mastered total');
 assert.ok(!source.includes('st.mastery'),'Dashboard and review logic do not depend on mastery');
+assert.ok(!source.includes('function reviewItems('),'Learning Hub has no generic task review scheduler');
+assert.ok(!source.includes('Review queue'),'Dashboard has no generic task review panel');
+assert.ok(!source.includes('data-review-task'),'Completed tasks are not resurfaced by a manual review workflow');
+assert.ok(source.includes('textbook_conversation_shadowing'),'Curriculum-defined conversation replay/shadowing remains');
+assert.ok(source.includes('Programme consolidation'),'Curriculum-defined consolidation remains');
 assert.match(source,/upsert\(\{user_id:state\.user\.id,task_id:id,completed:t\.completed,completed_at:t\.completed_at,notes:t\.notes\}/,'Cloud task writes contain only active workflow fields');
 assert.match(source,/state\.taskState\[r\.task_id\]=\{completed:r\.completed,notes:r\.notes,completed_at:r\.completed_at\}/,'Cloud hydration ignores historical rating columns');
 console.log('PASS: Lessons 11–20 ordering, exact page lookup, Plan parity, nested resources, stable records, no duplicate targets, consolidation unchanged.');

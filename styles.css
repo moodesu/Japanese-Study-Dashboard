@@ -370,8 +370,11 @@ summary:focus-visible {
   margin-top:14px;
 }
 
-.today-card,
-.review-card {
+.today-layout.single {
+  grid-template-columns:minmax(0,1fr);
+}
+
+.today-card {
   min-width:0;
 }
 
@@ -2289,10 +2292,6 @@ html[data-theme="dark"] .status-label {
   color:var(--muted);
 }
 
-html[data-theme="dark"] .status-label.studying { background:#5a4521; color:#f5d89a; }
-html[data-theme="dark"] .status-label.shaky { background:#573027; color:#f3bbb0; }
-html[data-theme="dark"] .status-label.mastered { background:#234638; color:#a9dfc4; }
-html[data-theme="dark"] .status-label.review { background:#2c3c62; color:#c3d0f4; }
 html[data-theme="dark"] .audio-private-badge { background:#24483b; color:#afe1c8; }
 html[data-theme="dark"] .pomo-nav-btn.is-running { background:#573027; border-color:#865044; color:#f3bbb0; }
 html[data-theme="dark"] .modal::backdrop { background:rgba(0,0,0,.68); }

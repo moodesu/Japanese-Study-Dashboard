@@ -195,6 +195,13 @@ unfinished supporting activities, even when their textbook section is marked
 complete. An optional conversation replay belongs after grammar, not in place
 of the opening first pass.
 
+Task records deliberately remain simple: completion, notes and accumulated
+Pomodoro study time. The Learning Hub does not assign mastery, confidence or
+manual review states, and it does not schedule completed lesson tasks for SRS
+review. WaniKani handles kanji review and Migaku handles sentence/vocabulary
+review. Curriculum replay, correction, wrap-up and consolidation activities
+remain part of the lesson plan.
+
 Existing task IDs, notes and completion records are retained. Historical
 Mastery and Confidence database values are left untouched but are no longer
 shown, written, or used by the study workflow. Picture

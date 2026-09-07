@@ -343,7 +343,7 @@ function weeklyTasks(w,d){
 }
 function consolidationTasks(w,d){
   const ls=consolidationLessons(w), label=w===10?'Lessons 11–15':'Lessons 16–20';
-  if(d===6) return [{id:`b2-w${w+1}-d7-mastery`,key:'review',title:`Programme review · ${label}`,duration:'45–60 min',book:'Dashboard',desc:'Re-test lesson grammar production, reading, listening and workbook errors. Use your task notes to choose what needs another pass.'}];
+  if(d===6) return [{id:`b2-w${w+1}-d7-mastery`,key:'consolidation',title:`Programme consolidation · ${label}`,duration:'45–60 min',book:'Dashboard',desc:'Re-test lesson grammar production, reading, listening and workbook errors. Use your task notes to choose what needs another pass.'}];
   const l=ls[d];
   if(!l) return [{id:`b2-w${w+1}-d${d+1}-catchup`,key:'catchup',title:`Consolidation · ${label}`,duration:'45–60 min',book:'Your notes',desc:'Use this session for unfinished work and the weakest remaining areas.'}];
   const key=['textbook_grammar','textbook_reading','textbook_listening','grammar1','reading','writing','comp1'][d];
@@ -916,7 +916,6 @@ const ROADMAP_ITEMS = [
   {id:'today-flow',title:'Tighten Today / Start Here',detail:'Make the next study action obvious and launchable from the dashboard.'},
   {id:'task-completion',title:'Improve task completion',detail:'Keep completion simple while recording useful study time and notes.'},
   {id:'mobile-pass',title:'Mobile-first study pass',detail:'Keep the operational study flow comfortable on a phone.'},
-  {id:'review-engine',title:'Lightweight review engine',detail:'Resurface completed work after a simple elapsed-time interval.'},
   {id:'library',title:'Make the Library genuinely useful',detail:'Separate reusable resources from programmes and schedules.'},
   {id:'search',title:'Global search',detail:'Search lessons, tasks, books and study notes from one place.'},
   {id:'history',title:'Study history',detail:'Show recent study time and activity without turning the app into a gamification system.'},
@@ -925,21 +924,10 @@ const ROADMAP_ITEMS = [
   {id:'cross-resource',title:'Cross-resource learning model',detail:'Keep books, tools and activities independent so future resources can contribute to the same learning workflow.'},
   {id:'analytics',title:'Advanced analytics',detail:'Defer sophisticated analytics until real usage data tells us what is worth measuring.'}
 ];
-const ROADMAP_DEFAULT_DONE = new Set(['today-flow','task-completion','mobile-pass','review-engine','library','search','history','task-guidance','focus-mode','cross-resource']);
+const ROADMAP_DEFAULT_DONE = new Set(['today-flow','task-completion','mobile-pass','library','search','history','task-guidance','focus-mode','cross-resource']);
 function roadmapState(){try{return JSON.parse(localStorage.getItem('hubRoadmap')||'{}')}catch(e){return {}}}
 function roadmapDone(id){const r=roadmapState();return Object.prototype.hasOwnProperty.call(r,id)?!!r[id]:ROADMAP_DEFAULT_DONE.has(id)}
 function setRoadmapDone(id,done){const r=roadmapState();r[id]=!!done;localStorage.setItem('hubRoadmap',JSON.stringify(r));render();}
-function reviewItems(){
-  const now=Date.now(), out=[];
-  for(const t of allCoreTasks()){
-    const st=ts(t.id); if(!st.completed) continue;
-    const completed=st.completed_at?new Date(st.completed_at).getTime():0;
-    if(!completed) continue;
-    const days=(now-completed)/86400000;
-    if(days>=7) out.push({t,days});
-  }
-  return out.sort((a,b)=>b.days-a.days).slice(0,8);
-}
 function studyContext(){
   const start=new Date(state.startDate+'T00:00:00'); const today=new Date(); today.setHours(0,0,0,0);
   if(today<start) return {w:0,d:0,date:start,preStart:true};
@@ -998,11 +986,10 @@ function renderSearchResults(q){
 function renderDashboard(){
   $('#hero').hidden=true; $('#bottomArea').hidden=true; $('#weekView').hidden=true; $('#mainContent').hidden=false;
   const overall=overallProgress(),w=currentWeekIndex(),wp=progress(w),next=nextIncomplete();
-  const studyDay=studyContext(),today=todayTasks(), reviews=reviewItems();
+  const studyDay=studyContext(),today=todayTasks();
   const dayLabel=studyDay.preStart?`Next study · ${fmt(studyDay.date)}`:`Today · ${fmt(studyDay.date)}`;
   const activityRows=OPTIONAL_TASKS.map(x=>({label:x.label,secs:activitySeconds(x.key)})).sort((a,b)=>b.secs-a.secs);
   const maxActivity=Math.max(...activityRows.map(a=>a.secs),1);
-  const topTasks=topTaskSessions(6);
   const weekTime=weekSeconds(7), recentTime=weekSeconds(30);
   const todayPct=today.length?0:100;
   $('#mainContent').innerHTML=`
@@ -1010,13 +997,10 @@ function renderDashboard(){
       <div><div class="eyebrow">${dayLabel}</div><h1>${studyDay.preStart?'Ready for Monday?':'What are you studying now?'}</h1><p>${esc(activeBook().title)} · Week ${w+1}. The dashboard is deliberately focused on the next useful action.</p></div>
       <div class="today-summary"><strong>${today.length?today.length:0}</strong><span>${today.length?'core tasks remaining today':'core tasks remaining'}</span></div>
     </section>
-    <section class="today-layout">
+    <section class="today-layout single">
       <article class="panel today-card"><div class="panelhead"><div><h2>Start here</h2><p class="subtitle">Open the guided lesson path and continue from the matching numbered step.</p></div><span class="today-complete">${todayPct}%</span></div>
-        ${today.length?`<div class="focuslist">${today.map((t,i)=>{const s=ts(t.id),action=t.lesson?`data-guided-task="${esc(t.id)}" data-guided-lesson="${esc(t.lesson)}">Open path`:`data-today-task="${esc(t.id)}">Start`;return `<article class="focusitem"><span class="focus-number">${i+1}</span><div class="focusmain"><strong>${esc(t.title)}</strong><small>${esc(t.book)}${t.page?' · p.'+esc(t.page):''} · ${esc(t.duration)}</small><span>${esc(taskPurpose(t))}</span></div><button class="smallbtn primary" ${action}</button></article>`}).join('')}</div>`:'<div class="empty success-empty">Today’s core work is complete. Use the review queue below or stop for the day.</div>'}
+        ${today.length?`<div class="focuslist">${today.map((t,i)=>{const action=t.lesson?`data-guided-task="${esc(t.id)}" data-guided-lesson="${esc(t.lesson)}">Open path`:`data-today-task="${esc(t.id)}">Start`;return `<article class="focusitem"><span class="focus-number">${i+1}</span><div class="focusmain"><strong>${esc(t.title)}</strong><small>${esc(t.book)}${t.page?' · p.'+esc(t.page):''} · ${esc(t.duration)}</small><span>${esc(taskPurpose(t))}</span></div><button class="smallbtn primary" ${action}</button></article>`}).join('')}</div>`:'<div class="empty success-empty">Today’s scheduled core work is complete.</div>'}
         <div class="today-actions"><button class="smallbtn" id="openWeekToday">Open today in Study Plan</button>${next?'<button class="smallbtn" id="openNextTask">Next incomplete</button>':''}</div>
-      </article>
-      <article class="panel review-card"><div class="panelhead"><div><h2>Review queue</h2><p class="subtitle">Completed work returns here after seven days.</p></div><span class="flag-count">${reviews.length} due</span></div>
-        ${reviews.length?`<div class="attentionlist review-list">${reviews.map(x=>`<button class="attention" data-review-task="${esc(x.t.id)}"><span><strong>${esc(x.t.title)}</strong><small>${esc(x.t.book)} · ${Math.floor(x.days)}d since completion</small></span></button>`).join('')}</div>`:'<div class="empty">Nothing is due yet.</div>'}
       </article>
     </section>
     <section class="dashgrid secondary-dashboard">
@@ -1382,7 +1366,7 @@ function taskStudyChecklist(l,t){
     vocab:[`Complete Lesson ${l.n} vocabulary practice on ${page} without copying from the textbook.`,`Check errors against Textbook pp.${textbook.vocab} and identify why each answer was missed.`,'Read corrected words and example sentences aloud, then retrieve them once more without looking.'],
     particle:[`Complete the Lesson ${l.n} particle practice on ${page}.`,`For every correction, explain what the chosen particle marks in that sentence.`,'Record recurring particle errors in this task’s notes.'],
     grammar1:[`Complete Grammar practice 1 on ${page} after studying the matching Lesson ${l.n} grammar videos and explanations.`,'Produce your own answer before checking the model.','Return to the exact grammar point for every error rather than rereading the whole section.'],
-    grammar2:[`Complete Grammar practice 2 on ${page}, beginning with the least secure Lesson ${l.n} grammar points.`,'Answer without notes first, then check form and nuance.','Mark any grammar that still cannot be produced independently as Shaky or Review.'],
+    grammar2:[`Complete Grammar practice 2 on ${page}, beginning with the least secure Lesson ${l.n} grammar points.`,'Answer without notes first, then check form and nuance.','Record errors or questions in the task notes for the lesson wrap-up.'],
     comp1:[`Attempt Comprehensive practice 1 on ${page} as a closed-book Lesson ${l.n} retrieval test.`,'Check every error against its exact textbook section.','Repeat missed items after a short delay before marking the task complete.'],
     comp2:[`Attempt Comprehensive practice 2 on ${page} without notes.`,'Use mistakes to identify the final weak areas from Lesson '+l.n+'.','Add a short note about anything requiring another pass.'],
     listening:[`Play the Lesson ${l.n} listening audio without reading the script and complete ${page}.`,'Check the script only after the first attempt and identify what was not heard.','Replay difficult lines and shadow them before checking the final answer.'],
@@ -1653,9 +1637,9 @@ if(!window.__studyHubTaskClickHandler) {
       openGuidedLesson(guided.dataset.guidedLesson,guided.dataset.guidedTask);
       return;
     }
-    const trigger=e.target.closest('[data-today-task],[data-review-task],[data-task]');
+    const trigger=e.target.closest('[data-today-task],[data-task]');
     if(!trigger) return;
-    const id=trigger.dataset.todayTask || trigger.dataset.reviewTask || trigger.dataset.task;
+    const id=trigger.dataset.todayTask || trigger.dataset.task;
     if(id) {
       e.preventDefault();
       e.stopPropagation();
