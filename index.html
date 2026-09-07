@@ -18,6 +18,7 @@
     <span class="app-mark" aria-hidden="true">▤</span>
     <span class="app-identity-copy"><strong>Learning Hub</strong><small>Japanese study</small></span>
   </div>
+  <button id="mobileMoreToggle" class="mobile-more-toggle" type="button" aria-expanded="false" aria-controls="mobileMoreMenu">More</button>
   <nav id="mainNav" class="mainnav" aria-label="Primary navigation"></nav>
   <div class="account">
     <span class="account-state"><span id="syncStatus" class="sync"></span><span id="userLabel" class="sync"></span></span>
@@ -27,6 +28,17 @@
     <button id="logout" class="smallbtn">Logout</button>
   </div>
 </header>
+<nav id="mobileBottomNav" class="mobile-bottom-nav" aria-label="Primary mobile navigation"></nav>
+<div id="mobileMoreMenu" class="mobile-more-menu" hidden>
+  <button type="button" data-mobile-view="repository"><span aria-hidden="true">文</span><strong>Japanese Repository</strong></button>
+  <button type="button" id="mobileGrammarLibrary"><span aria-hidden="true">文法</span><strong>Grammar Library</strong></button>
+  <button type="button" id="mobileSearch"><span aria-hidden="true">⌕</span><strong>Search</strong></button>
+  <button type="button" data-mobile-view="wanikani"><span aria-hidden="true">漢</span><strong>WaniKani</strong></button>
+  <button type="button" id="mobilePomodoro"><span aria-hidden="true">🍅</span><strong>Pomodoro</strong></button>
+  <button type="button" id="mobileFurigana"><span aria-hidden="true">振</span><strong>Furigana</strong></button>
+  <button type="button" id="mobileTheme"><span aria-hidden="true">◐</span><strong>Theme</strong></button>
+  <button type="button" id="mobileAccount"><span aria-hidden="true">●</span><strong>Account</strong></button>
+</div>
 <div id="pomodoroWidget" class="pomodoro-widget" hidden>
   <div class="pomo-head">
     <div><span class="eyebrow">Pomodoro</span><strong id="pomoMode">Focus</strong><span id="pomoCycle" class="pomo-cycle"></span></div>

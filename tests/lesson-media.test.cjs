@@ -39,7 +39,7 @@ context.state.lessonVideo={lesson:11,area:'reference',videoId:id};
 markup=context.lessonVideoItemMarkup(video,{lesson:11,area:'reference',label:'Dialogue practice'});
 assert.ok(markup.includes('https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?rel=0'));
 assert.ok(markup.includes('aria-expanded="true"'));
-assert.match(source,/isCurrent\|\|hasOpenMedia\|\|hasOpenVideo\?'open':''/,'A rendered task keeps its active video workspace open');
+assert.match(source,/isCurrent\|\|\(!status\.completed&&\(hasOpenMedia\|\|hasOpenVideo\)\)\?'open':''/,'Active media keeps an unfinished workspace open without reopening completed work');
 
 assert.deepEqual(JSON.parse(JSON.stringify(context.parsePrintedPageRange('14–15'))),{start:14,end:15});
 assert.deepEqual(JSON.parse(JSON.stringify(context.parsePrintedPageRange('p.23'))),{start:23,end:23});

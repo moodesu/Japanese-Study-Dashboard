@@ -15,7 +15,7 @@ assert.match(styles,/\.book-section \{[\s\S]*?border-color:transparent;[\s\S]*?b
 assert.match(styles,/\.book-section-status \{[\s\S]*?border:0;[\s\S]*?background:transparent/,'Completion status is metadata rather than a competing button');
 assert.match(styles,/html\[data-theme="dark"\] \{[\s\S]*?--accent:#55b9c4;[\s\S]*?--success:#70bd98/,'Dark mode has deliberate teal and success tokens');
 assert.match(styles,/@media\(max-width:760px\) \{[\s\S]*?\.book-section-actions \{ width:100%;justify-content:space-between/,'Mobile resource rows use the available width');
-assert.match(app,/class="resource-action textbook-pages-button"[\s\S]*?class="resource-action-icon" aria-hidden="true">▤<\/span>View \$\{esc\(step\.page\)\}/,'Guided textbook actions share the icon-and-label component');
+assert.match(app,/class="resource-action textbook-pages-button"[\s\S]*?class="resource-action-icon" aria-hidden="true">▤<\/span>Open textbook/,'Guided textbook actions use the shared component without repeating the page range');
 assert.match(app,/class="resource-action textbook-pages-button"[\s\S]*?View pp\.\$\{esc\(sec\.pages\|\|'—'\)\}/,'Reference actions show their exact printed page range');
 
 console.log('PASS: Learning Hub tokens, action hierarchy, flatter study cards, dark mode and mobile resource layout.');

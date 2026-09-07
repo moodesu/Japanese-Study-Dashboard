@@ -291,6 +291,7 @@ const state = {
   lessonVideosError: false,
   guideTarget: null,
   activeGuideTaskId: null,
+  manualGuideTaskId: null,
   lessonMedia: loadLessonMediaState(),
   lessonReference: loadLessonReferenceState(),
   lessonVideo: loadLessonVideoState(),
@@ -707,7 +708,16 @@ function renderHeader(){
 }
 function renderNav(){
   $('#mainNav').innerHTML=`<button class="navbtn icon-nav-btn home-nav-btn ${state.view==='dashboard'?'active':''}" data-view="dashboard" title="Home" aria-label="Home">⌂</button><button class="navbtn ${state.view==='plan'?'active':''}" data-view="plan">Plan</button><button class="navbtn ${state.view==='lesson'?'active':''}" data-view="lesson">Lessons</button><button class="navbtn ${state.view==='library'?'active':''}" data-view="library">Hub</button><button class="navbtn icon-nav-btn repo-nav-btn ${state.view==='repository'?'active':''}" data-view="repository" title="Japanese Repository" aria-label="Japanese Repository">文</button><button class="navbtn icon-nav-btn" id="searchNavBtn" type="button" title="Search" aria-label="Search">⌕</button><button class="navbtn wk-nav-btn ${state.view==='wanikani'?'active':''}" data-view="wanikani" title="WaniKani" aria-label="WaniKani">漢</button><button class="navbtn pomo-nav-btn" id="pomoNavBtn" type="button" title="Pomodoro" aria-label="Open Pomodoro">🍅</button>`;
-  $('#mainNav').querySelectorAll('.navbtn[data-view]').forEach(b=>b.onclick=()=>{state.view=b.dataset.view;if(state.view==='lesson'&&!lessonByNumber(state.lesson))state.lesson=11;render();scrollTo({top:0,behavior:'smooth'});});
+  const navigate=view=>{state.view=view;if(state.view==='lesson'&&!lessonByNumber(state.lesson))state.lesson=11;closeMobileMore();render();scrollTo({top:0,behavior:'smooth'});};
+  $('#mainNav').querySelectorAll('.navbtn[data-view]').forEach(b=>b.onclick=()=>navigate(b.dataset.view));
+  const mobileNav=$('#mobileBottomNav');
+  if(mobileNav){
+    const items=[['dashboard','⌂','Home'],['plan','▣','Plan'],['lesson','▤','Lessons'],['library','▦','Hub']];
+    mobileNav.innerHTML=items.map(([view,icon,label])=>`<button type="button" class="${state.view===view?'active':''}" data-mobile-view="${view}"><span aria-hidden="true">${icon}</span><strong>${label}</strong></button>`).join('');
+    mobileNav.querySelectorAll('[data-mobile-view]').forEach(button=>button.onclick=()=>navigate(button.dataset.mobileView));
+  }
+  document.querySelectorAll('#mobileMoreMenu [data-mobile-view]').forEach(button=>button.onclick=()=>navigate(button.dataset.mobileView));
+  const mobileAccountLabel=$('#mobileAccount strong');if(mobileAccountLabel)mobileAccountLabel.textContent=state.user?'Logout':'Login';
   $('#searchNavBtn')?.addEventListener('click',openSearch);
   const pomoNav=$('#pomoNavBtn');
   if(pomoNav){
@@ -718,6 +728,22 @@ function renderNav(){
   const pomoClose=$('#pomoClose');
   if(pomoClose) pomoClose.onclick=()=>{state.pomoOpen=false;localStorage.setItem('pomodoroOpen','false');renderPomodoro();renderNav();};
   window.JLHRouter?.decorate();
+}
+
+function closeMobileMore(){
+  const menu=$('#mobileMoreMenu'),toggle=$('#mobileMoreToggle');
+  if(menu)menu.hidden=true;
+  if(toggle)toggle.setAttribute('aria-expanded','false');
+}
+function initMobileNavigation(){
+  const menu=$('#mobileMoreMenu'),toggle=$('#mobileMoreToggle');if(!menu||!toggle)return;
+  toggle.onclick=()=>{const opening=menu.hidden;menu.hidden=!opening;toggle.setAttribute('aria-expanded',String(opening));};
+  $('#mobileSearch').onclick=()=>{closeMobileMore();openSearch();};
+  $('#mobilePomodoro').onclick=()=>{closeMobileMore();$('#pomoNavBtn')?.click();};
+  $('#mobileFurigana').onclick=()=>{$('#siteFuriganaToggle')?.click();closeMobileMore();};
+  $('#mobileTheme').onclick=()=>{$('#themeToggle')?.click();closeMobileMore();};
+  $('#mobileAccount').onclick=()=>{closeMobileMore();(state.user?$('#logout'):$('#openLogin'))?.click();};
+  $('#mobileGrammarLibrary').onclick=()=>{closeMobileMore();state.view='repository';render();requestAnimationFrame(()=>window.JLHOpenGrammarLibrary?.());};
 }
 
 function renderBookMap(bookId){
@@ -794,18 +820,16 @@ function renderLibrary(){
   const books=window.BOOKS||[], resources=window.STUDY_RESOURCES||[], programmes=window.PROGRAMMES||[];
   const activeP=activeProgramme();
   $('#mainContent').innerHTML=`
-    <section class="library-hero">
-      <div class="eyebrow">Japanese learning hub</div>
-      <h1>One place for every Japanese book you study</h1>
-      <p>The hub separates <strong>books</strong> from <strong>study programmes</strong>. A book can exist in your library without being scheduled; a programme decides how and when its material is studied.</p>
-      <div class="hub-current"><div><span class="eyebrow">Active programme</span><h2>${esc(activeP?.title||'No active programme')}</h2><p>${esc(activeP?.description||'')}</p></div><span class="book-status active">${esc(activeBook().title)}</span></div>
+    <section class="library-hero app-page-heading">
+      <div><div class="eyebrow">Book library · Hub</div><h1>Books and study programmes</h1><p>Your mapped books, active curriculum and supporting study tools.</p></div>
+      <div class="hub-current"><div><span class="eyebrow">Active programme</span><h2>${esc(activeP?.title||'No active programme')}</h2></div><span class="book-status active">${esc(activeBook().title)}</span></div>
     </section>
-    <section class="library-section"><div class="panelhead"><div><h2>Study programmes</h2><p class="subtitle">Choose a structured course when its contents have been mapped. Only the active programme generates the current schedule.</p></div></div><div class="programme-grid">${programmes.map(p=>{const x=programmeSummary(p),active=p.id===state.programmeId,mappedBook=!!(window.BOOK_MAPS||{})[p.bookId];const stageLabel=p.weeks?`${p.weeks} weeks`:mappedBook?'Book mapped':'Not mapped';const placeholder=mappedBook?'Book content is mapped. Programme scheduling and workbook task structure have not been configured yet.':'Contents/pages not mapped yet. Add the book data first; the same programme engine will then handle it.';return `<article class="programme-card ${active?'active-programme':''}"><div class="book-card-top"><span class="book-status ${p.status}">${active?'Active':p.status==='planned'?'Planned':'Available'}</span><span class="book-level">${stageLabel}</span></div><div class="eyebrow">${esc(x.book?.series||'Programme')}</div><h3>${esc(p.title)}</h3><p>${esc(p.description)}</p>${x.ready ? `<div class="programme-meta"><span>${p.targetHours?.[0]||12}–${p.targetHours?.[1]||18} h/week</span><span>${esc(x.book?.level||'')}</span></div>${active?'<span class="current-badge">Current programme</span>':'<button class="smallbtn primary" data-select-programme="'+esc(p.id)+'">Use this programme</button>'}` : `<div class="book-placeholder">${placeholder}</div>`}</article>`}).join('')}</div></section>
-    <section class="library-section"><div class="panelhead"><div><h2>Book library</h2><p class="subtitle">Books are reusable resources. Workbooks and other companion material can be attached to a book without making them separate programmes.</p></div></div><div class="book-grid">${books.map(b=>{const p=programmes.find(x=>x.bookId===b.id);const mapped=!!(window.BOOK_MAPS||{})[b.id];return `<article class="book-card ${b.id===activeBook().id?'active-book':''} ${mapped?'mapped-book':''}" data-open-book="${esc(b.id)}" tabindex="0" role="button"><div class="book-card-top"><span class="book-status ${b.status}">${b.status==='active'?'In use':mapped?'Mapped':b.status==='planned'?'Planned':'Available'}</span><span class="book-level">${esc(b.level)}</span></div>${b.cover?`<div class="book-cover-visual"><img src="${esc(b.cover)}" alt="${esc(b.title)} cover" loading="lazy"></div>`:''}<div class="eyebrow">${esc(b.series)}</div><h3>${esc(b.title)}</h3><p>${esc(b.description)}</p><div class="book-meta">${p?`<span>Programme: ${esc(p.shortTitle||p.title)}</span>`:'<span>No programme mapped</span>'}${b.workbooks?.length?`<span>${b.workbooks.map(esc).join(' · ')}</span>`:''}${mapped?'<span>Open content map →</span>':''}</div></article>`}).join('')}</div></section>
+    <section class="library-section"><div class="panelhead"><div><h2>Study programmes</h2><p class="subtitle">Structured courses that control the current schedule.</p></div></div><div class="programme-grid">${programmes.map(p=>{const x=programmeSummary(p),active=p.id===state.programmeId,mappedBook=!!(window.BOOK_MAPS||{})[p.bookId];const stageLabel=p.weeks?`${p.weeks} weeks`:mappedBook?'Book mapped':'Not mapped';const placeholder=mappedBook?'Book content is mapped. Programme scheduling and workbook task structure have not been configured yet.':'Contents/pages not mapped yet. Add the book data first; the same programme engine will then handle it.';return `<article class="programme-card ${active?'active-programme':''}"><div class="book-card-top"><span class="book-status ${p.status}">${active?'Active':p.status==='planned'?'Planned':'Available'}</span><span class="book-level">${stageLabel}</span></div><div class="eyebrow">${esc(x.book?.series||'Programme')}</div><h3>${esc(p.title)}</h3><p>${esc(p.description)}</p>${x.ready ? `<div class="programme-meta"><span>${p.targetHours?.[0]||12}–${p.targetHours?.[1]||18} h/week</span><span>${esc(x.book?.level||'')}</span></div>${active?'<span class="current-badge">Current programme</span>':'<button class="smallbtn primary" data-select-programme="'+esc(p.id)+'">Use this programme</button>'}` : `<div class="book-placeholder">${placeholder}</div>`}</article>`}).join('')}</div></section>
+    <section class="library-section"><div class="panelhead"><div><h2>Book library</h2><p class="subtitle">Mapped textbooks and reusable companion books.</p></div></div><div class="book-grid">${books.map(b=>{const p=programmes.find(x=>x.bookId===b.id);const mapped=!!(window.BOOK_MAPS||{})[b.id],cover=b.cover?`/${String(b.cover).replace(/^\/+/, '')}`:'';return `<article class="book-card ${b.id===activeBook().id?'active-book':''} ${mapped?'mapped-book':''}" data-open-book="${esc(b.id)}" tabindex="0" role="button"><div class="book-card-top"><span class="book-status ${b.status}">${b.status==='active'?'In use':mapped?'Mapped':b.status==='planned'?'Planned':'Available'}</span><span class="book-level">${esc(b.level)}</span></div><div class="book-cover-visual"><div class="book-cover-fallback"><strong>${esc(b.title)}</strong><span>${esc(b.series)}</span></div>${cover?`<img src="${esc(cover)}" alt="${esc(b.title)} cover" loading="lazy">`:''}</div><div class="eyebrow">${esc(b.series)}</div><h3>${esc(b.title)}</h3><p>${esc(b.description)}</p><div class="book-meta">${p?`<span>Programme: ${esc(p.shortTitle||p.title)}</span>`:'<span>No programme mapped</span>'}${b.workbooks?.length?`<span>${b.workbooks.map(esc).join(' · ')}</span>`:''}${mapped?'<span>Open content map →</span>':''}</div></article>`}).join('')}</div></section>
     <section class="library-section"><div class="panelhead"><div><h2>Study tools & input</h2><p class="subtitle">Supporting resources stay independent from textbook programmes.</p></div></div><div class="resource-grid">${resources.map(r=>`<article class="resource-card"><div class="book-card-top"><span class="resource-type">${esc(r.type)}</span><span class="book-status ${r.status}">${r.status==='active'?'Active':'Available'}</span></div><h3>${esc(r.title)}</h3><p>${esc(r.description)}</p></article>`).join('')}</div></section>
     <section class="library-section architecture-note"><div class="eyebrow">How this scales</div><h2>Book → map → programme → schedule</h2><p>A future textbook can first become a mapped library resource. Only when you decide to study it should it become a programme with its own workload, tasks and progress.</p><div class="hub-flow"><span>Book</span><b>→</b><span>Map</span><b>→</b><span>Programme</span><b>→</b><span>Schedule</span><b>→</b><span>Progress</span></div></section>`;
   $('#mainContent').querySelectorAll('[data-select-programme]').forEach(b=>b.onclick=()=>selectProgramme(b.dataset.selectProgramme));
-  $('#mainContent').querySelectorAll('.book-cover-visual img').forEach(img=>img.onerror=()=>{img.closest('.book-cover-visual').hidden=true;});
+  $('#mainContent').querySelectorAll('.book-cover-visual img').forEach(img=>img.onerror=()=>{img.remove();});
   $('#mainContent').querySelectorAll('[data-open-book]').forEach(b=>{
     const open=()=>{state.libraryItem=b.dataset.openBook;state.view='library';render();scrollTo({top:0,behavior:'smooth'});};
     b.onclick=open;
@@ -1510,8 +1534,8 @@ function initGuideTaskWorkspaces(l){
   });
   document.querySelectorAll('.guide-task-workspace').forEach(workspace=>workspace.ontoggle=()=>{
     const taskId=workspace.dataset.guideWorkspace;
-    if(workspace.open){state.activeGuideTaskId=taskId;window.JLHRouter?.guideOpened(taskId);}
-    else if(state.activeGuideTaskId===taskId){state.activeGuideTaskId=null;window.JLHRouter?.guideOpened(null);}
+    if(workspace.open){state.activeGuideTaskId=taskId;state.manualGuideTaskId=taskId;window.JLHRouter?.guideOpened(taskId);}
+    else if(state.activeGuideTaskId===taskId){state.activeGuideTaskId=null;if(state.manualGuideTaskId===taskId)state.manualGuideTaskId=null;window.JLHRouter?.guideOpened(null);}
   });
   document.querySelectorAll('[data-guide-pomodoro]').forEach(button=>button.onclick=()=>{
     const taskId=button.dataset.guidePomodoro, owns=state.pomodoro.taskId===taskId, wasPaused=owns&&state.pomodoro.status==='paused';
@@ -1715,10 +1739,10 @@ function guideTaskWorkspaceMarkup(l,step,index,steps,isCurrent,nextId){
   const hasOpenVideo=Number(state.lessonVideo?.lesson)===Number(l.n)&&state.lessonVideo?.area===`task:${step.id}`&&Boolean(state.lessonVideo?.videoId);
   const details=step.details?.length?`<div class="guide-workspace-section"><strong>Lesson outcomes</strong><ul>${step.details.map(item=>`<li>${esc(item)}</li>`).join('')}</ul></div>`:'';
   const checklist=step.checklist?.length?`<div class="guide-workspace-section"><strong>Do this</strong><ol>${step.checklist.map(item=>`<li>${esc(item)}</li>`).join('')}</ol></div>`:'';
-  const textbookReference=step.resource==='Textbook'&&step.page?`<div class="guide-workspace-section guide-textbook-reference"><strong>Textbook reference</strong><button type="button" class="resource-action textbook-pages-button" data-textbook-lesson="${l.n}" data-textbook-label="${esc(step.title)}" data-textbook-pages="${esc(step.page)}"><span class="resource-action-icon" aria-hidden="true">▤</span>View ${esc(step.page)}</button></div>`:'';
+  const textbookReference=step.resource==='Textbook'&&step.page?`<div class="guide-workspace-section guide-textbook-reference"><strong>Textbook reference</strong><button type="button" class="resource-action textbook-pages-button" data-textbook-lesson="${l.n}" data-textbook-label="${esc(step.title)}" data-textbook-pages="${esc(step.page)}"><span class="resource-action-icon" aria-hidden="true">▤</span>Open textbook</button></div>`:'';
   const videos=step.videos?.length?`<div class="guide-workspace-section"><strong>Publisher video${step.videos.length===1?'':'s'}</strong><div class="guide-actions guide-video-list">${guideVideoLinks(step.videos,l.n,`task:${step.id}`)}</div></div>`:'';
   const previous=steps[index-1], next=steps[index+1];
-  return `<details class="guide-task-workspace" data-guide-workspace="${esc(step.id)}" ${isCurrent||hasOpenMedia||hasOpenVideo?'open':''}>
+  return `<details class="guide-task-workspace" data-guide-workspace="${esc(step.id)}" ${isCurrent||(!status.completed&&(hasOpenMedia||hasOpenVideo))?'open':''}>
     <summary><span>${isCurrent?'Current task':section.complete?'Completed':section.done?'In progress':'Upcoming'}</span><strong>Instructions · resources · notes</strong><b>Open</b></summary>
     <div class="guide-workspace-body">
       <div class="guide-lesson-context"><strong>Lesson ${l.n} · ${esc(l.english)}</strong>${goal?`<span>Can-do connection: ${esc(goal)}</span>`:''}</div>
@@ -1747,7 +1771,7 @@ function guideStepMarkup(l,step,index,steps,nextId){
 function lessonGuideMarkup(l){
   const steps=lessonGuideSteps(l), activities=flattenGuideSteps(steps), done=activities.filter(step=>ts(step.id).completed).length;
   const next=activities.find(step=>!ts(step.id).completed);
-  const currentId=activities.some(step=>step.id===state.activeGuideTaskId)?state.activeGuideTaskId:next?.id;
+  const currentId=activities.some(step=>step.id===state.manualGuideTaskId)?state.manualGuideTaskId:activities.some(step=>step.id===state.activeGuideTaskId&&!ts(step.id).completed)?state.activeGuideTaskId:next?.id;
   const nextIndex=steps.findIndex(step=>flattenGuideSteps([step]).some(item=>item.id===next?.id));
   return `<section class="panel lesson-guide" id="lessonGuide">
     <div class="lesson-guide-head"><div><div class="eyebrow">Guided lesson path</div><h2>Follow the textbook</h2><p class="subtitle">Work in textbook order; each section keeps its matching video, audio and workbook practice together.</p></div><div class="guide-progress"><strong>${done}/${activities.length}</strong><span>activities complete</span></div></div>
@@ -1789,7 +1813,7 @@ function renderLesson(n){
     const st=t?ts(t.id):{};
     const items=sec.items?.length?`<div class="section-items"><span>Includes</span><ul>${sec.items.map(x=>`<li>${esc(x.label)}</li>`).join('')}</ul></div>`:'';
     const steps=sec.steps?.length?`<div class="section-steps"><span>Study sequence</span><ol>${sec.steps.map(x=>`<li>${esc(x)}</li>`).join('')}</ol></div>`:'';
-    return `<div class="book-section ${t&&st.completed?'done':''}" data-task="${esc(t?.id||'')}"><div class="book-section-main"><span class="book-section-label">${esc(sec.label)}</span><strong>pp.${esc(sec.pages||'—')}</strong>${items}${steps}</div><div class="book-section-actions"><button type="button" class="resource-action textbook-pages-button" data-textbook-lesson="${l.n}" data-textbook-label="${esc(sec.label)}" data-textbook-pages="${esc(sec.pages||'')}"><span class="resource-action-icon" aria-hidden="true">▤</span>View pp.${esc(sec.pages||'—')}</button><span class="book-section-status">${t&&st.completed?'✓ Complete':'Open task'}</span></div></div>`;
+    return `<div class="book-section ${t&&st.completed?'done':''}" data-task="${esc(t?.id||'')}"><div class="book-section-main"><span class="book-section-label">${esc(sec.label)}</span>${items}${steps}</div><div class="book-section-actions"><button type="button" class="resource-action textbook-pages-button" data-textbook-lesson="${l.n}" data-textbook-label="${esc(sec.label)}" data-textbook-pages="${esc(sec.pages||'')}"><span class="resource-action-icon" aria-hidden="true">▤</span>View pp.${esc(sec.pages||'—')}</button><span class="book-section-status">${t&&st.completed?'✓ Complete':'Open task'}</span></div></div>`;
   }).join('');
   const wb2Rows=(l.workbookMap?.workbook2||[]).map(x=>{const t=tasks.find(y=>y.key===x.taskKey), st=t?ts(t.id):{};return `<button class="book-section compact ${st.completed?'done':''}" data-task="${esc(t?.id||'')}"><div class="book-section-main"><span class="book-section-label">${esc(x.label)}</span><strong>p.${esc(x.page)}</strong></div><span class="book-section-status">${st.completed?'✓':'Open'}</span></button>`}).join('');
   const wb1Rows=(l.workbookMap?.workbook1||[]).map(x=>{const t=tasks.find(y=>y.key===x.taskKey), st=t?ts(t.id):{};return `<button class="book-section compact ${st.completed?'done':''}" data-task="${esc(t?.id||'')}"><div class="book-section-main"><span class="book-section-label">${esc(x.label)}</span><strong>p.${esc(x.page)}</strong></div><span class="book-section-status">${st.completed?'✓':'Open'}</span></button>`}).join('');
@@ -1830,7 +1854,7 @@ function renderLesson(n){
   $('#mainContent').querySelectorAll('[data-guide-check]').forEach(input=>input.onchange=()=>{
     const taskId=input.dataset.guideCheck, nextId=nextGuideActivityId(l,taskId,input.checked);
     flushGuideTaskRecord(taskId);
-    state.guideTarget=nextId;state.activeGuideTaskId=nextId;
+    state.guideTarget=nextId;state.activeGuideTaskId=nextId;state.manualGuideTaskId=null;
     toggle(taskId);
     window.JLHRouter?.guideOpened(nextId);
   });
@@ -2031,6 +2055,7 @@ async function initAuth(){
   });
 }
 
+initMobileNavigation();
 window.JLHRouter?.start();
 $('#appShell').hidden=true; $('#loginGate').hidden=false; initAuth();
 
