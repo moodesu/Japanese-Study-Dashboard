@@ -2699,8 +2699,15 @@ html[data-theme="dark"] .programme-card.active-programme {
 .lesson-reference[open]>summary b::before { content:"Close "; }
 .lesson-reference[open]>summary b { font-size:0; }
 .lesson-reference[open]>summary b::before { font-size:12px; }
-.lesson-reference-body { padding:0 14px 14px; }
-.lesson-reference-body>.study-rule { margin-top:14px; }
+.lesson-reference[open] { overflow:visible; }
+.lesson-reference-body { min-width:0; padding:14px; }
+.lesson-reference-tabs { display:flex; gap:7px; overflow-x:auto; padding-bottom:3px; scrollbar-width:thin; }
+.lesson-reference-tabs button { flex:0 0 auto; padding:8px 11px; border:1px solid var(--line); border-radius:999px; background:var(--card); color:var(--muted); font:inherit; font-size:12px; font-weight:750; }
+.lesson-reference-tabs button.active { border-color:var(--accent); background:var(--soft); color:var(--accent); }
+.lesson-reference-tabs button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+.lesson-reference-panel { display:grid; gap:14px; min-width:0; margin-top:12px; }
+.lesson-reference-panel[hidden] { display:none; }
+.lesson-reference-panel>.panel,.lesson-reference-panel>.lesson-grid { margin-top:0; min-width:0; }
 
 html[data-theme="dark"] :is(.guide-step,.guide-check,.guide-action,.lesson-reference) {
   background:#111c28;
@@ -2779,7 +2786,12 @@ html[data-theme="dark"] .guide-action:hover { background:#1d2d3a; border-color:#
   .guide-step-nav button { flex:1; }
   .lesson-reference>summary { align-items:flex-start; padding:15px; }
   .lesson-reference>summary small { line-height:1.4; }
-  .lesson-reference-body { padding:0 10px 10px; }
+  .lesson-reference-body { padding:10px; }
+  .lesson-reference-tabs { margin-inline:-2px; }
+  .lesson-reference-tabs button { min-height:42px; padding:8px 12px; }
+  .lesson-reference-panel .lesson-audio-panel { padding:12px; }
+  .lesson-reference-panel .audio-player-card { width:100%; max-width:100%; padding:12px; }
+  .lesson-reference-panel .audio-speed select { font-size:16px; }
 }
 /* Japanese Repository ----------------------------------------------------- */
 .repo-clarifications{display:grid;gap:12px}.repo-clarifications>h2{margin-bottom:0}.repo-clarifications details{border:1px solid var(--line);border-radius:12px;padding:0 14px}.repo-clarifications summary{cursor:pointer;font-weight:750;padding:14px 0}.repo-clarifications details>p{margin:0 0 14px}.repo-contrast-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:0 0 14px}.repo-contrast-card{border:1px solid var(--line);border-radius:10px;padding:12px;background:color-mix(in srgb,var(--card) 80%,var(--soft))}.repo-contrast-card p{margin:4px 0}.repo-contrast-card small{display:block;margin-top:8px;color:var(--muted);font-size:.875rem;line-height:1.55}@media(max-width:600px){.repo-contrast-grid{grid-template-columns:1fr}}

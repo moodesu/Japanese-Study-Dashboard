@@ -240,6 +240,7 @@ function renderWaniKani(){
 const POMO_DURATIONS = { work: 25*60, short: 5*60, long: 15*60 }; // fallback defaults
 const POMO_CYCLE_LENGTH = 4; // fallback default
 const LESSON_MEDIA_STATE_KEY = 'learningHub.lessonMediaState';
+const LESSON_REFERENCE_STATE_KEY = 'learningHub.lessonReferenceState';
 
 function emptyLessonMediaState(){
   return {taskId:null,lesson:null,mediaType:null,category:null,open:false,selectedTrack:null,currentTime:0,wasPlaying:false};
@@ -249,6 +250,15 @@ function loadLessonMediaState(){
     const saved=JSON.parse(window.sessionStorage?.getItem(LESSON_MEDIA_STATE_KEY)||'null');
     return saved&&typeof saved==='object'?{...emptyLessonMediaState(),...saved}:emptyLessonMediaState();
   }catch(e){return emptyLessonMediaState();}
+}
+function emptyLessonReferenceState(){
+  return {lesson:null,open:false,activeSection:'overview',audioCategory:null};
+}
+function loadLessonReferenceState(){
+  try{
+    const saved=JSON.parse(window.sessionStorage?.getItem(LESSON_REFERENCE_STATE_KEY)||'null');
+    return saved&&typeof saved==='object'?{...emptyLessonReferenceState(),...saved}:emptyLessonReferenceState();
+  }catch(e){return emptyLessonReferenceState();}
 }
 
 const state = {
@@ -274,6 +284,7 @@ const state = {
   guideTarget: null,
   activeGuideTaskId: null,
   lessonMedia: loadLessonMediaState(),
+  lessonReference: loadLessonReferenceState(),
   pomoOpen: localStorage.getItem('pomodoroOpen') === 'true',
   focusMode: false,
   searchOpen: false
@@ -1048,14 +1059,28 @@ function saveLessonMediaState(){
   try{window.sessionStorage?.setItem(LESSON_MEDIA_STATE_KEY,JSON.stringify(state.lessonMedia));}catch(e){}
 }
 
+function saveLessonReferenceState(){
+  try{window.sessionStorage?.setItem(LESSON_REFERENCE_STATE_KEY,JSON.stringify(state.lessonReference));}catch(e){}
+}
+
+function lessonReferenceStateFor(lesson){
+  return Number(state.lessonReference?.lesson)===Number(lesson)?{...emptyLessonReferenceState(),...state.lessonReference}:{...emptyLessonReferenceState(),lesson:Number(lesson)};
+}
+
 function captureActiveLessonMedia(){
   const box=document.querySelector('.guide-inline-audio:not([hidden])');
   const player=box?.querySelector('.guide-inline-player');
-  if(!box||!player||!player.dataset.trackPath) return;
-  const currentTime=Number(player.currentTime||0);
-  state.lessonMedia={...state.lessonMedia,taskId:box.dataset.guideTaskId||state.lessonMedia.taskId,lesson:Number(box.dataset.guideLesson||state.lesson),mediaType:'audio',category:box.dataset.guideAudioBox||state.lessonMedia.category,open:true,selectedTrack:player.dataset.trackPath,currentTime,wasPlaying:!player.paused&&!player.ended};
-  audioPlaybackState.positions={...(audioPlaybackState.positions||{}),[player.dataset.trackPath]:currentTime};
-  saveAudioPlaybackState();saveLessonMediaState();
+  if(box&&player?.dataset.trackPath){
+    const currentTime=Number(player.currentTime||0);
+    state.lessonMedia={...state.lessonMedia,taskId:box.dataset.guideTaskId||state.lessonMedia.taskId,lesson:Number(box.dataset.guideLesson||state.lesson),mediaType:'audio',category:box.dataset.guideAudioBox||state.lessonMedia.category,open:true,selectedTrack:player.dataset.trackPath,currentTime,wasPlaying:!player.paused&&!player.ended};
+    audioPlaybackState.positions={...(audioPlaybackState.positions||{}),[player.dataset.trackPath]:currentTime};
+    saveLessonMediaState();
+  }
+  const referencePlayer=document.querySelector('#lessonAudioPlayer');
+  if(referencePlayer?.dataset.trackPath){
+    audioPlaybackState.positions={...(audioPlaybackState.positions||{}),[referencePlayer.dataset.trackPath]:Number(referencePlayer.currentTime||0)};
+  }
+  saveAudioPlaybackState();
 }
 if(!window.__lessonMediaLifecycleBound){
   document.addEventListener('visibilitychange',captureActiveLessonMedia);
@@ -1155,6 +1180,7 @@ function initLessonAudio(n){
 
   async function loadTrack(index,autoplay=false){
     const track=tracks[index]; if(!track) return;
+    if(autoplay) document.querySelectorAll('.guide-inline-player').forEach(other=>other.pause());
     currentIndex=index; updateSelection();
     const categoryDef=(AUDIO_LIBRARY.categories||[]).find(x=>x.key===track.category);
     category.textContent=`${categoryDef?.label||''} · ${categoryDef?.english||''}`;
@@ -1164,8 +1190,11 @@ function initLessonAudio(n){
     try{
       const signedUrl=await signedLessonAudioUrl(track);
       player.src=signedUrl;
+      player.dataset.trackPath=track.path;
       player.playbackRate=Number(speed.value);
       audioPlaybackState.lastPath=track.path;
+      state.lessonReference={...lessonReferenceStateFor(n),lesson:n,audioCategory:track.category};
+      saveLessonReferenceState();
       saveAudioPlaybackState();
       player.onloadedmetadata=()=>{
         const saved=Number(audioPlaybackState.positions?.[track.path]||0);
@@ -1195,6 +1224,14 @@ function initLessonAudio(n){
     if(second===lastSavedSecond||second%5!==0) return;
     lastSavedSecond=second;
     audioPlaybackState.positions={...(audioPlaybackState.positions||{}),[track.path]:second};
+    saveAudioPlaybackState();
+  };
+  player.onplay=()=>{
+    document.querySelectorAll('.guide-inline-player').forEach(other=>other.pause());
+  };
+  player.onpause=()=>{
+    const track=tracks[currentIndex]; if(!track) return;
+    audioPlaybackState.positions={...(audioPlaybackState.positions||{}),[track.path]:Number(player.currentTime||0)};
     saveAudioPlaybackState();
   };
   player.onended=()=>{
@@ -1259,6 +1296,7 @@ function initGuideAudio(n){
     async function loadTrack(index,autoplay=false){
       const track=tracks[index]; if(!track) return;
       document.querySelectorAll('.guide-inline-player').forEach(other=>{if(other!==player) other.pause();});
+      if(autoplay) document.querySelector('#lessonAudioPlayer')?.pause();
       currentIndex=index; updateControls();
       now.innerHTML=`<strong>${esc(track.title)}</strong><small>${esc(track.filename)}</small>`;
       status.textContent='Preparing private audio…';
@@ -1317,7 +1355,7 @@ function initGuideAudio(n){
       state.lessonMedia={...state.lessonMedia,currentTime:Number(player.currentTime||0),selectedTrack:track.path};
       saveAudioPlaybackState();saveLessonMediaState();
     };
-    player.onplay=()=>{if(state.lessonMedia.taskId===taskId&&state.lessonMedia.selectedTrack===player.dataset.trackPath){state.lessonMedia={...state.lessonMedia,open:true,wasPlaying:true,currentTime:Number(player.currentTime||0)};saveLessonMediaState();}};
+    player.onplay=()=>{document.querySelector('#lessonAudioPlayer')?.pause();if(state.lessonMedia.taskId===taskId&&state.lessonMedia.selectedTrack===player.dataset.trackPath){state.lessonMedia={...state.lessonMedia,open:true,wasPlaying:true,currentTime:Number(player.currentTime||0)};saveLessonMediaState();}};
     player.onpause=()=>{if(player.dataset.trackPath&&state.lessonMedia.taskId===taskId&&state.lessonMedia.selectedTrack===player.dataset.trackPath){state.lessonMedia={...state.lessonMedia,currentTime:Number(player.currentTime||0),wasPlaying:false};audioPlaybackState.positions={...(audioPlaybackState.positions||{}),[player.dataset.trackPath]:Number(player.currentTime||0)};saveAudioPlaybackState();saveLessonMediaState();}};
     player.onended=()=>{
       const track=tracks[currentIndex];
@@ -1609,6 +1647,8 @@ function renderLesson(n){
   const l=lessonByNumber(n); if(!l)return;
   $('#hero').hidden=true; $('#bottomArea').hidden=true; $('#weekView').hidden=true; $('#mainContent').hidden=false;
   const tasks=lessonTasks(l), w=n-11, p=lessonProgress(n), pct=p.total?p.done/p.total*100:0;
+  const reference=lessonReferenceStateFor(n), referenceSections=[['overview','Overview'],['videos','Videos'],['audio','Audio'],['textbook','Textbook'],['workbooks','Workbooks']];
+  const referenceTab=referenceSections.some(([key])=>key===reference.activeSection)?reference.activeSection:'overview';
   const tb=tasks.filter(t=>t.book==='Textbook'), wb2=tasks.filter(t=>t.book==='Workbook 2'), wb1=tasks.filter(t=>t.book==='Workbook 1');
   const grammar=l.textbook.grammar.map((x,i)=>`<li><strong>${i+1}.</strong> ${esc(x)}</li>`).join('');
   const cando=l.textbook.cando.map(x=>`<li>${esc(x)}</li>`).join('');
@@ -1625,19 +1665,28 @@ function renderLesson(n){
     <div class="lesson-toolbar"><button class="smallbtn" id="backDashboard">← Dashboard</button><button class="smallbtn" id="backPlan">Week ${w+1} plan</button><div class="lesson-select"><button class="smallbtn" id="prevLesson" ${n===11?'disabled':''}>← L${n-1}</button><button class="smallbtn" id="nextLesson" ${n===20?'disabled':''}>L${n+1} →</button></div></div>
     <section class="lessonhero"><div class="eyebrow">${esc(CURRICULUM.book)} · Lesson ${l.n}</div><h1>${esc(l.title)}</h1><p>${esc(l.english)}</p><div class="lessonhero-grid"><div><strong>${p.done}/${p.total}</strong><span>mapped tasks complete</span></div><div><strong>${Math.round(pct)}%</strong><span>lesson progress</span></div></div><div class="progress"><i style="width:${pct}%"></i></div></section>
     ${lessonGuideMarkup(l)}
-    <details class="lesson-reference" id="lessonReference">
+    <details class="lesson-reference" id="lessonReference" ${reference.open?'open':''}>
       <summary><span><strong>Lesson reference</strong><small>Can-do goals · all videos · textbook map · audio player · workbook maps</small></span><b>Open reference</b></summary>
       <div class="lesson-reference-body">
-        <section class="study-rule panel"><div><h3>Textbook first</h3><p>Work through the actual textbook lesson <strong>pp.${l.textbook.start}–${l.textbook.end}</strong>. If you already know a section, do a representative check and move on rather than grinding repetitive practice.</p></div></section>
-        <section class="panel lesson-overview"><div class="overview-grid"><div><div class="eyebrow">Can-do goals</div><ul>${cando}</ul></div><div><div class="eyebrow">Target grammar</div><ul>${grammar}</ul></div></div>${l.textbook.note?`<p class="subtitle"><strong>Language / culture note:</strong> ${esc(l.textbook.note)}</p>`:''}</section>
-        ${lessonVideoPanelMarkup(l)}
-        <section class="panel book-map-panel"><div class="section-heading"><div><div class="eyebrow">Textbook · pp.${l.textbook.start}–${l.textbook.end}</div><h2>Textbook content map</h2><p class="subtitle">Use this when you need the full section map rather than the guided route.</p></div></div><div class="book-section-list">${textbookSections}</div></section>
-        ${audioPanelMarkup(n)}
-        <section class="lesson-grid">
-          <div class="lesson-column"><div class="section-heading"><div><div class="eyebrow">Workbook 2</div><h2>Vocabulary · grammar · listening</h2><p class="subtitle">Complete these after the corresponding textbook work.</p></div></div><div class="book-section-list">${wb2Rows}</div></div>
-          <div class="lesson-column"><div class="section-heading"><div><div class="eyebrow">Workbook 1</div><h2>Kanji · reading · writing</h2><p class="subtitle">Use as reinforcement for the same lesson, especially where a section is weak.</p></div></div><div class="book-section-list">${wb1Rows}</div></div>
+        <nav class="lesson-reference-tabs" role="tablist" aria-label="Lesson reference sections">
+          ${referenceSections.map(([key,label])=>`<button type="button" role="tab" id="lesson-reference-tab-${key}" aria-controls="lesson-reference-panel-${key}" aria-selected="${referenceTab===key?'true':'false'}" class="${referenceTab===key?'active':''}" data-lesson-reference-tab="${key}">${label}</button>`).join('')}
+        </nav>
+        <section class="lesson-reference-panel" id="lesson-reference-panel-overview" role="tabpanel" aria-labelledby="lesson-reference-tab-overview" data-lesson-reference-panel="overview" ${referenceTab==='overview'?'':'hidden'}>
+          <section class="study-rule panel"><div><h3>Textbook first</h3><p>Work through the actual textbook lesson <strong>pp.${l.textbook.start}–${l.textbook.end}</strong>. If you already know a section, do a representative check and move on rather than grinding repetitive practice.</p></div></section>
+          <section class="panel lesson-overview"><div class="overview-grid"><div><div class="eyebrow">Can-do goals</div><ul>${cando}</ul></div><div><div class="eyebrow">Target grammar</div><ul>${grammar}</ul></div></div>${l.textbook.note?`<p class="subtitle"><strong>Language / culture note:</strong> ${esc(l.textbook.note)}</p>`:''}</section>
         </section>
-        <section class="panel page-map"><div class="panelhead"><div><h3>Cross-reference</h3><p class="subtitle">Every scheduled component identifies the physical book and page.</p></div></div><div class="page-map-grid">${tasks.map(t=>`<button class="page-chip" data-task="${esc(t.id)}"><span>${esc(t.title)}</span><strong>${esc(t.book)} · ${t.page?`p.${esc(t.page)}`:'—'}${t.section?` · ${esc(t.section)}`:''}</strong></button>`).join('')}</div></section>
+        <section class="lesson-reference-panel" id="lesson-reference-panel-videos" role="tabpanel" aria-labelledby="lesson-reference-tab-videos" data-lesson-reference-panel="videos" ${referenceTab==='videos'?'':'hidden'}>${lessonVideoPanelMarkup(l)}</section>
+        <section class="lesson-reference-panel" id="lesson-reference-panel-audio" role="tabpanel" aria-labelledby="lesson-reference-tab-audio" data-lesson-reference-panel="audio" ${referenceTab==='audio'?'':'hidden'}>${audioPanelMarkup(n)}</section>
+        <section class="lesson-reference-panel" id="lesson-reference-panel-textbook" role="tabpanel" aria-labelledby="lesson-reference-tab-textbook" data-lesson-reference-panel="textbook" ${referenceTab==='textbook'?'':'hidden'}>
+          <section class="panel book-map-panel"><div class="section-heading"><div><div class="eyebrow">Textbook · pp.${l.textbook.start}–${l.textbook.end}</div><h2>Textbook content map</h2><p class="subtitle">Use this when you need the full section map rather than the guided route.</p></div></div><div class="book-section-list">${textbookSections}</div></section>
+          <section class="panel page-map"><div class="panelhead"><div><h3>Cross-reference</h3><p class="subtitle">Every scheduled component identifies the physical book and page.</p></div></div><div class="page-map-grid">${tasks.map(t=>`<button class="page-chip" data-task="${esc(t.id)}"><span>${esc(t.title)}</span><strong>${esc(t.book)} · ${t.page?`p.${esc(t.page)}`:'—'}${t.section?` · ${esc(t.section)}`:''}</strong></button>`).join('')}</div></section>
+        </section>
+        <section class="lesson-reference-panel" id="lesson-reference-panel-workbooks" role="tabpanel" aria-labelledby="lesson-reference-tab-workbooks" data-lesson-reference-panel="workbooks" ${referenceTab==='workbooks'?'':'hidden'}>
+          <section class="lesson-grid">
+            <div class="lesson-column"><div class="section-heading"><div><div class="eyebrow">Workbook 2</div><h2>Vocabulary · grammar · listening</h2><p class="subtitle">Complete these after the corresponding textbook work.</p></div></div><div class="book-section-list">${wb2Rows}</div></div>
+            <div class="lesson-column"><div class="section-heading"><div><div class="eyebrow">Workbook 1</div><h2>Kanji · reading · writing</h2><p class="subtitle">Use as reinforcement for the same lesson, especially where a section is weak.</p></div></div><div class="book-section-list">${wb1Rows}</div></div>
+          </section>
+        </section>
       </div>
     </details>
     <section class="panel lesson-notes-panel"><div class="panelhead"><div><h3>Lesson notes</h3><p class="subtitle">Overall observations; individual task notes stay attached to their task.</p></div></div><textarea id="lessonNotes" class="notes" placeholder="What was easy? What keeps tripping you up? Useful example sentences..."></textarea></section>
@@ -1658,6 +1707,20 @@ function renderLesson(n){
   });
   initGuideTaskWorkspaces(l);
   initLessonAudio(n);
+  const lessonReference=$('#lessonReference');
+  const showReferenceSection=section=>{
+    lessonReference.querySelectorAll('[data-lesson-reference-tab]').forEach(button=>{const active=button.dataset.lessonReferenceTab===section;button.classList.toggle('active',active);button.setAttribute('aria-selected',String(active));});
+    lessonReference.querySelectorAll('[data-lesson-reference-panel]').forEach(panel=>{panel.hidden=panel.dataset.lessonReferencePanel!==section;});
+  };
+  lessonReference.ontoggle=()=>{
+    state.lessonReference={...lessonReferenceStateFor(n),lesson:n,open:lessonReference.open};
+    saveLessonReferenceState();
+  };
+  lessonReference.querySelectorAll('[data-lesson-reference-tab]').forEach(button=>button.onclick=()=>{
+    const activeSection=button.dataset.lessonReferenceTab;
+    state.lessonReference={...lessonReferenceStateFor(n),lesson:n,open:lessonReference.open,activeSection};
+    saveLessonReferenceState();showReferenceSection(activeSection);
+  });
   const lessonNoteKey=`lesson-${n}`;
   $('#lessonNotes').value=state.taskState[lessonNoteKey]?.notes||'';
   $('#lessonNotes').oninput=e=>{state.taskState[lessonNoteKey]={...ts(lessonNoteKey),notes:e.target.value};saveLocal();cloudSave(lessonNoteKey);};

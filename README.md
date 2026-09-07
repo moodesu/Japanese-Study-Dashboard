@@ -179,7 +179,11 @@ Supabase dashboard.
 complete → continue downward**. Each step presents its book/page, publisher
 video and private audio shortcut at the point where it is needed. The full
 Can-do list, video library, textbook map, audio browser and workbook maps remain
-available in the collapsed **Lesson reference** section.
+available in **Lesson reference** through compact Overview, Videos, Audio,
+Textbook and Workbooks tabs. Its open state and selected tab persist during the
+browser session. The reference audio view keeps its player beside the track list
+on desktop and above it on narrow screens, using the same saved track position
+and playback speed as inline lesson audio.
 
 The lesson path now starts with **できるCheck → Conversation (first pass) →
 Vocabulary with pictures → Vocabulary list**. It then follows the existing

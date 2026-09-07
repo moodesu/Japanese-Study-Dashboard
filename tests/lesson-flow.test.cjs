@@ -6,7 +6,7 @@ const root = path.resolve(__dirname, '..');
 const source = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
 const routerSource = fs.readFileSync(path.join(root, 'router.js'), 'utf8');
 const styleSource = fs.readFileSync(path.join(root, 'styles.css'), 'utf8');
-const context = {state:{taskState:{},lessonVideos:[]},console,URL,document:{baseURI:'https://hub.test/',addEventListener(){}}};
+const context = {state:{taskState:{},lessonVideos:[],lessonReference:{lesson:null,open:false,activeSection:'overview',audioCategory:null}},console,URL,document:{baseURI:'https://hub.test/',addEventListener(){}}};
 context.window = context;
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(path.join(root, 'curriculum.js'), 'utf8'), context);
@@ -14,7 +14,7 @@ vm.runInContext(fs.readFileSync(path.join(root, 'audio-map.js'), 'utf8'), contex
 context.AUDIO_LIBRARY=context.LESSON_AUDIO;
 vm.runInContext(fs.readFileSync(path.join(root, 'ninjal.js'), 'utf8'), context);
 // Exercise the real pure planning/rendering functions without booting auth.
-for (const name of ['defFor','pageFor','makeTask','lessonTasks','weeklyTasks','ts','taskStudyChecklist','lessonGuideSteps','flattenGuideSteps','guideSectionProgress','nextGuideActivityId','guideAudioMarkup','taskGoalFor','guideTaskWorkspaceMarkup','guideStepMarkup','lessonGuideMarkup','scrollToGuideActivity']) {
+for (const name of ['defFor','pageFor','makeTask','lessonTasks','weeklyTasks','ts','taskStudyChecklist','lessonGuideSteps','flattenGuideSteps','guideSectionProgress','nextGuideActivityId','guideAudioMarkup','taskGoalFor','guideTaskWorkspaceMarkup','guideStepMarkup','lessonGuideMarkup','scrollToGuideActivity','emptyLessonReferenceState','lessonReferenceStateFor']) {
   const start=source.indexOf(`function ${name}(`);
   assert.ok(start>=0, `Missing ${name}`);
   const end=source.indexOf('\nfunction ',start+1);
@@ -92,6 +92,9 @@ assert.ok(!/data-guide-audio-box="conversation"[^>]*hidden/.test(restoredAudio),
 assert.match(context.guideTaskWorkspaceMarkup(l,steps[1],1,steps,false,steps[2].id),/^<details class="guide-task-workspace"[^>]* open>/,'Media state keeps its parent task workspace open');
 assert.match(source,/document\.addEventListener\('visibilitychange',captureActiveLessonMedia\)/,'Tab visibility captures the active track and position without rendering');
 assert.match(source,/tracks\.findIndex\(track=>track\.path===state\.lessonMedia\.selectedTrack\)/,'Inline audio restores the selected task track');
+context.state.lessonReference={lesson:11,open:true,activeSection:'audio',audioCategory:'listening'};
+assert.deepEqual(plain(context.lessonReferenceStateFor(11)),plain(context.state.lessonReference),'The same lesson restores its explicit reference workspace state');
+assert.deepEqual(plain(context.lessonReferenceStateFor(12)),{lesson:12,open:false,activeSection:'overview',audioCategory:null},'A different lesson does not inherit another lesson reference state');
 const saved={completed:true,notes:'Existing note',mastery:'studying',confidence:3};
 context.state.taskState['b2-l11-textbook_vocab']=saved;
 assert.equal(context.ts('b2-l11-textbook_vocab'),saved);
@@ -182,6 +185,16 @@ assert.ok(source.includes('Programme consolidation'),'Curriculum-defined consoli
 assert.match(source,/data-guide-workspace="\$\{esc\(step\.id\)\}"/,'Task workspaces expose stable activity identity');
 assert.match(source,/window\.JLHRouter\?\.guideOpened\(nextId\)/,'Completion keeps the routed current task aligned with the next activity');
 assert.match(routerSource,/state\.activeGuideTaskId=r\.step/,'Browser history restores the routed Guided Lesson workspace');
+assert.match(source,/const LESSON_REFERENCE_STATE_KEY = 'learningHub\.lessonReferenceState'/,'Lesson reference state uses a namespaced session key');
+assert.match(source,/lessonReference: loadLessonReferenceState\(\)/,'Lesson reference state is restored when application state is created');
+assert.match(source,/<details class="lesson-reference" id="lessonReference" \$\{reference\.open\?'open':''\}>/,'Reference open state reconstructs the details element after a render');
+assert.match(source,/data-lesson-reference-tab="\$\{key\}"/,'Reference resources use persistent internal tabs');
+assert.match(source,/lessonReference\.ontoggle=\(\)=>\{/,'Explicit reference open and close changes are captured');
+assert.match(source,/activeSection=button\.dataset\.lessonReferenceTab/,'Reference tab selection is stored explicitly');
+assert.match(source,/const referencePlayer=document\.querySelector\('#lessonAudioPlayer'\)/,'Lifecycle capture includes the reference audio player');
+assert.match(source,/if\(autoplay\) document\.querySelectorAll\('\.guide-inline-player'\)\.forEach\(other=>other\.pause\(\)\)/,'Starting reference playback pauses task audio');
+assert.match(source,/player\.onplay=\(\)=>\{document\.querySelector\('#lessonAudioPlayer'\)\?\.pause\(\)/,'Starting task playback pauses reference audio');
+assert.match(source,/player\.dataset\.trackPath=track\.path/,'Reference audio exposes its selected track to shared lifecycle capture');
 assert.match(styleSource,/guide-task-notes,.guide-audio-select,.guide-inline-controls select \{ font-size:16px; \}/,'Phone-sized editable lesson controls prevent iOS focus zoom');
 assert.match(styleSource,/\.guide-step \{ display:block; padding:10px; \}/,'Phone lesson cards switch from the desktop badge grid to one full-width content column');
 assert.match(styleSource,/\.guide-step-number \{ position:absolute; top:10px; left:10px; width:30px; height:30px; \}/,'The phone step badge remains visible without reserving a permanent column');
@@ -194,6 +207,12 @@ assert.match(styleSource,/\.guide-support-step \.guide-task-workspace\s*\{[\s\S]
 assert.match(styleSource,/\.guide-support-step \.guide-workspace-body \{ padding:10px 0 2px; \}/,'Nested workspace bodies do not add left and right padding on phones');
 assert.match(styleSource,/\.guide-support-step \.guide-task-workspace>summary \{[^}]*flex-wrap:wrap;/,'Nested workspace summary wraps within the available phone width');
 assert.match(styleSource,/\.guide-support-step \.guide-workspace-body>\* \{ min-width:0; max-width:100%; \}/,'Nested workspace children cannot widen the page');
+assert.match(styleSource,/\.lesson-reference\[open\] \{ overflow:visible; \}/,'An open reference does not disable its sticky audio player through overflow clipping');
+assert.match(styleSource,/\.lesson-reference-tabs \{ display:flex;[^}]*overflow-x:auto;/,'Reference navigation stays compact and locally scrollable');
+assert.match(styleSource,/\.lesson-reference-panel\[hidden\] \{ display:none; \}/,'Only the selected reference resource is foregrounded');
+assert.match(styleSource,/\.audio-player-card\{position:sticky;top:14px/,'Desktop reference audio keeps its player available beside long track lists');
+assert.match(styleSource,/@media\(max-width:900px\)\{\.lesson-audio-layout\{grid-template-columns:1fr\}\.audio-player-card\{position:static;grid-row:1\}\}/,'Mobile and narrow layouts put the full-width player before the track list');
+assert.match(styleSource,/\.lesson-reference-panel \.audio-speed select \{ font-size:16px; \}/,'Reference audio controls retain the iPhone no-focus-zoom safeguard');
 assert.match(source,/upsert\(\{user_id:state\.user\.id,task_id:id,completed:t\.completed,completed_at:t\.completed_at,notes:t\.notes\}/,'Cloud task writes contain only active workflow fields');
 assert.match(source,/state\.taskState\[r\.task_id\]=\{completed:r\.completed,notes:r\.notes,completed_at:r\.completed_at\}/,'Cloud hydration ignores historical rating columns');
 console.log('PASS: Lessons 11–20 ordering, exact page lookup, Plan parity, nested resources, stable records, no duplicate targets, consolidation unchanged.');

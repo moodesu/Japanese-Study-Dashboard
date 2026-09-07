@@ -11,6 +11,7 @@
 - Mobile Notes and audio selectors used sub-16px text, risking iOS focus zoom. Editable controls now compute to at least 16px at phone widths, and primary task/audio controls have 44px touch targets.
 - Nested supporting tasks accumulated card, workspace and body padding on phones. Mobile support now uses one compact accent border, removes redundant nested boxes and gives instructions, Notes and controls nearly the full available task width.
 - The desktop numbered-step column continued down the full card on phones. Mobile section cards now place the smaller badge in the resource header and return the title, progress, instructions and workspace to the full card width.
+- Lesson reference was a long DOM-only disclosure, so re-renders could collapse it and audio controls were buried among unrelated maps. Its open state and active resource tab now persist for the lesson; compact tabs foreground one resource, while the shared audio player retains track, position and speed and pauses task audio when necessary.
 - Obsolete task-rating styles remained after removal of Mastery and Confidence. Those unused selectors were removed.
 
 ## Deferred
@@ -39,6 +40,7 @@
 - Open audio and verify the player and seek controls remain within the task card.
 - Open Lesson 11 → Kanji → Workbook 1 · Kanji practice and confirm the supporting workspace is wide, its hierarchy remains clear, and its instructions and Notes do not sit inside repeated bordered boxes.
 - Check Conversation, Kanji, Grammar, Reading and Listening cards: the step number should sit beside the resource line without leaving a blank gutter beneath it or colliding with the back-to-top control.
+- Open Lesson reference → Audio, select Listening 2, pause around 20 seconds, switch tabs/apps and return; confirm the reference and Audio tab remain open with the same track and position. Switch to Videos and repeat, then explicitly close the reference and confirm it stays closed.
 - Switch to another tab/app and return; confirm the task and open media are retained.
 - Complete the task and confirm the next unfinished activity opens without an unexpected sideways movement or navigation jump.
 
