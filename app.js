@@ -317,7 +317,7 @@ function applyTheme(theme,persist=true){
   if(persist) localStorage.setItem('studyTheme',value);
   const button=$('#themeToggle');
   if(button){
-    button.textContent=dark?'☀':'☾';
+    button.innerHTML=`<i class="fa-solid ${dark?'fa-sun':'fa-moon'}" aria-hidden="true"></i>`;
     button.title=dark?'Switch to light mode':'Switch to dark mode';
     button.setAttribute('aria-label',button.title);
   }
@@ -707,17 +707,21 @@ function renderHeader(){
   $('#progressBar').style.width=(p.total?p.done/p.total*100:0)+'%';
 }
 function renderNav(){
-  $('#mainNav').innerHTML=`<button class="navbtn icon-nav-btn home-nav-btn no-auto-furigana ${state.view==='dashboard'?'active':''}" data-view="dashboard" title="Home" aria-label="Home">⌂</button><button class="navbtn ${state.view==='plan'?'active':''}" data-view="plan">Plan</button><button class="navbtn ${state.view==='lesson'?'active':''}" data-view="lesson">Lessons</button><button class="navbtn ${state.view==='library'?'active':''}" data-view="library">Hub</button><button class="navbtn icon-nav-btn repo-nav-btn no-auto-furigana ${state.view==='repository'?'active':''}" data-view="repository" title="Japanese Repository" aria-label="Japanese Repository">文</button><button class="navbtn icon-nav-btn no-auto-furigana" id="searchNavBtn" type="button" title="Search" aria-label="Search">⌕</button><button class="navbtn wk-nav-btn no-auto-furigana ${state.view==='wanikani'?'active':''}" data-view="wanikani" title="WaniKani" aria-label="WaniKani">漢</button><button class="navbtn pomo-nav-btn no-auto-furigana" id="pomoNavBtn" type="button" title="Pomodoro" aria-label="Open Pomodoro">🍅</button>`;
+  $('#mainNav').innerHTML=`<button class="navbtn home-nav-btn ${state.view==='dashboard'?'active':''}" data-view="dashboard" title="Home"><i class="fa-solid fa-house" aria-hidden="true"></i><span>Home</span></button><button class="navbtn ${state.view==='plan'?'active':''}" data-view="plan" title="Plan"><i class="fa-solid fa-calendar-days" aria-hidden="true"></i><span>Plan</span></button><button class="navbtn ${state.view==='lesson'?'active':''}" data-view="lesson" title="Lessons"><i class="fa-solid fa-book-open" aria-hidden="true"></i><span>Lessons</span></button><button class="navbtn ${state.view==='library'?'active':''}" data-view="library" title="Hub"><i class="fa-solid fa-layer-group" aria-hidden="true"></i><span>Hub</span></button><button class="navbtn repo-nav-btn ${state.view==='repository'?'active':''}" data-view="repository" title="Japanese Repository"><i class="fa-solid fa-language" aria-hidden="true"></i><span class="nav-utility-label">Repository</span></button><button class="navbtn grammar-nav-btn" id="grammarNavBtn" type="button" title="Grammar Library"><i class="fa-solid fa-spell-check" aria-hidden="true"></i><span class="nav-utility-label">Grammar</span></button><button class="navbtn icon-nav-btn" id="searchNavBtn" type="button" title="Search" aria-label="Search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i></button><button class="navbtn wk-nav-btn ${state.view==='wanikani'?'active':''}" data-view="wanikani" title="WaniKani"><i class="fa-solid fa-paintbrush" aria-hidden="true"></i><span class="nav-utility-label">WaniKani</span></button><button class="navbtn pomo-nav-btn" id="pomoNavBtn" type="button" title="Pomodoro" aria-label="Open Pomodoro"><i class="fa-solid fa-clock" aria-hidden="true"></i><span class="nav-utility-label">Pomodoro</span></button>`;
   const navigate=view=>{state.view=view;if(state.view==='lesson'&&!lessonByNumber(state.lesson))state.lesson=11;closeMobileMore();render();scrollTo({top:0,behavior:'smooth'});};
   $('#mainNav').querySelectorAll('.navbtn[data-view]').forEach(b=>b.onclick=()=>navigate(b.dataset.view));
   const mobileNav=$('#mobileBottomNav');
   if(mobileNav){
-    const items=[['dashboard','⌂','Home'],['plan','▣','Plan'],['lesson','▤','Lessons'],['library','▦','Hub']];
-    mobileNav.innerHTML=items.map(([view,icon,label])=>`<button type="button" class="${state.view===view?'active':''}" data-mobile-view="${view}"><span class="no-auto-furigana" aria-hidden="true">${icon}</span><strong>${label}</strong></button>`).join('');
+    const items=[['dashboard','fa-house','Home'],['plan','fa-calendar-days','Plan'],['lesson','fa-book-open','Lessons'],['library','fa-layer-group','Hub']];
+    mobileNav.innerHTML=items.map(([view,icon,label])=>`<button type="button" class="${state.view===view?'active':''}" data-mobile-view="${view}"><span aria-hidden="true"><i class="fa-solid ${icon}"></i></span><strong>${label}</strong></button>`).join('');
     mobileNav.querySelectorAll('[data-mobile-view]').forEach(button=>button.onclick=()=>navigate(button.dataset.mobileView));
   }
   document.querySelectorAll('#mobileMoreMenu [data-mobile-view]').forEach(button=>button.onclick=()=>navigate(button.dataset.mobileView));
-  const mobileAccountLabel=$('#mobileAccount strong');if(mobileAccountLabel)mobileAccountLabel.textContent=state.user?'Logout':'Login';
+  const mobileAccount=$('#mobileAccount'),mobileAccountLabel=mobileAccount?.querySelector('strong'),mobileAccountIcon=mobileAccount?.querySelector('span');
+  if(mobileAccountLabel)mobileAccountLabel.textContent=state.user?'Logout':'Account';
+  if(mobileAccountIcon)mobileAccountIcon.innerHTML=`<i class="fa-solid ${state.user?'fa-right-from-bracket':'fa-circle-user'}"></i>`;
+  const mobileThemeIcon=$('#mobileTheme span');if(mobileThemeIcon)mobileThemeIcon.innerHTML=`<i class="fa-solid ${document.documentElement.dataset.theme==='dark'?'fa-sun':'fa-moon'}"></i>`;
+  $('#grammarNavBtn')?.addEventListener('click',()=>{state.view='repository';render();requestAnimationFrame(()=>window.JLHOpenGrammarLibrary?.());});
   $('#searchNavBtn')?.addEventListener('click',openSearch);
   const pomoNav=$('#pomoNavBtn');
   if(pomoNav){
@@ -741,7 +745,7 @@ function initMobileNavigation(){
   $('#mobileSearch').onclick=()=>{closeMobileMore();openSearch();};
   $('#mobilePomodoro').onclick=()=>{closeMobileMore();$('#pomoNavBtn')?.click();};
   $('#mobileFurigana').onclick=()=>{$('#siteFuriganaToggle')?.click();closeMobileMore();};
-  $('#mobileTheme').onclick=()=>{$('#themeToggle')?.click();closeMobileMore();};
+  $('#mobileTheme').onclick=()=>{$('#themeToggle')?.click();renderNav();closeMobileMore();};
   $('#mobileAccount').onclick=()=>{closeMobileMore();(state.user?$('#logout'):$('#openLogin'))?.click();};
   $('#mobileGrammarLibrary').onclick=()=>{closeMobileMore();state.view='repository';render();requestAnimationFrame(()=>window.JLHOpenGrammarLibrary?.());};
 }

@@ -84,10 +84,10 @@
   }
   function updateControl(status=''){
     const button=document.getElementById('siteFuriganaToggle');if(!button)return;
-    const label=status==='loading'?'振 Preparing…':status==='error'?'振 Furigana unavailable':`振 Furigana ${enabled?'on':'off'}`;
+    const label=status==='loading'?'Preparing…':status==='error'?'Furigana unavailable':`Furigana ${enabled?'on':'off'}`;
     button.setAttribute('aria-pressed',String(enabled));
     button.setAttribute('aria-busy',String(status==='loading'));
-    if(button.textContent!==label)button.textContent=label;
+    if(button.textContent.trim()!==label)button.innerHTML=`<i class="fa-solid fa-language" aria-hidden="true"></i><span>${label}</span>`;
     button.title=status==='error'?'Automatic readings could not be prepared. Supplied readings remain available.':'Toggle furigana throughout the Learning Hub. Automatic readings are unverified.';
   }
   async function decorate(root=document.body){

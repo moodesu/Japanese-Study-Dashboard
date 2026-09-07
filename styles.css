@@ -3165,6 +3165,9 @@ html[data-theme="dark"] .guide-pomodoro-button { background:#30231f;color:#f2b69
   font-size:12px;
   white-space:nowrap;
 }
+.app-header .navbtn svg { width:14px;height:14px;flex:none; }
+.app-header .navbtn:not(.icon-nav-btn) { gap:6px; }
+.app-header .theme-toggle svg,.app-header .smallbtn svg { width:14px;height:14px;flex:none; }
 
 .app-header .navbtn.active {
   border-color:transparent;
@@ -3288,7 +3291,6 @@ html[data-theme="dark"] .lessonhero-grid div { padding:0;border:0;background:tra
   .account-state { display:none; }
   .app-header .account { gap:3px; }
   .app-header #siteFuriganaToggle { width:34px;padding:0;font-size:0; }
-  .app-header #siteFuriganaToggle::before { content:"振";font-size:16px;line-height:1; }
   .app-header #logout,.app-header #openLogin { padding-inline:8px; }
   .app-header .mainnav { padding-top:2px; }
   .app-header .navbtn { min-height:32px;padding:6px 8px; }
@@ -3462,7 +3464,8 @@ html[data-theme="dark"] .book-cover-fallback { background:linear-gradient(145deg
     color:var(--muted);
     font:inherit;
   }
-  .mobile-bottom-nav button span { font-size:18px;line-height:1; }
+.mobile-bottom-nav button span { font-size:18px;line-height:1; }
+.mobile-bottom-nav button svg { width:18px;height:18px;display:block; }
   .mobile-bottom-nav button strong { font-size:10px;line-height:1.1; }
   .mobile-bottom-nav button.active { background:color-mix(in srgb,var(--accent) 10%,transparent);color:var(--accent); }
   .mobile-more-menu {
@@ -3531,7 +3534,13 @@ html[data-theme="dark"] .book-cover-fallback { background:linear-gradient(145deg
   line-height:1;
   white-space:nowrap;
 }
+.mobile-more-menu button>span svg { width:16px;height:16px;display:block; }
 #mobilePomodoro>span { color:var(--pomo-accent); }
+
+@media(min-width:761px) and (max-width:1080px) {
+  .app-header .nav-utility-label { display:none; }
+  .app-header :is(.repo-nav-btn,.grammar-nav-btn,.wk-nav-btn,.pomo-nav-btn) { min-width:34px;padding-inline:8px; }
+}
 
 .repo-grammar-page { max-width:900px;padding-top:0; }
 .repo-grammar-page .repo-detail-toolbar { margin:10px 0 8px; }

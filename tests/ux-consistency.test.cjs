@@ -7,7 +7,7 @@ const repository=fs.readFileSync('repository.js','utf8');
 const css=fs.readFileSync('styles.css','utf8');
 
 assert.match(css,/#openLogin\[hidden\],#logout\[hidden\][^{]*\{[^}]*display:none!important/,'auth actions honour their hidden state');
-assert.match(app,/mobileAccountLabel\.textContent=state\.user\?'Logout':'Login'/,'mobile account action reflects authentication');
+assert.match(app,/mobileAccountLabel\.textContent=state\.user\?'Logout':'Account'/,'mobile account action reflects authentication');
 
 assert.match(app,/!status\.completed&&\(hasOpenMedia\|\|hasOpenVideo\)/,'completed media cannot automatically reopen a task');
 assert.match(app,/state\.manualGuideTaskId/,'manual task inspection is retained during the current session');
