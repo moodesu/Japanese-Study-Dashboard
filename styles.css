@@ -2570,6 +2570,8 @@ html[data-theme="dark"] .programme-card.active-programme {
 .guide-workspace-section>strong { display:block; margin-bottom:6px; font-size:12px; }
 .guide-workspace-section :is(ol,ul) { margin:0; padding-left:20px; color:var(--muted); font-size:12px; line-height:1.5; }
 .guide-workspace-section li+li { margin-top:4px; }
+.guide-textbook-reference { display:flex;align-items:center;flex-wrap:wrap;gap:8px; }
+.guide-textbook-reference>strong { margin:0; }
 
 .guide-task-record {
   padding-top:11px;

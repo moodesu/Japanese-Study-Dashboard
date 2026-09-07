@@ -173,29 +173,27 @@ lesson,video_type,grammar_index,title,youtube_url,sort_order
 
 ## Private textbook PDF
 
-The textbook viewer uses a private Supabase Storage object and a one-hour
-signed URL. The copyrighted PDF must not be committed to this repository.
+The textbook viewer uses lesson-specific private Supabase Storage objects and
+one-hour signed URLs. The copyrighted PDFs must not be committed to this
+repository.
 
 1. For an existing database, run
    `migrations/20260908_private_textbook_pdf.sql` in the Supabase SQL Editor.
    A fresh setup can run the complete `supabase-schema.sql` instead.
-2. Upload the PDF to the private `textbook-pdfs` bucket as
-   `tobira-beginning-japanese-ii.pdf`.
-3. Check one known printed page against the physical page number shown by the
-   PDF viewer. In `textbook-pdf.js`, set `printedPageOffset` to:
-
-   `physical PDF page − printed textbook page`
-
-   For example, if printed page 14 is physical PDF page 22, the offset is `8`.
-   The default is deliberately `null`; the app will not guess this mapping.
-4. Open a lesson, expand **Lesson reference → Textbook**, and choose
-   **View pages** beside a mapped section. The viewer opens at the calculated
-   physical PDF page and leaves the lesson/reference workspace in place when
+2. Upload `lesson-11.pdf` through `lesson-20.pdf` directly inside the private
+   `textbook-pdfs` bucket. Keep those exact filenames.
+3. The central map in `textbook-pdf.js` records each split file's printed start
+   and end pages. The viewer converts a printed page to its local lesson-PDF
+   page with `printed page − lesson start page + 1`; task and reference labels
+   continue showing the printed textbook pages.
+4. Open a textbook task or **Lesson reference → Textbook**, then choose
+   **View pages**. The correct lesson PDF opens at the first page of the mapped
+   printed range and leaves the lesson/reference workspace in place when
    closed.
 
-Signed PDF URLs are kept only in the current in-memory cache. The object path
-and explicit page offset are public configuration, but the PDF and its usable
-signed URL remain private.
+Signed PDF URLs are kept only in the current in-memory cache. Lesson filenames
+and printed page boundaries are public configuration, but the PDFs and their
+usable signed URLs remain private.
 
 The browser has read-only access to this table, protected by the same sole-owner
 check used for private audio. Add and update video mappings only through the

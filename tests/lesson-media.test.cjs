@@ -18,7 +18,7 @@ const context={
 };
 context.window=context;
 vm.createContext(context);
-for(const name of ['safeYouTubeUrl','youtubeVideoId','lessonVideoEmbedMarkup','lessonVideoItemMarkup','parsePrintedPageRange','printedToPdfPage']){
+for(const name of ['safeYouTubeUrl','youtubeVideoId','lessonVideoEmbedMarkup','lessonVideoItemMarkup','parsePrintedPageRange','printedToLocalPdfPage']){
   const start=source.indexOf(`function ${name}(`);
   assert.ok(start>=0,`Missing ${name}`);
   const end=source.indexOf('\nfunction ',start+1);
@@ -43,13 +43,23 @@ assert.match(source,/isCurrent\|\|hasOpenMedia\|\|hasOpenVideo\?'open':''/,'A re
 
 assert.deepEqual(JSON.parse(JSON.stringify(context.parsePrintedPageRange('14–15'))),{start:14,end:15});
 assert.deepEqual(JSON.parse(JSON.stringify(context.parsePrintedPageRange('p.23'))),{start:23,end:23});
-assert.equal(context.printedToPdfPage(23,8),31);
-assert.equal(context.printedToPdfPage(23,null),null,'An unknown offset is never guessed');
+vm.runInContext(configSource,context);
+const pdfs=context.TEXTBOOK_PDFS.books['tobira-beginning-ii-12w'].lessons;
+assert.equal(context.printedToLocalPdfPage(13,pdfs[11]),1);
+assert.equal(context.printedToLocalPdfPage(23,pdfs[11]),11);
+assert.equal(context.printedToLocalPdfPage(50,pdfs[11]),38);
+assert.equal(context.printedToLocalPdfPage(51,pdfs[12]),1);
+assert.equal(context.printedToLocalPdfPage(84,pdfs[12]),34);
+assert.equal(context.printedToLocalPdfPage(353,pdfs[20]),1);
+assert.equal(context.printedToLocalPdfPage(388,pdfs[20]),36);
+assert.equal(context.printedToLocalPdfPage(51,pdfs[11]),null,'A printed page cannot leak into the wrong lesson PDF');
 
-assert.match(source,/data-textbook-pages="\$\{esc\(sec\.pages\|\|''\)\}"/);
+assert.match(source,/data-textbook-lesson="\$\{l\.n\}"[^>]*data-textbook-label="\$\{esc\(sec\.label\)\}"[^>]*data-textbook-pages="\$\{esc\(sec\.pages\|\|''\)\}"/);
+assert.match(source,/data-textbook-lesson="\$\{l\.n\}"[^>]*data-textbook-label="\$\{esc\(step\.title\)\}"[^>]*data-textbook-pages="\$\{esc\(step\.page\)\}"/,'Guided textbook tasks can open their lesson-specific PDF');
 assert.match(source,/frame\.src=`\$\{url\}#page=\$\{pdfPage\}&zoom=page-width`/);
 assert.match(source,/createSignedUrl\(config\.path,3600\)/,'PDF access uses a temporary signed URL');
-assert.match(configSource,/printedPageOffset:null/,'The checked physical-page offset must be configured explicitly');
+for(let lesson=11;lesson<=20;lesson++)assert.equal(pdfs[lesson].path,`lesson-${lesson}.pdf`);
+assert.ok(!configSource.includes('tobira-beginning-japanese-ii.pdf'),'There is no whole-book PDF dependency');
 assert.ok(html.indexOf('textbook-pdf.js')<html.indexOf('app.js'));
 assert.ok(html.includes('id="textbookPdfDialog"'));
 assert.match(headers,/frame-src[^;]*youtube-nocookie\.com[^;]*\*\.supabase\.co/);
@@ -65,4 +75,4 @@ for(const sql of [schema,migration]){
   assert.match(sql,/array\['application\/pdf'\]/);
 }
 
-console.log('PASS: mobile activity layout, safe lazy YouTube embeds, and explicitly mapped private textbook PDF viewing.');
+console.log('PASS: mobile activity layout, safe lazy YouTube embeds, and lesson-specific private textbook PDF viewing.');

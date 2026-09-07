@@ -1208,16 +1208,19 @@ async function signedLessonAudioUrl(track){
 }
 
 const textbookPdfUrlCache=new Map();
-function textbookPdfConfig(){
-  return window.TEXTBOOK_PDFS?.books?.[state.programmeId]||null;
+function textbookPdfConfig(lesson){
+  const book=window.TEXTBOOK_PDFS?.books?.[state.programmeId],pdf=book?.lessons?.[Number(lesson)];
+  return pdf?{...pdf,label:book.label}:null;
 }
 function parsePrintedPageRange(value){
   const pages=String(value||'').match(/\d+/g)?.map(Number).filter(Number.isFinite)||[];
   if(!pages.length)return null;
   return {start:pages[0],end:pages[1]||pages[0]};
 }
-function printedToPdfPage(printedPage,offset){
-  return Number.isInteger(offset)&&Number.isInteger(printedPage)&&printedPage>0?printedPage+offset:null;
+function printedToLocalPdfPage(printedPage,config){
+  if(!Number.isInteger(printedPage)||!Number.isInteger(config?.startPage)||!Number.isInteger(config?.endPage))return null;
+  if(printedPage<config.startPage||printedPage>config.endPage)return null;
+  return printedPage-config.startPage+1;
 }
 async function signedTextbookPdfUrl(config){
   const key=`${window.TEXTBOOK_PDFS?.bucket||''}/${config?.path||''}`;
@@ -1238,9 +1241,9 @@ function closeTextbookPdfViewer(){
   if(frame){frame.src='about:blank';frame.hidden=true;}
   if(dialog?.open)dialog.close();
 }
-async function openTextbookPdfViewer(label,pages){
+async function openTextbookPdfViewer(lesson,label,pages){
   const dialog=$('#textbookPdfDialog'),frame=$('#textbookPdfFrame'),status=$('#textbookPdfStatus'),full=$('#openFullTextbookPdf');
-  const range=parsePrintedPageRange(pages),config=textbookPdfConfig(),offset=config?.printedPageOffset;
+  const range=parsePrintedPageRange(pages),config=textbookPdfConfig(lesson);
   if(!dialog||!frame||!status||!full)return;
   $('#textbookPdfTitle').textContent=label||'Textbook pages';
   $('#textbookPdfRange').textContent=range?`Printed pages ${range.start}${range.end!==range.start?`–${range.end}`:''}`:'Mapped textbook section';
@@ -1248,13 +1251,14 @@ async function openTextbookPdfViewer(label,pages){
   if(!dialog.open)dialog.showModal();
   try{
     if(!range)throw new Error('This textbook section does not have a readable page range.');
-    const pdfPage=printedToPdfPage(range.start,offset);
-    if(pdfPage===null)throw new Error('Set printedPageOffset in textbook-pdf.js after checking the uploaded PDF’s printed-page mapping.');
-    if(pdfPage<1)throw new Error('The configured textbook PDF page offset produces an invalid page number.');
+    if(!config)throw new Error(`No private textbook PDF is mapped for Lesson ${lesson}.`);
+    const pdfPage=printedToLocalPdfPage(range.start,config);
+    const pdfEndPage=printedToLocalPdfPage(range.end,config);
+    if(pdfPage===null||pdfEndPage===null)throw new Error(`Printed pages ${range.start}–${range.end} fall outside the mapped Lesson ${lesson} PDF range.`);
     const url=await signedTextbookPdfUrl(config);
     frame.src=`${url}#page=${pdfPage}&zoom=page-width`;
     frame.hidden=false;status.hidden=true;full.href=url;full.hidden=false;
-    $('#textbookPdfRange').textContent=`Printed pp.${range.start}${range.end!==range.start?`–${range.end}`:''} · PDF pp.${pdfPage}${range.end!==range.start?`–${printedToPdfPage(range.end,offset)}`:''}`;
+    $('#textbookPdfRange').textContent=`Printed pp.${range.start}${range.end!==range.start?`–${range.end}`:''} · Lesson ${lesson} PDF pp.${pdfPage}${range.end!==range.start?`–${pdfEndPage}`:''}`;
   }catch(error){
     status.textContent=error?.message||'Unable to open the private textbook.';
   }
@@ -1267,7 +1271,7 @@ function initTextbookPdfViewer(){
   dialog.onclick=event=>{if(event.target===dialog)closeTextbookPdfViewer();};
   document.querySelectorAll('[data-textbook-pages]').forEach(button=>button.onclick=event=>{
     event.preventDefault();event.stopPropagation();
-    openTextbookPdfViewer(button.dataset.textbookLabel,button.dataset.textbookPages);
+    openTextbookPdfViewer(Number(button.dataset.textbookLesson),button.dataset.textbookLabel,button.dataset.textbookPages);
   });
 }
 
@@ -1695,13 +1699,14 @@ function guideTaskWorkspaceMarkup(l,step,index,steps,isCurrent,nextId){
   const hasOpenVideo=Number(state.lessonVideo?.lesson)===Number(l.n)&&state.lessonVideo?.area===`task:${step.id}`&&Boolean(state.lessonVideo?.videoId);
   const details=step.details?.length?`<div class="guide-workspace-section"><strong>Lesson outcomes</strong><ul>${step.details.map(item=>`<li>${esc(item)}</li>`).join('')}</ul></div>`:'';
   const checklist=step.checklist?.length?`<div class="guide-workspace-section"><strong>Do this</strong><ol>${step.checklist.map(item=>`<li>${esc(item)}</li>`).join('')}</ol></div>`:'';
+  const textbookReference=step.resource==='Textbook'&&step.page?`<div class="guide-workspace-section guide-textbook-reference"><strong>Textbook reference</strong><button type="button" class="smallbtn textbook-pages-button" data-textbook-lesson="${l.n}" data-textbook-label="${esc(step.title)}" data-textbook-pages="${esc(step.page)}">View ${esc(step.page)}</button></div>`:'';
   const videos=step.videos?.length?`<div class="guide-workspace-section"><strong>Publisher video${step.videos.length===1?'':'s'}</strong><div class="guide-actions guide-video-list">${guideVideoLinks(step.videos,l.n,`task:${step.id}`)}</div></div>`:'';
   const previous=steps[index-1], next=steps[index+1];
   return `<details class="guide-task-workspace" data-guide-workspace="${esc(step.id)}" ${isCurrent||hasOpenMedia||hasOpenVideo?'open':''}>
     <summary><span>${isCurrent?'Current task':section.complete?'Completed':section.done?'In progress':'Upcoming'}</span><strong>Instructions · resources · notes</strong><b>Open</b></summary>
     <div class="guide-workspace-body">
       <div class="guide-lesson-context"><strong>Lesson ${l.n} · ${esc(l.english)}</strong>${goal?`<span>Can-do connection: ${esc(goal)}</span>`:''}</div>
-      ${details}${checklist}${videos}${guideAudioMarkup(l,step)}
+      ${details}${checklist}${textbookReference}${videos}${guideAudioMarkup(l,step)}
       ${step.grammarLabel?window.JLHNinjal?.panelMarkup(step.grammarLabel)||'':''}
       <div class="guide-workspace-section guide-task-record"><strong>Task record</strong>
         <label>Notes<textarea class="guide-task-notes" data-guide-notes="${esc(step.id)}" placeholder="Errors, useful examples, or what needs another pass…">${esc(status.notes||'')}</textarea></label>
@@ -1768,7 +1773,7 @@ function renderLesson(n){
     const st=t?ts(t.id):{};
     const items=sec.items?.length?`<div class="section-items"><span>Includes</span><ul>${sec.items.map(x=>`<li>${esc(x.label)}</li>`).join('')}</ul></div>`:'';
     const steps=sec.steps?.length?`<div class="section-steps"><span>Study sequence</span><ol>${sec.steps.map(x=>`<li>${esc(x)}</li>`).join('')}</ol></div>`:'';
-    return `<div class="book-section ${t&&st.completed?'done':''}" data-task="${esc(t?.id||'')}"><div class="book-section-main"><span class="book-section-label">${esc(sec.label)}</span><strong>pp.${esc(sec.pages||'—')}</strong>${items}${steps}</div><div class="book-section-actions"><button type="button" class="smallbtn textbook-pages-button" data-textbook-label="${esc(sec.label)}" data-textbook-pages="${esc(sec.pages||'')}">View pages</button><span class="book-section-status">${t&&st.completed?'✓ Complete':'Open task'}</span></div></div>`;
+    return `<div class="book-section ${t&&st.completed?'done':''}" data-task="${esc(t?.id||'')}"><div class="book-section-main"><span class="book-section-label">${esc(sec.label)}</span><strong>pp.${esc(sec.pages||'—')}</strong>${items}${steps}</div><div class="book-section-actions"><button type="button" class="smallbtn textbook-pages-button" data-textbook-lesson="${l.n}" data-textbook-label="${esc(sec.label)}" data-textbook-pages="${esc(sec.pages||'')}">View pages</button><span class="book-section-status">${t&&st.completed?'✓ Complete':'Open task'}</span></div></div>`;
   }).join('');
   const wb2Rows=(l.workbookMap?.workbook2||[]).map(x=>{const t=tasks.find(y=>y.key===x.taskKey), st=t?ts(t.id):{};return `<button class="book-section compact ${st.completed?'done':''}" data-task="${esc(t?.id||'')}"><div class="book-section-main"><span class="book-section-label">${esc(x.label)}</span><strong>p.${esc(x.page)}</strong></div><span class="book-section-status">${st.completed?'✓':'Open'}</span></button>`}).join('');
   const wb1Rows=(l.workbookMap?.workbook1||[]).map(x=>{const t=tasks.find(y=>y.key===x.taskKey), st=t?ts(t.id):{};return `<button class="book-section compact ${st.completed?'done':''}" data-task="${esc(t?.id||'')}"><div class="book-section-main"><span class="book-section-label">${esc(x.label)}</span><strong>p.${esc(x.page)}</strong></div><span class="book-section-status">${st.completed?'✓':'Open'}</span></button>`}).join('');
