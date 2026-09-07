@@ -300,27 +300,27 @@ function repositoryGrammarMarkup(entry){
   const text=value=>renderRepositoryFurigana(value,repositoryPlainFromFurigana(value));
   const pending=guide&&(guide.guide_status==='pending'||guide.is_placeholder),linkedCount=guide?new Set(repositoryState.grammarLinks.filter(link=>link.grammar_id===guide.id).map(link=>link.repository_id)).size:0;
   const body=guide?`
-    <section class="panel"><h2>Overview</h2><p><strong>${text(guide.meaning)}</strong></p>${guide.summary?`<p>${text(guide.summary)}</p>`:''}${guide.is_placeholder?'<p class="subtitle">This canonical guide is waiting for a full grammar-guide import.</p>':''}</section>
-    <section class="panel"><h2>Formation</h2>${guide.formation.length?`<ul>${guide.formation.map(item=>`<li>${text(item)}</li>`).join('')}</ul>`:'<p class="subtitle">No formation notes yet.</p>'}</section>
-    <section class="panel"><h2>Usage and nuance</h2>${guide.usage.map(item=>`<p>${text(item)}</p>`).join('')}${guide.nuance.map(item=>`<p>${text(item)}</p>`).join('')}${guide.register?`<p><strong>Register:</strong> ${esc(guide.register)}</p>`:''}${guide.jlpt_level?`<p><strong>JLPT:</strong> ${esc(guide.jlpt_level)}</p>`:''}</section>
+    <article class="repo-guide-article">
+      <section class="repo-guide-section"><h2>Overview</h2>${guide.summary?`<p>${text(guide.summary)}</p>`:''}${guide.is_placeholder?'<p class="subtitle">This canonical guide is waiting for a full grammar-guide import.</p>':''}</section>
+      <section class="repo-guide-section"><h2>Formation</h2>${guide.formation.length?`<ul>${guide.formation.map(item=>`<li>${text(item)}</li>`).join('')}</ul>`:'<p class="subtitle">No formation notes yet.</p>'}</section>
+      <section class="repo-guide-section"><h2>Usage and nuance</h2>${guide.usage.map(item=>`<p>${text(item)}</p>`).join('')}${guide.nuance.map(item=>`<p>${text(item)}</p>`).join('')}</section>
+    </article>
     ${repositoryVariantsMarkup(guide)}
     ${repositoryClarificationsMarkup(guide,text)}
     ${repositoryMyExamplesMarkup(guide)}
     ${repositoryReferenceExamplesMarkup(guide,text)}
-    ${guide.related.length?`<section class="panel"><h2>Related grammar</h2><nav class="repo-grammar-nav-list" aria-label="Related grammar">${guide.related.map(item=>repositoryGrammarNavLink(item)).join('')}</nav></section>`:''}
-    ${guide.references?.length?`<section class="panel"><h2>References</h2>${guide.references.map(source=>`<a class="repo-link" href="${esc(source.url)}" target="_blank" rel="noopener noreferrer">${esc(source.title)} ↗</a>`).join('')}</section>`:''}
+    ${guide.related.length?`<section class="repo-guide-section repo-related-grammar"><h2>Related grammar</h2><nav class="repo-grammar-nav-list" aria-label="Related grammar">${guide.related.map(item=>repositoryGrammarNavLink(item)).join('')}</nav></section>`:''}
   `:`<section class="panel"><h2>Explanation not yet in the guide library</h2><p>This label does not yet have a standalone Learning Hub explanation. The saved sentence context below is not a substitute for a grammar reference.</p><a class="repo-link" href="https://www.google.com/search?q=${encodeURIComponent(label+' Japanese grammar explanation')}" target="_blank" rel="noopener noreferrer">Search grammar references ↗</a></section>`;
+  const furtherStudy=`<section class="panel repo-further-study"><div class="eyebrow">References &amp; further study</div><div class="grammar-source-list">${window.JLHDictionary?.referenceMarkup()||''}${window.JLHNinjal?.panelMarkup(label)||''}${guide?.references?.map(source=>`<a class="grammar-source-row" href="${esc(source.url)}" target="_blank" rel="noopener noreferrer"><div><strong>${esc(source.title)}</strong><span>Open external reference.</span></div><b>Open ↗</b></a>`).join('')||''}</div>${lessons.length?`<div class="repo-textbook-connections"><strong>Textbook connections</strong>${lessons.map(row=>`<button type="button" class="repo-link" data-repo-grammar-lesson="${row.lesson}" data-repo-grammar-index="${row.index}">Lesson ${row.lesson} · Grammar ${row.index}: <span class="repo-linked-grammar-label" lang="ja">${text(row.label)}</span></button>`).join('')}</div>`:''}</section>`;
   return `<section class="repo-page repo-grammar-page">
     <div class="repo-detail-toolbar"><button type="button" class="smallbtn" id="repoGrammarBack">← ${entry.routeStandalone?'Grammar Library':'Back to sentence'}</button>${pending?`<div><button type="button" class="smallbtn" id="repoViewPending">View pending guides</button><button type="button" class="smallbtn primary" id="repoCopySingleGuidePrompt">Copy generation prompt</button></div>`:''}</div>
-    <header><div class="eyebrow">Grammar reference</div><h1 id="repoGrammarTitle" tabindex="-1">${guide?text(guide.title):esc(label)}</h1></header>
+    <header class="repo-grammar-header"><div class="eyebrow">Grammar reference</div><h1 id="repoGrammarTitle" tabindex="-1">${guide?text(guide.title):esc(label)}</h1>${guide?.meaning?`<p class="repo-grammar-meaning">${text(guide.meaning)}</p>`:''}${guide&&(guide.jlpt_level||guide.register)?`<div class="repo-grammar-meta">${guide.jlpt_level?`<span>${esc(guide.jlpt_level)}</span>`:''}${guide.register?`<span>${esc(guide.register)}</span>`:''}</div>`:''}</header>
     <div class="repo-grammar-content">
       ${pending?`<section class="panel repo-guide-pending"><strong>Guide pending</strong><span>Referenced by ${linkedCount} saved sentence${linkedCount===1?'':'s'}.</span></section>`:''}
       ${entry.routeStandalone?'':`<section class="panel repo-sentence-context"><h2>In this sentence</h2><p class="repo-context-sentence" lang="ja"><strong>${repositoryJapaneseWithSurfaces(entry,contextLinks.map(link=>link.surface))}</strong></p>${contextLinks.map(link=>`<div class="repo-context-link"><div class="repo-context-mapping"><span lang="ja">${esc(link.surface)}</span><span aria-hidden="true">→</span><strong lang="ja">${esc(guide?.pattern||label)}</strong></div>${link.note?`<p class="repo-context-note">${esc(link.note)}</p>`:''}</div>`).join('')}${entry.english?`<p>${esc(entry.english)}</p>`:''}${entry.explanation?`<h3>Saved sentence explanation</h3><p class="repo-grammar-context">${esc(entry.explanation)}</p>`:''}</section>`}
-      ${window.JLHDictionary?.referenceMarkup()||''}
-      ${window.JLHNinjal?.panelMarkup(label)||''}
       ${body}
       ${!repositoryState.grammarLibraryReady?'<p class="subtitle">Saved grammar library unavailable. Apply the separate grammar migration if needed, then reload.</p>':''}
-      ${lessons.length?`<section class="panel"><h2>Textbook connection</h2>${lessons.map(row=>`<button type="button" class="repo-link" data-repo-grammar-lesson="${row.lesson}" data-repo-grammar-index="${row.index}">Lesson ${row.lesson} · Grammar ${row.index}: <span class="repo-linked-grammar-label" lang="ja">${text(row.label)}</span></button>`).join('')}</section>`:''}
+      ${furtherStudy}
     </div>
   </section>`;
 }
@@ -330,7 +330,7 @@ function repositoryVariantsMarkup(guide){
   const combined=guide.variants.filter(item=>item.variant_type==='combined_form');
   const text=value=>renderRepositoryFurigana(value,repositoryPlainFromFurigana(value));
   const rows=items=>items.map(item=>{const related=repositoryState.grammarGuides.find(row=>row.id===item.related_grammar_id);return `<article class="repo-variant"><strong lang="ja">${text(item.form)}</strong><span>${esc(item.variant_type.replaceAll('_',' '))}</span><p>${esc(item.explanation)}</p>${related?`<div class="repo-variant-related">${repositoryGrammarNavLink(related,'Related')}</div>`:''}</article>`;}).join('');
-  return `${normal.length?`<section class="panel"><h2>Forms / variants</h2><div class="repo-variant-list">${rows(normal)}</div></section>`:''}${combined.length?`<section class="panel"><h2>Combined forms</h2><div class="repo-variant-list">${rows(combined)}</div></section>`:''}`;
+  return `${normal.length?`<section class="repo-guide-section"><h2>Forms / variants</h2><div class="repo-variant-list">${rows(normal)}</div></section>`:''}${combined.length?`<section class="repo-guide-section"><h2>Combined forms</h2><div class="repo-variant-list">${rows(combined)}</div></section>`:''}`;
 }
 
 function repositoryClarificationsMarkup(guide,text){
@@ -343,7 +343,7 @@ function repositoryMyExamplesMarkup(guide){
 }
 
 function repositoryReferenceExamplesMarkup(guide,text){
-  return `<section class="panel"><h2>Reference examples</h2>${guide.reference_examples?.length?guide.reference_examples.map(example=>`<article class="repo-grammar-example"><p lang="ja"><strong>${text(example.japanese_furigana||example.japanese)}</strong></p><p>${esc(example.english)}</p>${example.source?`<small>${esc(example.source)}</small>`:''}</article>`).join(''):'<p class="subtitle">No reference examples yet.</p>'}</section>`;
+  return `<section class="repo-guide-section"><h2>Reference examples</h2>${guide.reference_examples?.length?guide.reference_examples.map(example=>`<article class="repo-grammar-example"><p lang="ja"><strong>${text(example.japanese_furigana||example.japanese)}</strong></p><p>${esc(example.english)}</p>${example.source?`<small>${esc(example.source)}</small>`:''}</article>`).join(''):'<p class="subtitle">No reference examples yet.</p>'}</section>`;
 }
 
 function repositoryGrammarLibraryMarkup(){

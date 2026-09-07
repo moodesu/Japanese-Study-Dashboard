@@ -3520,3 +3520,82 @@ html[data-theme="dark"] .book-cover-fallback { background:linear-gradient(145deg
   .book-cover-fallback strong { font-size:11px; }
   .repo-head-actions { grid-template-columns:1fr 1fr; }
 }
+
+/* Streamlined grammar guide and utility icons ------------------------- */
+.no-auto-furigana ruby,.no-auto-furigana rt { display:none!important; }
+.mobile-more-menu button>span {
+  height:24px;
+  display:grid;
+  place-items:center;
+  font-size:16px;
+  line-height:1;
+  white-space:nowrap;
+}
+#mobilePomodoro>span { color:var(--pomo-accent); }
+
+.repo-grammar-page { max-width:900px;padding-top:0; }
+.repo-grammar-page .repo-detail-toolbar { margin:10px 0 8px; }
+.repo-grammar-page .repo-detail-toolbar>#repoGrammarBack { min-height:32px;padding:6px 9px;background:transparent; }
+.repo-grammar-header { padding:4px 2px 13px;border-bottom:1px solid var(--line); }
+.repo-grammar-page .repo-grammar-header h1 { margin:2px 0 1px;font-size:clamp(2rem,5vw,2.75rem);line-height:1.45; }
+.repo-grammar-meaning { margin:0!important;color:var(--ink);font-size:1.05rem!important;line-height:1.5!important; }
+.repo-grammar-meta { display:flex;flex-wrap:wrap;gap:6px;margin-top:8px; }
+.repo-grammar-meta span { padding:4px 7px;border-radius:999px;background:var(--surface-alt);color:var(--muted);font-size:.72rem;font-weight:750;text-transform:capitalize; }
+.repo-grammar-content { gap:0; }
+.repo-grammar-content>.repo-guide-pending,.repo-grammar-content>.repo-sentence-context { margin-top:13px;margin-bottom:2px; }
+.repo-guide-article { display:grid; }
+.repo-guide-section { min-width:0;padding:18px 2px;border-bottom:1px solid var(--line); }
+.repo-guide-section h2 { margin:0 0 9px; }
+.repo-guide-section p:last-child { margin-bottom:0; }
+.repo-guide-section .repo-grammar-nav-list { margin-top:4px; }
+.repo-grammar-content>.repo-clarifications,.repo-grammar-content>.panel:has(.repo-my-example) { margin:14px 0 0; }
+.repo-grammar-content>.repo-clarifications+.panel { margin-top:14px; }
+.repo-related-grammar { border-bottom:0; }
+
+.repo-further-study { margin-top:16px;padding:15px; }
+.grammar-source-list { display:grid;gap:7px;margin-top:10px; }
+.grammar-source-row {
+  min-width:0;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:10px 11px;
+  border:1px solid var(--line);
+  border-radius:9px;
+  background:var(--surface-alt);
+  color:var(--ink);
+  text-decoration:none;
+}
+.grammar-source-row>div { min-width:0;display:grid;gap:2px; }
+.grammar-source-row strong { font-size:.9rem;line-height:1.3; }
+.grammar-source-row span,.grammar-source-row small { color:var(--muted);font-size:.76rem;line-height:1.35; }
+.grammar-source-row>b { flex:none;color:var(--accent);font-size:.78rem; }
+.grammar-source-row>.smallbtn { flex:none;min-height:32px;padding:6px 9px; }
+.grammar-source-list .ninjal-panel { margin:0;overflow:visible;font-size:inherit; }
+.grammar-source-list .ninjal-panel>summary { width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0;list-style:none;font-size:inherit;line-height:1.3; }
+.grammar-source-list .ninjal-panel>summary::-webkit-details-marker { display:none; }
+.grammar-source-list .ninjal-panel>summary>span { min-width:0;display:grid;gap:2px; }
+.grammar-source-list .ninjal-panel>summary>b { flex:none;color:var(--accent);font-size:.78rem; }
+.grammar-source-list .ninjal-panel[open] { display:block; }
+.grammar-source-list .ninjal-panel[open]>summary { padding:0 0 10px;border-bottom:1px solid var(--line); }
+.grammar-source-list .ninjal-body { padding:10px 0 0; }
+.repo-textbook-connections { display:grid;gap:6px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line); }
+.repo-textbook-connections>strong { font-size:.82rem; }
+.repo-textbook-connections .repo-link { margin-top:0;padding:9px 10px;background:var(--surface-alt); }
+
+html[data-theme="dark"] .grammar-source-row { background:var(--surface-alt);border-color:var(--line); }
+
+@media(max-width:600px) {
+  .mobile-more-menu button { min-height:48px; }
+  .repo-grammar-page .repo-detail-toolbar { margin:7px 0 5px; }
+  .repo-grammar-header { padding-bottom:10px; }
+  .repo-grammar-page .repo-grammar-header h1 { margin:0;font-size:2rem;line-height:1.4; }
+  .repo-grammar-meaning { font-size:1rem!important; }
+  .repo-guide-section { padding:15px 0; }
+  .repo-grammar-content>.repo-sentence-context { padding:14px;margin-top:11px; }
+  .repo-further-study { padding:12px;margin-top:13px; }
+  .grammar-source-row { align-items:stretch;flex-direction:column;gap:8px;padding:10px; }
+  .grammar-source-row>.smallbtn { width:100%; }
+  .grammar-source-list .ninjal-panel>summary { align-items:flex-start; }
+}
