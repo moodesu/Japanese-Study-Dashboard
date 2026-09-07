@@ -10,6 +10,7 @@
 - Section cards previously inherited only the main task's completion state, which hid unfinished workbook, video or grammar support when collapsed. Section styling and summaries now use aggregate completion while the main task keeps its own saved state.
 - Mobile Notes and audio selectors used sub-16px text, risking iOS focus zoom. Editable controls now compute to at least 16px at phone widths, and primary task/audio controls have 44px touch targets.
 - Nested supporting tasks accumulated card, workspace and body padding on phones. Mobile support now uses one compact accent border, removes redundant nested boxes and gives instructions, Notes and controls nearly the full available task width.
+- The desktop numbered-step column continued down the full card on phones. Mobile section cards now place the smaller badge in the resource header and return the title, progress, instructions and workspace to the full card width.
 - Obsolete task-rating styles remained after removal of Mastery and Confidence. Those unused selectors were removed.
 
 ## Deferred
@@ -37,6 +38,7 @@
 - Confirm Notes, Pomodoro and Mark complete remain easy to reach and have comfortable tap targets.
 - Open audio and verify the player and seek controls remain within the task card.
 - Open Lesson 11 → Kanji → Workbook 1 · Kanji practice and confirm the supporting workspace is wide, its hierarchy remains clear, and its instructions and Notes do not sit inside repeated bordered boxes.
+- Check Conversation, Kanji, Grammar, Reading and Listening cards: the step number should sit beside the resource line without leaving a blank gutter beneath it or colliding with the back-to-top control.
 - Switch to another tab/app and return; confirm the task and open media are retained.
 - Complete the task and confirm the next unfinished activity opens without an unexpected sideways movement or navigation jump.
 

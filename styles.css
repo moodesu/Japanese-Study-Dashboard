@@ -2737,9 +2737,11 @@ html[data-theme="dark"] .guide-action:hover { background:#1d2d3a; border-color:#
   .guide-progress span { margin-left:5px; }
   .guide-next { grid-template-columns:1fr; gap:3px; }
   .guide-next b { text-align:left; }
-  .guide-step { grid-template-columns:34px minmax(0,1fr); gap:10px; padding:12px; }
-  .guide-step-number { width:34px; height:34px; }
-  .guide-list::before { left:16px; }
+  .guide-step { display:block; padding:10px; }
+  .guide-step-number { position:absolute; top:10px; left:10px; width:30px; height:30px; }
+  .guide-step-main { min-width:0; }
+  .guide-step-main>.guide-resource { display:flex; align-items:center; min-height:30px; padding-left:38px; }
+  .guide-list::before { display:none; }
   .guide-support {
     gap:9px;
     margin-inline:-4px 0;
@@ -2748,12 +2750,12 @@ html[data-theme="dark"] .guide-action:hover { background:#1d2d3a; border-color:#
   }
   .guide-support > h4,.guide-support > p { padding-right:4px; }
   .guide-support-step {
-    grid-template-columns:minmax(0,1fr);
     padding:0;
     border:0;
     border-radius:0;
     background:transparent;
   }
+  .guide-support-step .guide-resource { display:block; min-height:0; padding-left:0; }
   .guide-support-step.current { box-shadow:none; background:color-mix(in srgb,var(--accent) 5%,transparent); }
   .guide-support-step .guide-task-workspace {
     margin-top:8px;

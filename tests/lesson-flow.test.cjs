@@ -183,6 +183,11 @@ assert.match(source,/data-guide-workspace="\$\{esc\(step\.id\)\}"/,'Task workspa
 assert.match(source,/window\.JLHRouter\?\.guideOpened\(nextId\)/,'Completion keeps the routed current task aligned with the next activity');
 assert.match(routerSource,/state\.activeGuideTaskId=r\.step/,'Browser history restores the routed Guided Lesson workspace');
 assert.match(styleSource,/guide-task-notes,.guide-audio-select,.guide-inline-controls select \{ font-size:16px; \}/,'Phone-sized editable lesson controls prevent iOS focus zoom');
+assert.match(styleSource,/\.guide-step \{ display:block; padding:10px; \}/,'Phone lesson cards switch from the desktop badge grid to one full-width content column');
+assert.match(styleSource,/\.guide-step-number \{ position:absolute; top:10px; left:10px; width:30px; height:30px; \}/,'The phone step badge remains visible without reserving a permanent column');
+assert.match(styleSource,/\.guide-step-main>\.guide-resource \{[^}]*min-height:30px;[^}]*padding-left:38px;/,'Only the compact phone header row makes room for the badge');
+assert.match(styleSource,/\.guide-list::before \{ display:none; \}/,'The desktop numbered gutter line is removed on phones');
+assert.match(styleSource,/\.guide-support-step \.guide-resource \{ display:block; min-height:0; padding-left:0; \}/,'Supporting activities do not inherit top-level badge spacing');
 assert.match(styleSource,/\.guide-support\s*\{[\s\S]*?padding-left:8px;[\s\S]*?border-left:3px solid/,'Mobile support hierarchy uses one compact accent rather than cumulative boxes');
 assert.match(styleSource,/\.guide-support-step\s*\{[\s\S]*?padding:0;[\s\S]*?border:0;/,'Mobile supporting task cards surrender redundant horizontal padding and borders');
 assert.match(styleSource,/\.guide-support-step \.guide-task-workspace\s*\{[\s\S]*?border:0;[\s\S]*?border-top:1px solid/,'Nested workspaces retain a lightweight divider without another surrounding box');
