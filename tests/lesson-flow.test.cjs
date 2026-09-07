@@ -183,6 +183,12 @@ assert.match(source,/data-guide-workspace="\$\{esc\(step\.id\)\}"/,'Task workspa
 assert.match(source,/window\.JLHRouter\?\.guideOpened\(nextId\)/,'Completion keeps the routed current task aligned with the next activity');
 assert.match(routerSource,/state\.activeGuideTaskId=r\.step/,'Browser history restores the routed Guided Lesson workspace');
 assert.match(styleSource,/guide-task-notes,.guide-audio-select,.guide-inline-controls select \{ font-size:16px; \}/,'Phone-sized editable lesson controls prevent iOS focus zoom');
+assert.match(styleSource,/\.guide-support\s*\{[\s\S]*?padding-left:8px;[\s\S]*?border-left:3px solid/,'Mobile support hierarchy uses one compact accent rather than cumulative boxes');
+assert.match(styleSource,/\.guide-support-step\s*\{[\s\S]*?padding:0;[\s\S]*?border:0;/,'Mobile supporting task cards surrender redundant horizontal padding and borders');
+assert.match(styleSource,/\.guide-support-step \.guide-task-workspace\s*\{[\s\S]*?border:0;[\s\S]*?border-top:1px solid/,'Nested workspaces retain a lightweight divider without another surrounding box');
+assert.match(styleSource,/\.guide-support-step \.guide-workspace-body \{ padding:10px 0 2px; \}/,'Nested workspace bodies do not add left and right padding on phones');
+assert.match(styleSource,/\.guide-support-step \.guide-task-workspace>summary \{[^}]*flex-wrap:wrap;/,'Nested workspace summary wraps within the available phone width');
+assert.match(styleSource,/\.guide-support-step \.guide-workspace-body>\* \{ min-width:0; max-width:100%; \}/,'Nested workspace children cannot widen the page');
 assert.match(source,/upsert\(\{user_id:state\.user\.id,task_id:id,completed:t\.completed,completed_at:t\.completed_at,notes:t\.notes\}/,'Cloud task writes contain only active workflow fields');
 assert.match(source,/state\.taskState\[r\.task_id\]=\{completed:r\.completed,notes:r\.notes,completed_at:r\.completed_at\}/,'Cloud hydration ignores historical rating columns');
 console.log('PASS: Lessons 11–20 ordering, exact page lookup, Plan parity, nested resources, stable records, no duplicate targets, consolidation unchanged.');

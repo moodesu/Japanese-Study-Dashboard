@@ -9,6 +9,7 @@
 - Current, completed and upcoming activities were not consistently labelled. The workspace summary and current-card treatment now use factual completion state only.
 - Section cards previously inherited only the main task's completion state, which hid unfinished workbook, video or grammar support when collapsed. Section styling and summaries now use aggregate completion while the main task keeps its own saved state.
 - Mobile Notes and audio selectors used sub-16px text, risking iOS focus zoom. Editable controls now compute to at least 16px at phone widths, and primary task/audio controls have 44px touch targets.
+- Nested supporting tasks accumulated card, workspace and body padding on phones. Mobile support now uses one compact accent border, removes redundant nested boxes and gives instructions, Notes and controls nearly the full available task width.
 - Obsolete task-rating styles remained after removal of Mastery and Confidence. Those unused selectors were removed.
 
 ## Deferred
@@ -35,6 +36,7 @@
 - Focus Notes and audio selectors; the keyboard must not change the visual viewport scale.
 - Confirm Notes, Pomodoro and Mark complete remain easy to reach and have comfortable tap targets.
 - Open audio and verify the player and seek controls remain within the task card.
+- Open Lesson 11 → Kanji → Workbook 1 · Kanji practice and confirm the supporting workspace is wide, its hierarchy remains clear, and its instructions and Notes do not sit inside repeated bordered boxes.
 - Switch to another tab/app and return; confirm the task and open media are retained.
 - Complete the task and confirm the next unfinished activity opens without an unexpected sideways movement or navigation jump.
 

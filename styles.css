@@ -2740,7 +2740,35 @@ html[data-theme="dark"] .guide-action:hover { background:#1d2d3a; border-color:#
   .guide-step { grid-template-columns:34px minmax(0,1fr); gap:10px; padding:12px; }
   .guide-step-number { width:34px; height:34px; }
   .guide-list::before { left:16px; }
-  .guide-support-step { grid-template-columns:minmax(0,1fr); }
+  .guide-support {
+    gap:9px;
+    margin-inline:-4px 0;
+    padding-left:8px;
+    border-left:3px solid color-mix(in srgb,var(--accent) 42%,var(--line));
+  }
+  .guide-support > h4,.guide-support > p { padding-right:4px; }
+  .guide-support-step {
+    grid-template-columns:minmax(0,1fr);
+    padding:0;
+    border:0;
+    border-radius:0;
+    background:transparent;
+  }
+  .guide-support-step.current { box-shadow:none; background:color-mix(in srgb,var(--accent) 5%,transparent); }
+  .guide-support-step .guide-task-workspace {
+    margin-top:8px;
+    border:0;
+    border-top:1px solid var(--line);
+    border-radius:0;
+    background:transparent;
+    overflow:visible;
+  }
+  .guide-support-step .guide-task-workspace>summary { padding:9px 0; gap:6px 8px; flex-wrap:wrap; }
+  .guide-support-step .guide-task-workspace>summary>* { min-width:0; }
+  .guide-support-step .guide-workspace-body { padding:10px 0 2px; }
+  .guide-support-step .guide-workspace-body>* { min-width:0; max-width:100%; }
+  .guide-support-step .guide-inline-audio { padding:10px; }
+  .guide-support .guide-support { margin-inline:0; padding-left:0; border-left:0; }
   .guide-inline-controls { grid-template-columns:1fr 1fr; }
   .guide-task-notes,.guide-audio-select,.guide-inline-controls select { font-size:16px; }
   .guide-audio-area>.guide-action { width:auto; max-width:100%; }
