@@ -135,7 +135,7 @@ window.JLHRouter=(()=>{
     return entry;
   }
   async function apply(url,saved){
-    const token=++sequence,owner=state.user?.id;applying=true;routeError=null;baseline=null;modalTask=null;lessonTask=null;
+    const token=++sequence,owner=state.user?.id;applying=true;routeError=null;baseline=null;modalTask=null;lessonTask=null;state.activeGuideTaskId=null;
     window.JLHDictionary?.reset();repositoryState.routeEntry=null;
     for(const id of ['modal','searchDialog'])if($('#'+id)?.open)$('#'+id).close();
     try{
@@ -165,7 +165,7 @@ window.JLHRouter=(()=>{
       }else if(r.type==='lesson'){
         if(r.book!==bookId()||!lessonByNumber(r.lesson))throw Error('This lesson does not have a study workspace. Open its book map instead.');
         state.view='lesson';state.lesson=r.lesson;
-        if(r.step){const tasks=flattenGuideSteps(lessonGuideSteps(lessonByNumber(r.lesson)));if(!tasks.some(x=>x.id===r.step||x.taskId===r.step))throw Error('This lesson task is unavailable.');lessonTask={lesson:r.lesson,id:r.step};state.guideTarget=r.step;}
+        if(r.step){const tasks=flattenGuideSteps(lessonGuideSteps(lessonByNumber(r.lesson)));if(!tasks.some(x=>x.id===r.step||x.taskId===r.step))throw Error('This lesson task is unavailable.');lessonTask={lesson:r.lesson,id:r.step};state.guideTarget=r.step;state.activeGuideTaskId=r.step;}
       }
       if(token!==sequence||owner!==state.user?.id)return;
       render();
@@ -231,7 +231,7 @@ window.JLHRouter=(()=>{
     if(d.repoGrammarLesson)return lessonURL(d.repoGrammarLesson,`b2-l${d.repoGrammarLesson}-guide-grammar-${d.repoGrammarIndex}`);
     if(d.guidedTask)return lessonURL(d.guidedLesson,d.guidedTask);
     if(d.guideStepNav||d.guideScroll)return lessonURL(state.lesson,d.guideStepNav||d.guideScroll);
-    if(d.task||d.todayTask||d.reviewTask){const u=new URL(current||'/',location.origin);u.searchParams.set('task',d.task||d.todayTask||d.reviewTask);return u.pathname+u.search;}
+    if(d.task||d.todayTask){const u=new URL(current||'/',location.origin);u.searchParams.set('task',d.task||d.todayTask);return u.pathname+u.search;}
     if(d.dictionaryEntry)return dictionaryURL({id:d.dictionaryEntry,setup:false});
     if(d.dictionaryTerm)return dictionaryURL({id:null,setup:false,q:d.dictionaryTerm});
     if(d.searchType){
@@ -252,7 +252,7 @@ window.JLHRouter=(()=>{
   }
   function decorate(){
     if(!started)return;
-    document.querySelectorAll('[data-view],[data-week],[data-lesson],[data-open-book],[data-repo-entry],[data-repo-grammar],[data-repo-guide],[data-repo-lesson],[data-repo-grammar-lesson],[data-guided-task],[data-guide-step-nav],[data-guide-scroll],[data-task],[data-today-task],[data-review-task],[data-dictionary-entry],[data-dictionary-term],[data-search-type],#backDashboard,#backPlan,#backToLibrary,#repoBack,#repoGrammarLibrary,#repoGrammarLibraryBack,#repoAdd,#repoImport,#repoEdit,#repoCancel,#repoCancelBottom,#repoGrammarBack,#repoDictionaryOpen,#dictionaryBack,#dictionarySetup,#dictionaryResults,#dictionarySaved,#prevLesson,#nextLesson,#prevWeek,#nextWeek,#openWkDashboard,#resumeWeek,#openWeekToday,#openNext,#openNextTask,#openRelatedLesson').forEach(node=>{
+    document.querySelectorAll('[data-view],[data-week],[data-lesson],[data-open-book],[data-repo-entry],[data-repo-grammar],[data-repo-guide],[data-repo-lesson],[data-repo-grammar-lesson],[data-guided-task],[data-guide-step-nav],[data-guide-scroll],[data-task],[data-today-task],[data-dictionary-entry],[data-dictionary-term],[data-search-type],#backDashboard,#backPlan,#backToLibrary,#repoBack,#repoGrammarLibrary,#repoGrammarLibraryBack,#repoAdd,#repoImport,#repoEdit,#repoCancel,#repoCancelBottom,#repoGrammarBack,#repoDictionaryOpen,#dictionaryBack,#dictionarySetup,#dictionaryResults,#dictionarySaved,#prevLesson,#nextLesson,#prevWeek,#nextWeek,#openWkDashboard,#resumeWeek,#openWeekToday,#openNext,#openNextTask,#openRelatedLesson').forEach(node=>{
       if(node.localName==='a'||node.disabled)return;
       const url=routeFor(node);if(!url)return;
       if(node.localName!=='button'&&!node.matches('[data-open-book]')){

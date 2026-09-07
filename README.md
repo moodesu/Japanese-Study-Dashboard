@@ -202,6 +202,12 @@ review. WaniKani handles kanji review and Migaku handles sentence/vocabulary
 review. Curriculum replay, correction, wrap-up and consolidation activities
 remain part of the lesson plan.
 
+Inside a Guided Lesson, the active task keeps its instructions, task resources,
+notes, study time, Pomodoro and completion control together. Opening a task
+updates the lesson URL, so ordinary renders and browser Back/Forward retain the
+same workspace. Completing any top-level or supporting activity advances to the
+next unfinished activity in curriculum order.
+
 Existing task IDs, notes and completion records are retained. Historical
 Mastery and Confidence database values are left untouched but are no longer
 shown, written, or used by the study workflow. Picture

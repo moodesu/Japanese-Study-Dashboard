@@ -4,6 +4,8 @@ const vm = require('node:vm');
 const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 const source = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
+const routerSource = fs.readFileSync(path.join(root, 'router.js'), 'utf8');
+const styleSource = fs.readFileSync(path.join(root, 'styles.css'), 'utf8');
 const context = {state:{taskState:{},lessonVideos:[]},console,URL,document:{baseURI:'https://hub.test/',addEventListener(){}}};
 context.window = context;
 vm.createContext(context);
@@ -12,7 +14,7 @@ vm.runInContext(fs.readFileSync(path.join(root, 'audio-map.js'), 'utf8'), contex
 context.AUDIO_LIBRARY=context.LESSON_AUDIO;
 vm.runInContext(fs.readFileSync(path.join(root, 'ninjal.js'), 'utf8'), context);
 // Exercise the real pure planning/rendering functions without booting auth.
-for (const name of ['defFor','pageFor','makeTask','lessonTasks','weeklyTasks','ts','taskStudyChecklist','lessonGuideSteps','flattenGuideSteps','guideAudioMarkup','taskGoalFor','guideTaskWorkspaceMarkup','guideStepMarkup','lessonGuideMarkup','scrollToGuideActivity']) {
+for (const name of ['defFor','pageFor','makeTask','lessonTasks','weeklyTasks','ts','taskStudyChecklist','lessonGuideSteps','flattenGuideSteps','nextGuideActivityId','guideAudioMarkup','taskGoalFor','guideTaskWorkspaceMarkup','guideStepMarkup','lessonGuideMarkup','scrollToGuideActivity']) {
   const start=source.indexOf(`function ${name}(`);
   assert.ok(start>=0, `Missing ${name}`);
   const end=source.indexOf('\nfunction ',start+1);
@@ -79,6 +81,7 @@ const conversationWorkspace=context.guideTaskWorkspaceMarkup(l,steps[1],1,steps,
 assert.ok(conversationWorkspace.includes('data-guide-pomodoro="b2-l11-textbook_conversation"'),'Guided task timer uses the exact lesson task ID');
 assert.ok(conversationWorkspace.includes('Studied: 1h 15m'),'Guided task shows its existing accumulated focus time');
 assert.ok(conversationWorkspace.includes('<label>Notes<textarea'),'Guided task retains its notes field');
+assert.ok(conversationWorkspace.includes('data-guide-check="b2-l11-textbook_conversation"'),'Completion stays beside notes, study time and Pomodoro');
 assert.ok(!/Mastery|Confidence|data-guide-mastery|data-guide-confidence/.test(conversationWorkspace),'Guided task has no rating workflow');
 const conversationTracks=context.AUDIO_LIBRARY.lessons[11].groups.conversation;
 context.state.lessonMedia={taskId:'b2-l11-textbook_conversation',lesson:11,mediaType:'audio',category:'conversation',open:true,selectedTrack:conversationTracks[1].path,currentTime:12,wasPlaying:false};
@@ -86,7 +89,7 @@ const restoredAudio=context.guideAudioMarkup(l,steps[1]);
 assert.ok(restoredAudio.includes('data-guide-task-id="b2-l11-textbook_conversation"'));
 assert.ok(restoredAudio.includes('aria-expanded="true"'),'Open inline media is reconstructed as open');
 assert.ok(!/data-guide-audio-box="conversation"[^>]*hidden/.test(restoredAudio),'The restored audio panel is not collapsed');
-assert.ok(context.guideTaskWorkspaceMarkup(l,steps[1],1,steps,false,steps[2].id).startsWith('<details class="guide-task-workspace" open'),'Media state keeps its parent task workspace open');
+assert.match(context.guideTaskWorkspaceMarkup(l,steps[1],1,steps,false,steps[2].id),/^<details class="guide-task-workspace"[^>]* open>/,'Media state keeps its parent task workspace open');
 assert.match(source,/document\.addEventListener\('visibilitychange',captureActiveLessonMedia\)/,'Tab visibility captures the active track and position without rendering');
 assert.match(source,/tracks\.findIndex\(track=>track\.path===state\.lessonMedia\.selectedTrack\)/,'Inline audio restores the selected task track');
 const saved={completed:true,notes:'Existing note',mastery:'studying',confidence:3};
@@ -97,6 +100,12 @@ assert.equal(context.ts('b2-l11-textbook_vocab_pictures').completed,false,'Do no
 context.state.taskState['b2-l11-textbook_conversation']=saved;
 assert.equal(context.ts('b2-l11-textbook_conversation_shadowing').completed,false,'First-pass completion does not complete shadowing');
 assert.equal(context.ts('b2-l11-textbook_conversation'),saved,'Existing conversation record is untouched');
+const ordered=context.flattenGuideSteps(steps),nestedIndex=ordered.findIndex(step=>step.id.includes('-guide-grammar-'));
+for(const step of ordered) context.state.taskState[step.id]={completed:ordered.indexOf(step)<nestedIndex};
+assert.equal(context.nextGuideActivityId(l,ordered[nestedIndex].id,true),ordered[nestedIndex+1].id,'Completing a nested grammar activity advances in flattened curriculum order');
+for(const step of ordered) context.state.taskState[step.id]={completed:true};
+context.state.taskState[ordered[0].id]={completed:false};context.state.taskState[ordered.at(-1).id]={completed:false};
+assert.equal(context.nextGuideActivityId(l,ordered.at(-1).id,true),ordered[0].id,'After the last activity, Continue returns to any earlier unfinished work');
 for(const step of context.flattenGuideSteps(steps)) context.state.taskState[step.id]={completed:true};
 delete context.state.taskState['b2-l11-textbook_conversation_shadowing'];
 assert.ok(context.lessonGuideMarkup(l).includes('data-guide-scroll="b2-l11-textbook_conversation_shadowing"'),'Previously completed lessons continue at the new shadowing step');
@@ -146,6 +155,10 @@ assert.ok(!source.includes('Review queue'),'Dashboard has no generic task review
 assert.ok(!source.includes('data-review-task'),'Completed tasks are not resurfaced by a manual review workflow');
 assert.ok(source.includes('textbook_conversation_shadowing'),'Curriculum-defined conversation replay/shadowing remains');
 assert.ok(source.includes('Programme consolidation'),'Curriculum-defined consolidation remains');
+assert.match(source,/data-guide-workspace="\$\{esc\(step\.id\)\}"/,'Task workspaces expose stable activity identity');
+assert.match(source,/window\.JLHRouter\?\.guideOpened\(nextId\)/,'Completion keeps the routed current task aligned with the next activity');
+assert.match(routerSource,/state\.activeGuideTaskId=r\.step/,'Browser history restores the routed Guided Lesson workspace');
+assert.match(styleSource,/guide-task-notes,.guide-audio-select,.guide-inline-controls select \{ font-size:16px; \}/,'Phone-sized editable lesson controls prevent iOS focus zoom');
 assert.match(source,/upsert\(\{user_id:state\.user\.id,task_id:id,completed:t\.completed,completed_at:t\.completed_at,notes:t\.notes\}/,'Cloud task writes contain only active workflow fields');
 assert.match(source,/state\.taskState\[r\.task_id\]=\{completed:r\.completed,notes:r\.notes,completed_at:r\.completed_at\}/,'Cloud hydration ignores historical rating columns');
 console.log('PASS: Lessons 11–20 ordering, exact page lookup, Plan parity, nested resources, stable records, no duplicate targets, consolidation unchanged.');

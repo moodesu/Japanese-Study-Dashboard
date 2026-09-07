@@ -272,6 +272,7 @@ const state = {
   lessonVideosLoaded: false,
   lessonVideosError: false,
   guideTarget: null,
+  activeGuideTaskId: null,
   lessonMedia: loadLessonMediaState(),
   pomoOpen: localStorage.getItem('pomodoroOpen') === 'true',
   focusMode: false,
@@ -1206,10 +1207,24 @@ function initLessonAudio(n){
   if(rememberedIndex>=0) loadTrack(rememberedIndex,false);
 }
 
+const guideNoteSaveTimers=new Map();
 function updateGuideTaskRecord(id,patch){
   state.taskState[id]={...ts(id),...patch};
   saveLocal();
-  cloudSave(id);
+  clearTimeout(guideNoteSaveTimers.get(id));
+  guideNoteSaveTimers.set(id,setTimeout(()=>{guideNoteSaveTimers.delete(id);cloudSave(id);},400));
+}
+function flushGuideTaskRecord(id){
+  if(!guideNoteSaveTimers.has(id)) return;
+  clearTimeout(guideNoteSaveTimers.get(id));guideNoteSaveTimers.delete(id);cloudSave(id);
+}
+function flushAllGuideTaskRecords(){
+  for(const id of [...guideNoteSaveTimers.keys()]) flushGuideTaskRecord(id);
+}
+if(!window.__guideNoteLifecycleBound){
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flushAllGuideTaskRecords();});
+  window.addEventListener('pagehide',flushAllGuideTaskRecords);
+  window.__guideNoteLifecycleBound=true;
 }
 
 function initGuideAudio(n){
@@ -1320,7 +1335,15 @@ function initGuideAudio(n){
 }
 
 function initGuideTaskWorkspaces(l){
-  document.querySelectorAll('[data-guide-notes]').forEach(input=>input.oninput=()=>updateGuideTaskRecord(input.dataset.guideNotes,{notes:input.value}));
+  document.querySelectorAll('[data-guide-notes]').forEach(input=>{
+    input.oninput=()=>updateGuideTaskRecord(input.dataset.guideNotes,{notes:input.value});
+    input.onblur=()=>flushGuideTaskRecord(input.dataset.guideNotes);
+  });
+  document.querySelectorAll('.guide-task-workspace').forEach(workspace=>workspace.ontoggle=()=>{
+    const taskId=workspace.dataset.guideWorkspace;
+    if(workspace.open){state.activeGuideTaskId=taskId;window.JLHRouter?.guideOpened(taskId);}
+    else if(state.activeGuideTaskId===taskId){state.activeGuideTaskId=null;window.JLHRouter?.guideOpened(null);}
+  });
   document.querySelectorAll('[data-guide-pomodoro]').forEach(button=>button.onclick=()=>{
     const taskId=button.dataset.guidePomodoro, owns=state.pomodoro.taskId===taskId, wasPaused=owns&&state.pomodoro.status==='paused';
     if(owns&&state.pomodoro.status==='running') pausePomodoro();
@@ -1487,6 +1510,13 @@ function lessonGuideSteps(l){
 
 function flattenGuideSteps(steps){ return steps.flatMap(step=>[step,...flattenGuideSteps(step.support||[])]); }
 
+function nextGuideActivityId(l,currentId,willComplete){
+  if(!willComplete) return currentId;
+  const activities=flattenGuideSteps(lessonGuideSteps(l)), currentIndex=activities.findIndex(step=>step.id===currentId);
+  const unfinished=activities.filter(step=>step.id!==currentId&&!ts(step.id).completed);
+  return unfinished.find(step=>activities.indexOf(step)>currentIndex)?.id||unfinished[0]?.id||null;
+}
+
 function guideVideoLinks(videos=[]){
   return videos.map((video,index)=>{
     const url=safeYouTubeUrl(video.youtube_url); if(!url) return '';
@@ -1504,7 +1534,7 @@ function taskGoalFor(l,step){
   return goals[0];
 }
 
-function guideTaskWorkspaceMarkup(l,step,index,steps,isNext,nextId){
+function guideTaskWorkspaceMarkup(l,step,index,steps,isCurrent,nextId){
   const status=ts(step.id), goal=taskGoalFor(l,step);
   const taskId=step.taskId||step.id, studied=fmtDuration(taskSeconds(taskId));
   const hasOpenMedia=state.lessonMedia?.open&&Number(state.lessonMedia.lesson)===Number(l.n)&&state.lessonMedia.taskId===taskId;
@@ -1512,15 +1542,15 @@ function guideTaskWorkspaceMarkup(l,step,index,steps,isNext,nextId){
   const checklist=step.checklist?.length?`<div class="guide-workspace-section"><strong>Do this</strong><ol>${step.checklist.map(item=>`<li>${esc(item)}</li>`).join('')}</ol></div>`:'';
   const videos=step.videos?.length?`<div class="guide-workspace-section"><strong>Publisher video${step.videos.length===1?'':'s'}</strong><div class="guide-actions">${guideVideoLinks(step.videos)}</div></div>`:'';
   const previous=steps[index-1], next=steps[index+1];
-  return `<details class="guide-task-workspace" ${isNext||hasOpenMedia?'open':''}>
-    <summary><span>${isNext?'Current task':'Task workspace'}</span><strong>Instructions · resources · notes</strong><b>Open</b></summary>
+  return `<details class="guide-task-workspace" data-guide-workspace="${esc(step.id)}" ${isCurrent||hasOpenMedia?'open':''}>
+    <summary><span>${isCurrent?'Current task':status.completed?'Completed':'Upcoming'}</span><strong>Instructions · resources · notes</strong><b>Open</b></summary>
     <div class="guide-workspace-body">
       <div class="guide-lesson-context"><strong>Lesson ${l.n} · ${esc(l.english)}</strong>${goal?`<span>Can-do connection: ${esc(goal)}</span>`:''}</div>
       ${details}${checklist}${videos}${guideAudioMarkup(l,step)}
       ${step.grammarLabel?window.JLHNinjal?.panelMarkup(step.grammarLabel)||'':''}
       <div class="guide-workspace-section guide-task-record"><strong>Task record</strong>
         <label>Notes<textarea class="guide-task-notes" data-guide-notes="${esc(step.id)}" placeholder="Errors, useful examples, or what needs another pass…">${esc(status.notes||'')}</textarea></label>
-        <div class="guide-pomodoro-row"><span>Studied: ${esc(studied)}</span><button type="button" class="guide-pomodoro-button" data-guide-pomodoro="${esc(taskId)}" aria-pressed="false">🍅 Start Pomodoro</button></div>
+        <div class="guide-task-actions"><span class="guide-study-time">Studied: ${esc(studied)}</span><button type="button" class="guide-pomodoro-button" data-guide-pomodoro="${esc(taskId)}" aria-pressed="false">🍅 Start Pomodoro</button><label class="guide-check"><input type="checkbox" data-guide-check="${esc(step.id)}" ${status.completed?'checked':''}><span>${status.completed?'Completed':'Mark complete'}</span></label></div>
       </div>
       ${step.support?.length?`<section class="guide-support"><h4>Supporting practice · within this section</h4><p>These activities keep their own notes and completion. Marking the textbook section complete does not mark them complete.</p>${step.support.map(child=>guideStepMarkup(l,child,-1,[],nextId)).join('')}</section>`:''}
       ${index>=0?`<nav class="guide-step-nav" aria-label="Guided lesson navigation">${previous?`<button type="button" data-guide-step-nav="${esc(previous.id)}">← Step ${index}</button>`:'<span></span>'}${next?`<button type="button" data-guide-step-nav="${esc(next.id)}">Step ${index+2} →</button>`:'<span></span>'}</nav>`:''}
@@ -1531,22 +1561,22 @@ function guideTaskWorkspaceMarkup(l,step,index,steps,isNext,nextId){
 function guideStepMarkup(l,step,index,steps,nextId){
   const status=ts(step.id), page=step.page?` · ${step.page}`:'';
   const isNext=flattenGuideSteps([step]).some(item=>item.id===nextId);
-  return `<article class="guide-step ${index<0?'guide-support-step':''} ${status.completed?'done':''}" id="guide-${esc(step.id)}" data-guide-task="${esc(step.taskId||step.id)}">
+  return `<article class="guide-step ${index<0?'guide-support-step':''} ${status.completed?'done':''} ${isNext?'current':''}" id="guide-${esc(step.id)}" data-guide-task="${esc(step.taskId||step.id)}">
     <div class="guide-step-number">${status.completed?'✓':index<0?'↳':index+1}</div>
     <div class="guide-step-main"><div class="guide-resource">${esc(step.resource)}${esc(page)}</div><h3>${esc(step.title)}</h3><p>${esc(step.instruction)}</p>${guideTaskWorkspaceMarkup(l,step,index,steps,isNext,nextId)}</div>
-    <label class="guide-check"><input type="checkbox" data-guide-check="${esc(step.id)}" ${status.completed?'checked':''}><span>${status.completed?'Complete':'Mark complete'}</span></label>
   </article>`;
 }
 
 function lessonGuideMarkup(l){
   const steps=lessonGuideSteps(l), activities=flattenGuideSteps(steps), done=activities.filter(step=>ts(step.id).completed).length;
   const next=activities.find(step=>!ts(step.id).completed);
+  const currentId=activities.some(step=>step.id===state.activeGuideTaskId)?state.activeGuideTaskId:next?.id;
   const nextIndex=steps.findIndex(step=>flattenGuideSteps([step]).some(item=>item.id===next?.id));
   return `<section class="panel lesson-guide" id="lessonGuide">
     <div class="lesson-guide-head"><div><div class="eyebrow">Guided lesson path</div><h2>Follow the textbook</h2><p class="subtitle">Textbook sections in reading order, with videos, audio and workbook practice inside the matching section. Vocabulary page ranges cover both pictures and the list; the exact split is not yet verified.</p></div><div class="guide-progress"><strong>${done}/${activities.length}</strong><span>activities complete</span></div></div>
     <div class="progress"><i style="width:${activities.length?done/activities.length*100:0}%"></i></div>
     ${next?`<button type="button" class="guide-next" data-guide-scroll="${esc(next.id)}"><span>Continue with step ${nextIndex+1}</span><strong>${esc(next.title)}</strong><b>Go to next step ↓</b></button>`:`<div class="guide-complete">Lesson path complete. Review your notes for anything that needs another pass.</div>`}
-    <div class="guide-list">${steps.map((step,index)=>guideStepMarkup(l,step,index,steps,next?.id)).join('')}</div>
+    <div class="guide-list">${steps.map((step,index)=>guideStepMarkup(l,step,index,steps,currentId)).join('')}</div>
   </section>`;
 }
 
@@ -1565,7 +1595,7 @@ function focusGuideTarget(){
 
 function openGuidedLesson(lesson,taskId=null){
   if(window.JLHRouter){window.JLHRouter.navigate(window.JLHRouter.lessonURL(lesson,taskId));return;}
-  state.lesson=Number(lesson); state.view='lesson'; state.guideTarget=taskId; render();
+  state.lesson=Number(lesson); state.view='lesson'; state.guideTarget=taskId; state.activeGuideTaskId=taskId; render();
 }
 
 function renderLesson(n){
@@ -1610,9 +1640,11 @@ function renderLesson(n){
   $('#prevLesson').onclick=()=>{if(n>11){state.lesson=n-1;render();}};
   $('#nextLesson').onclick=()=>{if(n<20){state.lesson=n+1;render();}};
   $('#mainContent').querySelectorAll('[data-guide-check]').forEach(input=>input.onchange=()=>{
-    const steps=flattenGuideSteps(lessonGuideSteps(l)), index=steps.findIndex(step=>step.id===input.dataset.guideCheck);
-    state.guideTarget=input.checked?(steps.slice(index+1).find(step=>!ts(step.id).completed)?.id||input.dataset.guideCheck):input.dataset.guideCheck;
-    toggle(input.dataset.guideCheck);
+    const taskId=input.dataset.guideCheck, nextId=nextGuideActivityId(l,taskId,input.checked);
+    flushGuideTaskRecord(taskId);
+    state.guideTarget=nextId;state.activeGuideTaskId=nextId;
+    toggle(taskId);
+    window.JLHRouter?.guideOpened(nextId);
   });
   $('#mainContent').querySelectorAll('[data-guide-scroll]').forEach(button=>button.onclick=()=>{
     scrollToGuideActivity(button.dataset.guideScroll);
@@ -1682,7 +1714,7 @@ function openTask(id){
   const lessonContext=taskModalLessonContext(t);
   $('#modalDesc').innerHTML=`${lessonContext}${pageLink}${timeLine}<div class="task-purpose"><strong>Why this task?</strong><span>${esc(taskPurpose(t))}</span></div>${t.lesson?'':`<p>${esc(t.desc)}</p>`}${items}<div class="modal-related">${lessonLink}${pomoBtn}</div>`;
   $('#modalDone').checked=s.completed; $('#modalDone').onchange=()=>toggle(id);
-  $('#taskNotes').value=s.notes||''; $('#taskNotes').oninput=e=>{state.taskState[id]={...ts(id),notes:e.target.value};saveLocal();cloudSave(id);};
+  $('#taskNotes').value=s.notes||''; $('#taskNotes').oninput=e=>updateGuideTaskRecord(id,{notes:e.target.value});$('#taskNotes').onblur=()=>flushGuideTaskRecord(id);
   if($('#openRelatedLesson')) $('#openRelatedLesson').onclick=()=>{$('#modal').close();openGuidedLesson(t.lesson,t.id);};
   $('#startTaskPomo').onclick=()=>{if(startTaskPomodoro(id)){toast('Pomodoro started for this task');$('#startTaskPomo').textContent='Timer running for this task';}};
   $('#focusTask').onclick=()=>{state.focusMode=true;document.body.classList.add('focus-mode');$('#modal').classList.add('focus-modal');};
