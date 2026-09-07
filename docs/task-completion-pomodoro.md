@@ -18,4 +18,4 @@
 - Repeat after pausing the linked timer; confirm elapsed work is saved and the link is cleared.
 - Start a timer for another lesson task, then complete Conversation; confirm the other timer continues unchanged.
 - Start an unlinked Pomodoro, complete Conversation, and confirm the timer continues unchanged.
-- Confirm task notes, mastery, confidence, completion, inline media, and global Pomodoro controls still behave normally.
+- Confirm task notes, completion, inline media, and global Pomodoro controls still behave normally.

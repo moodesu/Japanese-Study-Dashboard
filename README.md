@@ -189,13 +189,15 @@ ordering. Day allocations are study suggestions, not instructions to skip
 unfinished textbook sections.
 
 Publisher videos and workbook practice are inside their matching textbook
-section, with independent completion, notes and ratings. Grammar points remain
+section, with independent completion, notes and accumulated study time. Grammar points remain
 individually tracked inside the grammar section. The Continue button includes
 unfinished supporting activities, even when their textbook section is marked
 complete. An optional conversation replay belongs after grammar, not in place
 of the opening first pass.
 
-Existing task IDs, notes, completion and mastery records are retained. Picture
+Existing task IDs, notes and completion records are retained. Historical
+Mastery and Confidence database values are left untouched but are no longer
+shown, written, or used by the study workflow. Picture
 vocabulary and the final wrap-up are new unchecked tasks; old vocabulary
 completion is retained on the vocabulary-list task. Completion percentages and
 daily allocations can therefore change without losing earlier work. No SQL

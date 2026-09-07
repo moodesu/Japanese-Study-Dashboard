@@ -343,18 +343,18 @@ function weeklyTasks(w,d){
 }
 function consolidationTasks(w,d){
   const ls=consolidationLessons(w), label=w===10?'Lessons 11–15':'Lessons 16–20';
-  if(d===6) return [{id:`b2-w${w+1}-d7-mastery`,key:'mastery',title:`Mastery check · ${label}`,duration:'45–60 min',book:'Dashboard',desc:'Re-test every lesson area marked shaky, studying or review. Include textbook grammar production, reading/listening and workbook errors.'}];
+  if(d===6) return [{id:`b2-w${w+1}-d7-mastery`,key:'review',title:`Programme review · ${label}`,duration:'45–60 min',book:'Dashboard',desc:'Re-test lesson grammar production, reading, listening and workbook errors. Use your task notes to choose what needs another pass.'}];
   const l=ls[d];
   if(!l) return [{id:`b2-w${w+1}-d${d+1}-catchup`,key:'catchup',title:`Consolidation · ${label}`,duration:'45–60 min',book:'Your notes',desc:'Use this session for unfinished work and the weakest remaining areas.'}];
   const key=['textbook_grammar','textbook_reading','textbook_listening','grammar1','reading','writing','comp1'][d];
   const t=makeTask(l,key);
-  return t?[{...t,id:`b2-consolidation-w${w+1}-l${l.n}-${key}`,title:`L${l.n} · ${t.title}`,desc:t.desc+' This is a consolidation pass: prioritise anything previously marked shaky or weak.'}]:[{id:`b2-w${w+1}-d${d+1}-targeted`,key:'targeted',title:`L${l.n} · targeted review`,duration:'45–60 min',book:'Your notes',desc:'Review the weakest remaining component from this lesson and update its mastery.'}];
+  return t?[{...t,id:`b2-consolidation-w${w+1}-l${l.n}-${key}`,title:`L${l.n} · ${t.title}`,desc:t.desc+' This is a consolidation pass: prioritise errors and unfinished work recorded in your notes.'}]:[{id:`b2-w${w+1}-d${d+1}-targeted`,key:'targeted',title:`L${l.n} · targeted review`,duration:'45–60 min',book:'Your notes',desc:'Use your notes to review the lesson component that needs another pass.'}];
 }
 
 function habits(w,d){
   return OPTIONAL_TASKS.map(x => ({id:`habit-w${w+1}-d${d+1}-${x.key}`,key:x.key,title:x.label,duration:x.duration,book:'Habit',desc:x.desc,habit:true}));
 }
-function ts(id){ return state.taskState[id] || {completed:false,mastery:'not_started',confidence:null,notes:'',completed_at:null}; }
+function ts(id){ return state.taskState[id] || {completed:false,notes:'',completed_at:null}; }
 function saveLocal(){
   localStorage.setItem('taskState',JSON.stringify(state.taskState));
   localStorage.setItem('appNotes',state.notes);
@@ -363,14 +363,14 @@ function saveLocal(){
 async function cloudSave(id){
   if(!db || !state.user) return;
   const t = ts(id);
-  const {error} = await db.from('task_state').upsert({user_id:state.user.id,task_id:id,completed:t.completed,completed_at:t.completed_at,mastery:t.mastery,confidence:t.confidence,notes:t.notes},{onConflict:'user_id,task_id'});
+  const {error} = await db.from('task_state').upsert({user_id:state.user.id,task_id:id,completed:t.completed,completed_at:t.completed_at,notes:t.notes},{onConflict:'user_id,task_id'});
   if(error) toast('Cloud save failed; your local copy is safe.');
 }
 function setTask(id,p){ state.taskState[id]={...ts(id),...p}; saveLocal(); render(); cloudSave(id); }
 function toggle(id){
   const t=ts(id), completing=!t.completed;
   if(completing) stopPomodoroForTaskCompletion(id);
-  setTask(id,{completed:completing,completed_at:completing?new Date().toISOString():null,mastery:completing&&t.mastery==='not_started'?'studying':t.mastery});
+  setTask(id,{completed:completing,completed_at:completing?new Date().toISOString():null});
 }
 function weekDates(w){ const s=new Date(state.startDate+'T00:00:00'); return Array.from({length:7},(_,i)=>addDays(s,w*7+i)); }
 function allTasks(w){ return Array.from({length:7},(_,d)=>weeklyTasks(w,d)).flat(); }
@@ -379,7 +379,7 @@ function progress(w){ const a=allTasks(w); return {done:a.filter(t=>ts(t.id).com
 function overallProgress(){ const a=allCoreTasks(); return {done:a.filter(t=>ts(t.id).completed).length,total:a.length}; }
 function lessonProgress(n){
   const a=lessonTasks(lessonByNumber(n));
-  return {done:a.filter(t=>ts(t.id).completed).length,total:a.length,mastered:a.filter(t=>ts(t.id).mastery==='mastered').length};
+  return {done:a.filter(t=>ts(t.id).completed).length,total:a.length};
 }
 function currentWeekIndex(){
   const start=new Date(state.startDate+'T00:00:00');
@@ -394,10 +394,9 @@ function nextIncomplete(){
 }
 function lessonStatus(n){
   const p=lessonProgress(n);
-  if(p.mastered===p.total) return ['mastered','Mastered'];
-  if(p.done===0) return ['not_started','Not started'];
-  const shaky=lessonTasks(lessonByNumber(n)).filter(t=>['shaky','studying','review'].includes(ts(t.id).mastery)).length;
-  return shaky ? ['studying','In progress · attention needed'] : ['studying','In progress'];
+  if(p.done===p.total) return ['complete','Complete'];
+  if(p.done===0) return ['not-started','Not started'];
+  return ['in-progress','In progress'];
 }
 
 // ---- Pomodoro timer -------------------------------------------------
@@ -796,7 +795,7 @@ function renderLibrary(){
 function lessonButton(l){
   const p=lessonProgress(l.n), pct=p.total?p.done/p.total*100:0, [cls,label]=lessonStatus(l.n);
   const secs=lessonSeconds(l.n), timeBit=secs?` · ${fmtDuration(secs)} studied`:'';
-  return `<button class="lessonrow" data-lesson="${l.n}"><span class="lessonnum">${l.n}</span><span class="lessonrowmain"><strong>${esc(l.title)}</strong><small>${p.done}/${p.total} sections complete · ${p.mastered}/${p.total} mastered · ${label}${timeBit}</small><span class="mini-progress"><i style="width:${pct}%"></i></span></span><span class="lessonpct">${Math.round(pct)}%</span></button>`;
+  return `<button class="lessonrow ${cls}" data-lesson="${l.n}"><span class="lessonnum">${l.n}</span><span class="lessonrowmain"><strong>${esc(l.title)}</strong><small>${p.done}/${p.total} sections complete · ${label}${timeBit}</small><span class="mini-progress"><i style="width:${pct}%"></i></span></span><span class="lessonpct">${Math.round(pct)}%</span></button>`;
 }
 function activitySeconds(key){
   const re=new RegExp(`^habit-w\\d+-d\\d+-${key}$`);
@@ -915,9 +914,9 @@ function renderWaniKaniDashboardView() {
 
 const ROADMAP_ITEMS = [
   {id:'today-flow',title:'Tighten Today / Start Here',detail:'Make the next study action obvious and launchable from the dashboard.'},
-  {id:'task-completion',title:'Improve task completion',detail:'Keep completion simple while recording useful time, confidence and notes.'},
+  {id:'task-completion',title:'Improve task completion',detail:'Keep completion simple while recording useful study time and notes.'},
   {id:'mobile-pass',title:'Mobile-first study pass',detail:'Keep the operational study flow comfortable on a phone.'},
-  {id:'review-engine',title:'Lightweight review engine',detail:'Resurface completed work based on review flags, confidence and elapsed time.'},
+  {id:'review-engine',title:'Lightweight review engine',detail:'Resurface completed work after a simple elapsed-time interval.'},
   {id:'library',title:'Make the Library genuinely useful',detail:'Separate reusable resources from programmes and schedules.'},
   {id:'search',title:'Global search',detail:'Search lessons, tasks, books and study notes from one place.'},
   {id:'history',title:'Study history',detail:'Show recent study time and activity without turning the app into a gamification system.'},
@@ -937,11 +936,9 @@ function reviewItems(){
     const completed=st.completed_at?new Date(st.completed_at).getTime():0;
     if(!completed) continue;
     const days=(now-completed)/86400000;
-    const flagged=['shaky','review'].includes(st.mastery) || Number(st.confidence||9)<=2;
-    const due=flagged ? days>=1 : days>=7;
-    if(due) out.push({t,st,days,priority:flagged?0:1});
+    if(days>=7) out.push({t,days});
   }
-  return out.sort((a,b)=>a.priority-b.priority||b.days-a.days).slice(0,8);
+  return out.sort((a,b)=>b.days-a.days).slice(0,8);
 }
 function studyContext(){
   const start=new Date(state.startDate+'T00:00:00'); const today=new Date(); today.setHours(0,0,0,0);
@@ -1003,7 +1000,6 @@ function renderDashboard(){
   const overall=overallProgress(),w=currentWeekIndex(),wp=progress(w),next=nextIncomplete();
   const studyDay=studyContext(),today=todayTasks(), reviews=reviewItems();
   const dayLabel=studyDay.preStart?`Next study · ${fmt(studyDay.date)}`:`Today · ${fmt(studyDay.date)}`;
-  const attention=CURRICULUM.lessons.flatMap(l=>lessonTasks(l).map(t=>({t,s:ts(t.id)}))).filter(x=>['shaky','studying','review'].includes(x.s.mastery)).slice(0,8);
   const activityRows=OPTIONAL_TASKS.map(x=>({label:x.label,secs:activitySeconds(x.key)})).sort((a,b)=>b.secs-a.secs);
   const maxActivity=Math.max(...activityRows.map(a=>a.secs),1);
   const topTasks=topTaskSessions(6);
@@ -1019,18 +1015,17 @@ function renderDashboard(){
         ${today.length?`<div class="focuslist">${today.map((t,i)=>{const s=ts(t.id),action=t.lesson?`data-guided-task="${esc(t.id)}" data-guided-lesson="${esc(t.lesson)}">Open path`:`data-today-task="${esc(t.id)}">Start`;return `<article class="focusitem"><span class="focus-number">${i+1}</span><div class="focusmain"><strong>${esc(t.title)}</strong><small>${esc(t.book)}${t.page?' · p.'+esc(t.page):''} · ${esc(t.duration)}</small><span>${esc(taskPurpose(t))}</span></div><button class="smallbtn primary" ${action}</button></article>`}).join('')}</div>`:'<div class="empty success-empty">Today’s core work is complete. Use the review queue below or stop for the day.</div>'}
         <div class="today-actions"><button class="smallbtn" id="openWeekToday">Open today in Study Plan</button>${next?'<button class="smallbtn" id="openNextTask">Next incomplete</button>':''}</div>
       </article>
-      <article class="panel review-card"><div class="panelhead"><div><h2>Review queue</h2><p class="subtitle">Completed work returns here after an interval, with flagged or low-confidence items returning sooner.</p></div><span class="flag-count">${reviews.length} due</span></div>
-        ${reviews.length?`<div class="attentionlist review-list">${reviews.map(x=>`<button class="attention" data-review-task="${esc(x.t.id)}"><span class="status-dot ${x.st.mastery}"></span><span><strong>${esc(x.t.title)}</strong><small>${esc(x.t.book)} · ${x.days<2?'due now':Math.floor(x.days)+'d since completion'}${x.st.confidence?' · confidence '+x.st.confidence+'/5':''}</small></span></button>`).join('')}</div>`:'<div class="empty">Nothing is due yet. Keep testing yourself honestly.</div>'}
+      <article class="panel review-card"><div class="panelhead"><div><h2>Review queue</h2><p class="subtitle">Completed work returns here after seven days.</p></div><span class="flag-count">${reviews.length} due</span></div>
+        ${reviews.length?`<div class="attentionlist review-list">${reviews.map(x=>`<button class="attention" data-review-task="${esc(x.t.id)}"><span><strong>${esc(x.t.title)}</strong><small>${esc(x.t.book)} · ${Math.floor(x.days)}d since completion</small></span></button>`).join('')}</div>`:'<div class="empty">Nothing is due yet.</div>'}
       </article>
     </section>
     <section class="dashgrid secondary-dashboard">
-      <article class="dashcard primarycard"><div class="eyebrow">Programme progress</div><h2>${esc(activeBook().title)}</h2><p>${overall.done} of ${overall.total} scheduled core tasks complete.</p><div class="bigprogress"><strong>${Math.round(overall.done/overall.total*100)||0}%</strong><span>overall completion</span></div><div class="progress"><i style="width:${overall.total?overall.done/overall.total*100:0}%"></i></div><div class="statstrip"><span><strong>${wp.done}</strong> this week</span><span><strong>${attention.length}</strong> attention</span><span><strong>${fmtDuration(recentTime)}</strong> last 30 days</span></div></article>
+      <article class="dashcard primarycard"><div class="eyebrow">Programme progress</div><h2>${esc(activeBook().title)}</h2><p>${overall.done} of ${overall.total} scheduled core tasks complete.</p><div class="bigprogress"><strong>${Math.round(overall.done/overall.total*100)||0}%</strong><span>overall completion</span></div><div class="progress"><i style="width:${overall.total?overall.done/overall.total*100:0}%"></i></div><div class="statstrip"><span><strong>${wp.done}</strong> this week</span><span><strong>${Math.max(0,wp.total-wp.done)}</strong> remaining</span><span><strong>${fmtDuration(recentTime)}</strong> last 30 days</span></div></article>
       <article class="dashcard"><div class="eyebrow">Current week</div><h3>Week ${w+1}</h3><p>${wp.done}/${wp.total} core tasks complete</p><p class="subtitle">${fmtDuration(weekTime)} studied in the last 7 days</p><button class="smallbtn primary" id="resumeWeek">Open this week</button></article>
       <article class="dashcard"><div class="eyebrow">Next up</div><h3>${next?esc(next.task.title):'Course complete'}</h3><p>${next?`Week ${next.week+1} · ${esc(next.task.book)}${next.task.page?' · p.'+esc(next.task.page):''}`:'You have completed every scheduled core task.'}</p>${next?'<button class="smallbtn primary" id="openNext">Open task</button>':''}</article>
     </section>
     <section class="dashboard-history panel"><div class="panelhead"><div><h2>Study history</h2><p class="subtitle">Logged focus time from the last 7 days. This is a record, not a score.</p></div><strong>${fmtDuration(weekTime)}</strong></div><div class="history-days">${Array.from({length:7},(_,i)=>{const d=addDays(new Date(),i-6),key=dateKey(d),secs=state.sessions.filter(x=>dateKey(new Date(x.completed_at))===key).reduce((a,x)=>a+x.duration_seconds,0);return `<div class="history-day"><strong>${fmtDuration(secs)}</strong><i style="height:${Math.max(6,Math.min(100,secs/3600*100))}%"></i><small>${d.toLocaleDateString(undefined,{weekday:'short'})}</small></div>`}).join('')}</div></section>
-    <section class="dashboard-lower"><article class="panel"><div class="panelhead"><div><h3>Needs attention</h3><p class="subtitle">Optional flags and notes from your study tasks.</p></div></div>${attention.length?`<div class="attentionlist">${attention.map(x=>`<button class="attention" data-task="${esc(x.t.id)}"><span class="status-dot ${x.s.mastery}"></span><span><strong>${esc(x.t.title)}</strong><small>L${x.t.lesson} · ${esc(x.t.book)} · p.${x.t.page}</small></span></button>`).join('')}</div>`:'<div class="empty">Nothing flagged yet.</div>'}</article>
-    <article class="panel"><div class="panelhead"><div><h3>Study time by activity</h3><p class="subtitle">Immersion and habit time logged through Pomodoro.</p></div></div><div class="timebars">${activityRows.map(a=>`<div class="timebar-row"><span>${esc(a.label)}</span><div class="timebar-track"><i style="width:${a.secs?Math.min(100,a.secs/maxActivity*100):0}%"></i></div><strong>${fmtDuration(a.secs)}</strong></div>`).join('')}</div></article></section>`;
+    <section class="dashboard-lower single"><article class="panel"><div class="panelhead"><div><h3>Study time by activity</h3><p class="subtitle">Immersion and habit time logged through Pomodoro.</p></div></div><div class="timebars">${activityRows.map(a=>`<div class="timebar-row"><span>${esc(a.label)}</span><div class="timebar-track"><i style="width:${a.secs?Math.min(100,a.secs/maxActivity*100):0}%"></i></div><strong>${fmtDuration(a.secs)}</strong></div>`).join('')}</div></article></section>`;
   $('#resumeWeek')?.addEventListener('click',()=>{state.view='plan';state.week=w;render();});
   $('#openNext')?.addEventListener('click',()=>{next.task.lesson?openGuidedLesson(next.task.lesson,next.task.id):(state.week=next.week,state.view='plan',render(),setTimeout(()=>openTask(next.task.id),50));});
   $('#openNextTask')?.addEventListener('click',()=>{next.task.lesson?openGuidedLesson(next.task.lesson,next.task.id):(state.week=next.week,state.view='plan',render(),setTimeout(()=>openTask(next.task.id),50));});
@@ -1039,7 +1034,7 @@ function renderDashboard(){
 
 function card(t){
   const s=ts(t.id);
-  return `<article class="task ${s.completed?'done':''}" data-task="${esc(t.id)}"><input type="checkbox" data-check="${esc(t.id)}" ${s.completed?'checked':''}><div class="taskmain"><div class="tasktitle">${esc(t.title)}</div><div class="taskmeta">${esc(t.book)}${t.page?` · p.${t.page}`:''} · ${esc(t.duration)}</div><div class="taskhint">Tap for instructions, mastery and notes</div></div><span class="status-dot ${s.mastery}"></span></article>`;
+  return `<article class="task ${s.completed?'done':''}" data-task="${esc(t.id)}"><input type="checkbox" data-check="${esc(t.id)}" ${s.completed?'checked':''}><div class="taskmain"><div class="tasktitle">${esc(t.title)}</div><div class="taskmeta">${esc(t.book)}${t.page?` · p.${t.page}`:''} · ${esc(t.duration)}</div><div class="taskhint">Tap for instructions, notes and study time</div></div></article>`;
 }
 function renderWeek(){
   $('#hero').hidden=false; $('#bottomArea').hidden=false; $('#weekView').hidden=false; $('#mainContent').hidden=true;
@@ -1055,9 +1050,9 @@ function renderTabs(){
   $('#weekTabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{state.week=+b.dataset.week;render();scrollTo({top:0,behavior:'smooth'});});
 }
 function componentRow(l,t){
-  const s=ts(t.id), status=s.mastery==='not_started'?'Not started':s.mastery[0].toUpperCase()+s.mastery.slice(1);
+  const s=ts(t.id), status=s.completed?'Complete':'Incomplete';
   const secs=taskSeconds(t.id);
-  return `<article class="component ${s.completed?'done':''}" data-task="${esc(t.id)}"><div class="component-top"><div><div class="component-title">${esc(t.title)}</div><div class="component-ref"><span class="booktag">${esc(t.book)}</span> <strong>p.${t.page}</strong> · ${esc(t.duration)}</div></div><span class="status-label ${s.mastery}">${status}</span></div><div class="component-bottom"><span>${s.completed?'✓ Completed':'Open study task'}</span><span>${secs?`<span class="time-badge">⏱ ${fmtDuration(secs)}</span>`:(s.confidence?`Confidence ${s.confidence}/5`:'')}</span></div></article>`;
+  return `<article class="component ${s.completed?'done':''}" data-task="${esc(t.id)}"><div class="component-top"><div><div class="component-title">${esc(t.title)}</div><div class="component-ref"><span class="booktag">${esc(t.book)}</span> <strong>p.${t.page}</strong> · ${esc(t.duration)}</div></div><span class="status-label ${s.completed?'complete':'incomplete'}">${status}</span></div><div class="component-bottom"><span>${s.completed?'✓ Completed':'Open study task'}</span><span>${secs?`<span class="time-badge">⏱ ${fmtDuration(secs)}</span>`:''}</span></div></article>`;
 }
 
 function saveAudioPlaybackState(){
@@ -1342,8 +1337,6 @@ function initGuideAudio(n){
 
 function initGuideTaskWorkspaces(l){
   document.querySelectorAll('[data-guide-notes]').forEach(input=>input.oninput=()=>updateGuideTaskRecord(input.dataset.guideNotes,{notes:input.value}));
-  document.querySelectorAll('[data-guide-mastery]').forEach(select=>select.onchange=()=>updateGuideTaskRecord(select.dataset.guideMastery,{mastery:select.value}));
-  document.querySelectorAll('[data-guide-confidence]').forEach(select=>select.onchange=()=>updateGuideTaskRecord(select.dataset.guideConfidence,{confidence:select.value?Number(select.value):null}));
   document.querySelectorAll('[data-guide-pomodoro]').forEach(button=>button.onclick=()=>{
     const taskId=button.dataset.guidePomodoro, owns=state.pomodoro.taskId===taskId, wasPaused=owns&&state.pomodoro.status==='paused';
     if(owns&&state.pomodoro.status==='running') pausePomodoro();
@@ -1391,12 +1384,12 @@ function taskStudyChecklist(l,t){
     grammar1:[`Complete Grammar practice 1 on ${page} after studying the matching Lesson ${l.n} grammar videos and explanations.`,'Produce your own answer before checking the model.','Return to the exact grammar point for every error rather than rereading the whole section.'],
     grammar2:[`Complete Grammar practice 2 on ${page}, beginning with the least secure Lesson ${l.n} grammar points.`,'Answer without notes first, then check form and nuance.','Mark any grammar that still cannot be produced independently as Shaky or Review.'],
     comp1:[`Attempt Comprehensive practice 1 on ${page} as a closed-book Lesson ${l.n} retrieval test.`,'Check every error against its exact textbook section.','Repeat missed items after a short delay before marking the task complete.'],
-    comp2:[`Attempt Comprehensive practice 2 on ${page} without notes.`,'Use mistakes to identify the final weak areas from Lesson '+l.n+'.','Update confidence and add a short note about anything requiring another pass.'],
+    comp2:[`Attempt Comprehensive practice 2 on ${page} without notes.`,'Use mistakes to identify the final weak areas from Lesson '+l.n+'.','Add a short note about anything requiring another pass.'],
     listening:[`Play the Lesson ${l.n} listening audio without reading the script and complete ${page}.`,'Check the script only after the first attempt and identify what was not heard.','Replay difficult lines and shadow them before checking the final answer.'],
     kanji:[`Complete the Lesson ${l.n} kanji practice on ${page} from memory.`,`Check readings and compounds against Textbook pp.${textbook.kanji}.`,'Retest missed kanji once before marking the task complete.'],
     reading:[`Read the passage on ${page} once for overall meaning without stopping at every unknown word.`,`Answer the questions, then check important unknown language against Textbook pp.${textbook.reading}.`,'Give a brief spoken or written summary from memory.'],
     writing:[`Complete the Lesson ${l.n} writing task on ${page} using the lesson’s target language.`,'Check accuracy and naturalness against the model without copying it.','Record one corrected sentence or recurring problem in the notes below.'],
-    review:[`Complete the Lesson ${l.n} review on ${page} as a retrieval check.`,'Revisit only items that are not yet automatic.','Update mastery honestly before finishing the lesson.']
+    review:[`Complete the Lesson ${l.n} review on ${page} as a retrieval check.`,'Revisit only items that are not yet automatic.','Record anything that needs another pass before finishing the lesson.']
   };
   return checks[t?.key]||[t?.desc||`Complete the referenced work on ${page}.`,'Check your work and record anything that needs another pass.'];
 }
@@ -1423,15 +1416,6 @@ function guideAudioMarkup(l,step){
   </div>`;
 }
 
-function guideMasteryOptions(value){
-  return [['not_started','Not started'],['studying','Studying'],['shaky','Shaky'],['mastered','Mastered'],['review','Review']]
-    .map(([key,label])=>`<option value="${key}" ${value===key?'selected':''}>${label}</option>`).join('');
-}
-
-function guideConfidenceOptions(value){
-  return `<option value="" ${value?'':'selected'}>Not rated</option>${[1,2,3,4,5].map(n=>`<option value="${n}" ${Number(value)===n?'selected':''}>${n}/5</option>`).join('')}`;
-}
-
 function lessonGuideSteps(l){
   const tasks=lessonTasks(l), task=key=>tasks.find(t=>t.key===key), steps=[];
   const addTask=(key,instruction,audio=null)=>{
@@ -1446,7 +1430,7 @@ function lessonGuideSteps(l){
   steps.push({
     id:`b2-l${l.n}-guide-goals`, title:'Review the Can-do goals', resource:'Textbook',
     page:`p.${l.textbook.start}`, instruction:'Read the lesson goals first. Keep them in mind as the practical outcomes for this lesson.',
-    details:l.textbook.cando, checklist:['Read each Can-do goal before starting the lesson.','Identify which goal currently feels least secure.','Use the goals to judge mastery at the end rather than relying only on completed pages.']
+    details:l.textbook.cando, checklist:['Read each Can-do goal before starting the lesson.','Identify which goal currently feels least secure.','Return to the goals at the end and note anything that needs another pass.']
   });
 
   const vocabVideos=lessonVideosByType(l,'vocabulary');
@@ -1540,7 +1524,6 @@ function guideTaskWorkspaceMarkup(l,step,index,steps,isNext,nextId){
   const status=ts(step.id), goal=taskGoalFor(l,step);
   const taskId=step.taskId||step.id, studied=fmtDuration(taskSeconds(taskId));
   const hasOpenMedia=state.lessonMedia?.open&&Number(state.lessonMedia.lesson)===Number(l.n)&&state.lessonMedia.taskId===taskId;
-  const canRate=!!step.taskId||step.id.includes('-guide-grammar-');
   const details=step.details?.length?`<div class="guide-workspace-section"><strong>Lesson outcomes</strong><ul>${step.details.map(item=>`<li>${esc(item)}</li>`).join('')}</ul></div>`:'';
   const checklist=step.checklist?.length?`<div class="guide-workspace-section"><strong>Do this</strong><ol>${step.checklist.map(item=>`<li>${esc(item)}</li>`).join('')}</ol></div>`:'';
   const videos=step.videos?.length?`<div class="guide-workspace-section"><strong>Publisher video${step.videos.length===1?'':'s'}</strong><div class="guide-actions">${guideVideoLinks(step.videos)}</div></div>`:'';
@@ -1552,9 +1535,8 @@ function guideTaskWorkspaceMarkup(l,step,index,steps,isNext,nextId){
       ${details}${checklist}${videos}${guideAudioMarkup(l,step)}
       ${step.grammarLabel?window.JLHNinjal?.panelMarkup(step.grammarLabel)||'':''}
       <div class="guide-workspace-section guide-task-record"><strong>Task record</strong>
-        <div class="guide-pomodoro-row"><button type="button" class="guide-pomodoro-button" data-guide-pomodoro="${esc(taskId)}" aria-pressed="false">🍅 Start Pomodoro</button><span>Studied: ${esc(studied)}</span></div>
         <label>Notes<textarea class="guide-task-notes" data-guide-notes="${esc(step.id)}" placeholder="Errors, useful examples, or what needs another pass…">${esc(status.notes||'')}</textarea></label>
-        ${canRate?`<div class="guide-rating-grid"><label>Mastery<select data-guide-mastery="${esc(step.id)}">${guideMasteryOptions(status.mastery)}</select></label><label>Confidence<select data-guide-confidence="${esc(step.id)}">${guideConfidenceOptions(status.confidence)}</select></label></div>`:''}
+        <div class="guide-pomodoro-row"><span>Studied: ${esc(studied)}</span><button type="button" class="guide-pomodoro-button" data-guide-pomodoro="${esc(taskId)}" aria-pressed="false">🍅 Start Pomodoro</button></div>
       </div>
       ${step.support?.length?`<section class="guide-support"><h4>Supporting practice · within this section</h4><p>These activities keep their own notes and completion. Marking the textbook section complete does not mark them complete.</p>${step.support.map(child=>guideStepMarkup(l,child,-1,[],nextId)).join('')}</section>`:''}
       ${index>=0?`<nav class="guide-step-nav" aria-label="Guided lesson navigation">${previous?`<button type="button" data-guide-step-nav="${esc(previous.id)}">← Step ${index}</button>`:'<span></span>'}${next?`<button type="button" data-guide-step-nav="${esc(next.id)}">Step ${index+2} →</button>`:'<span></span>'}</nav>`:''}
@@ -1579,7 +1561,7 @@ function lessonGuideMarkup(l){
   return `<section class="panel lesson-guide" id="lessonGuide">
     <div class="lesson-guide-head"><div><div class="eyebrow">Guided lesson path</div><h2>Follow the textbook</h2><p class="subtitle">Textbook sections in reading order, with videos, audio and workbook practice inside the matching section. Vocabulary page ranges cover both pictures and the list; the exact split is not yet verified.</p></div><div class="guide-progress"><strong>${done}/${activities.length}</strong><span>activities complete</span></div></div>
     <div class="progress"><i style="width:${activities.length?done/activities.length*100:0}%"></i></div>
-    ${next?`<button type="button" class="guide-next" data-guide-scroll="${esc(next.id)}"><span>Continue with step ${nextIndex+1}</span><strong>${esc(next.title)}</strong><b>Go to next step ↓</b></button>`:`<div class="guide-complete">Lesson path complete. Use the mastery check to decide what needs another pass.</div>`}
+    ${next?`<button type="button" class="guide-next" data-guide-scroll="${esc(next.id)}"><span>Continue with step ${nextIndex+1}</span><strong>${esc(next.title)}</strong><b>Go to next step ↓</b></button>`:`<div class="guide-complete">Lesson path complete. Review your notes for anything that needs another pass.</div>`}
     <div class="guide-list">${steps.map((step,index)=>guideStepMarkup(l,step,index,steps,next?.id)).join('')}</div>
   </section>`;
 }
@@ -1607,7 +1589,6 @@ function renderLesson(n){
   $('#hero').hidden=true; $('#bottomArea').hidden=true; $('#weekView').hidden=true; $('#mainContent').hidden=false;
   const tasks=lessonTasks(l), w=n-11, p=lessonProgress(n), pct=p.total?p.done/p.total*100:0;
   const tb=tasks.filter(t=>t.book==='Textbook'), wb2=tasks.filter(t=>t.book==='Workbook 2'), wb1=tasks.filter(t=>t.book==='Workbook 1');
-  const flagged=tasks.filter(t=>['shaky','studying','review'].includes(ts(t.id).mastery));
   const grammar=l.textbook.grammar.map((x,i)=>`<li><strong>${i+1}.</strong> ${esc(x)}</li>`).join('');
   const cando=l.textbook.cando.map(x=>`<li>${esc(x)}</li>`).join('');
   const textbookSections=(l.sections||[]).map(sec=>{
@@ -1621,12 +1602,12 @@ function renderLesson(n){
   const wb1Rows=(l.workbookMap?.workbook1||[]).map(x=>{const t=tasks.find(y=>y.key===x.taskKey), st=t?ts(t.id):{};return `<button class="book-section compact ${st.completed?'done':''}" data-task="${esc(t?.id||'')}"><div class="book-section-main"><span class="book-section-label">${esc(x.label)}</span><strong>p.${esc(x.page)}</strong></div><span class="book-section-status">${st.completed?'✓':'Open'}</span></button>`}).join('');
   $('#mainContent').innerHTML=`
     <div class="lesson-toolbar"><button class="smallbtn" id="backDashboard">← Dashboard</button><button class="smallbtn" id="backPlan">Week ${w+1} plan</button><div class="lesson-select"><button class="smallbtn" id="prevLesson" ${n===11?'disabled':''}>← L${n-1}</button><button class="smallbtn" id="nextLesson" ${n===20?'disabled':''}>L${n+1} →</button></div></div>
-    <section class="lessonhero"><div class="eyebrow">${esc(CURRICULUM.book)} · Lesson ${l.n}</div><h1>${esc(l.title)}</h1><p>${esc(l.english)}</p><div class="lessonhero-grid"><div><strong>${p.done}/${p.total}</strong><span>mapped tasks complete</span></div><div><strong>${p.mastered}/${p.total}</strong><span>currently marked mastered</span></div><div><strong>${Math.round(pct)}%</strong><span>lesson progress</span></div></div><div class="progress"><i style="width:${pct}%"></i></div></section>
+    <section class="lessonhero"><div class="eyebrow">${esc(CURRICULUM.book)} · Lesson ${l.n}</div><h1>${esc(l.title)}</h1><p>${esc(l.english)}</p><div class="lessonhero-grid"><div><strong>${p.done}/${p.total}</strong><span>mapped tasks complete</span></div><div><strong>${Math.round(pct)}%</strong><span>lesson progress</span></div></div><div class="progress"><i style="width:${pct}%"></i></div></section>
     ${lessonGuideMarkup(l)}
     <details class="lesson-reference" id="lessonReference">
       <summary><span><strong>Lesson reference</strong><small>Can-do goals · all videos · textbook map · audio player · workbook maps</small></span><b>Open reference</b></summary>
       <div class="lesson-reference-body">
-        <section class="study-rule panel"><div><h3>Textbook first</h3><p>Work through the actual textbook lesson <strong>pp.${l.textbook.start}–${l.textbook.end}</strong>. If you already know a section, do a representative check and move on rather than grinding repetitive practice.</p></div><button class="smallbtn primary" id="lessonMastery">Optional mastery check</button></section>
+        <section class="study-rule panel"><div><h3>Textbook first</h3><p>Work through the actual textbook lesson <strong>pp.${l.textbook.start}–${l.textbook.end}</strong>. If you already know a section, do a representative check and move on rather than grinding repetitive practice.</p></div></section>
         <section class="panel lesson-overview"><div class="overview-grid"><div><div class="eyebrow">Can-do goals</div><ul>${cando}</ul></div><div><div class="eyebrow">Target grammar</div><ul>${grammar}</ul></div></div>${l.textbook.note?`<p class="subtitle"><strong>Language / culture note:</strong> ${esc(l.textbook.note)}</p>`:''}</section>
         ${lessonVideoPanelMarkup(l)}
         <section class="panel book-map-panel"><div class="section-heading"><div><div class="eyebrow">Textbook · pp.${l.textbook.start}–${l.textbook.end}</div><h2>Textbook content map</h2><p class="subtitle">Use this when you need the full section map rather than the guided route.</p></div></div><div class="book-section-list">${textbookSections}</div></section>
@@ -1638,13 +1619,12 @@ function renderLesson(n){
         <section class="panel page-map"><div class="panelhead"><div><h3>Cross-reference</h3><p class="subtitle">Every scheduled component identifies the physical book and page.</p></div></div><div class="page-map-grid">${tasks.map(t=>`<button class="page-chip" data-task="${esc(t.id)}"><span>${esc(t.title)}</span><strong>${esc(t.book)} · ${t.page?`p.${esc(t.page)}`:'—'}${t.section?` · ${esc(t.section)}`:''}</strong></button>`).join('')}</div></section>
       </div>
     </details>
-    <section class="panel lesson-notes-panel"><div class="panelhead"><div><h3>Lesson notes</h3><p class="subtitle">Overall observations; individual task notes stay attached to their task.</p></div><span class="flag-count">${flagged.length} flagged</span></div><textarea id="lessonNotes" class="notes" placeholder="What was easy? What keeps tripping you up? Useful example sentences..."></textarea></section>
+    <section class="panel lesson-notes-panel"><div class="panelhead"><div><h3>Lesson notes</h3><p class="subtitle">Overall observations; individual task notes stay attached to their task.</p></div></div><textarea id="lessonNotes" class="notes" placeholder="What was easy? What keeps tripping you up? Useful example sentences..."></textarea></section>
     `;
   $('#backDashboard').onclick=()=>{state.view='dashboard';render();};
   $('#backPlan').onclick=()=>{state.week=w;state.view='plan';render();};
   $('#prevLesson').onclick=()=>{if(n>11){state.lesson=n-1;render();}};
   $('#nextLesson').onclick=()=>{if(n<20){state.lesson=n+1;render();}};
-  $('#lessonMastery').onclick=()=>openLessonMastery(l);
   $('#mainContent').querySelectorAll('[data-guide-check]').forEach(input=>input.onchange=()=>{
     const steps=flattenGuideSteps(lessonGuideSteps(l)), index=steps.findIndex(step=>step.id===input.dataset.guideCheck);
     state.guideTarget=input.checked?(steps.slice(index+1).find(step=>!ts(step.id).completed)?.id||input.dataset.guideCheck):input.dataset.guideCheck;
@@ -1659,29 +1639,6 @@ function renderLesson(n){
   $('#lessonNotes').value=state.taskState[lessonNoteKey]?.notes||'';
   $('#lessonNotes').oninput=e=>{state.taskState[lessonNoteKey]={...ts(lessonNoteKey),notes:e.target.value};saveLocal();cloudSave(lessonNoteKey);};
   focusGuideTarget();
-}
-function openLessonMastery(l){
-  const tasks=lessonTasks(l), rows=tasks.map(t=>{const s=ts(t.id);return `<div class="mastery-row"><div><strong>${esc(t.title)}</strong><small>${esc(t.book)} · p.${t.page}</small></div><select data-mastery-task="${esc(t.id)}"><option value="not_started" ${s.mastery==='not_started'?'selected':''}>Not started</option><option value="studying" ${s.mastery==='studying'?'selected':''}>Studying</option><option value="shaky" ${s.mastery==='shaky'?'selected':''}>Shaky</option><option value="mastered" ${s.mastery==='mastered'?'selected':''}>Mastered</option><option value="review" ${s.mastery==='review'?'selected':''}>Review</option></select></div>`}).join('');
-  $('#modalTitle').textContent=`Mastery check · Lesson ${l.n}`;
-  $('#modalSub').textContent='Rate each component based on what you can actually do now.';
-  $('#modalDesc').innerHTML=`<div class="mastery-list">${rows}</div><p class="mastery-tip"><strong>Mastered:</strong> you can recognise it, understand it and produce it without leaning on the book. If one of those is shaky, leave it as Studying/Shaky.</p>`;
-  const modalGrid=$('.modalgrid'); if(modalGrid) modalGrid.hidden=true;
-  $('#mastery').closest('label').hidden=true; $('#confidence').closest('label').hidden=true;
-  $('#taskNotes').hidden=true; $('.fieldlabel').hidden=true; $('#modalDone').closest('label').hidden=true;
-  $('#modal').showModal();
-  $('#modalDesc').querySelectorAll('[data-mastery-task]').forEach(sel=>sel.onchange=e=>setTask(e.target.dataset.masteryTask,{mastery:e.target.value}));
-  $('#modal').addEventListener('close',resetTaskModal,{once:true});
-}
-function resetTaskModal(){
-  const modalGrid=$('.modalgrid');
-  if(modalGrid) modalGrid.hidden=false;
-  const mastery=$('#mastery'), confidence=$('#confidence'), taskNotes=$('#taskNotes'), modalDone=$('#modalDone');
-  const masteryLabel=mastery?.closest('label'), confidenceLabel=confidence?.closest('label'), doneLabel=modalDone?.closest('label');
-  if(masteryLabel) masteryLabel.hidden=false;
-  if(confidenceLabel) confidenceLabel.hidden=false;
-  if(taskNotes) taskNotes.hidden=false;
-  document.querySelectorAll('.fieldlabel').forEach(el=>el.hidden=false);
-  if(doneLabel) doneLabel.hidden=false;
 }
 // Task interaction is delegated from the document so task cards continue to work
 // after any dashboard/plan/lesson render replaces their DOM nodes.
@@ -1741,13 +1698,11 @@ function openTask(id){
   const lessonContext=taskModalLessonContext(t);
   $('#modalDesc').innerHTML=`${lessonContext}${pageLink}${timeLine}<div class="task-purpose"><strong>Why this task?</strong><span>${esc(taskPurpose(t))}</span></div>${t.lesson?'':`<p>${esc(t.desc)}</p>`}${items}<div class="modal-related">${lessonLink}${pomoBtn}</div>`;
   $('#modalDone').checked=s.completed; $('#modalDone').onchange=()=>toggle(id);
-  $('#mastery').value=s.mastery; $('#mastery').onchange=e=>setTask(id,{mastery:e.target.value});
-  $('#confidence').value=s.confidence||''; $('#confidence').onchange=e=>setTask(id,{confidence:e.target.value?+e.target.value:null});
   $('#taskNotes').value=s.notes||''; $('#taskNotes').oninput=e=>{state.taskState[id]={...ts(id),notes:e.target.value};saveLocal();cloudSave(id);};
   if($('#openRelatedLesson')) $('#openRelatedLesson').onclick=()=>{$('#modal').close();openGuidedLesson(t.lesson,t.id);};
   $('#startTaskPomo').onclick=()=>{if(startTaskPomodoro(id)){toast('Pomodoro started for this task');$('#startTaskPomo').textContent='Timer running for this task';}};
   $('#focusTask').onclick=()=>{state.focusMode=true;document.body.classList.add('focus-mode');$('#modal').classList.add('focus-modal');};
-  resetTaskModal(); $('#modal').showModal();
+  $('#modal').showModal();
   window.JLHRouter?.taskOpened(id);
 }
 async function loadCloud(){
@@ -1757,7 +1712,7 @@ async function loadCloud(){
   state.lessonVideosLoaded=true;
   state.lessonVideosError=!!videoError;
   const {data,error}=await db.from('task_state').select('*').eq('user_id',state.user.id);
-  if(!error&&data) data.forEach(r=>state.taskState[r.task_id]={completed:r.completed,mastery:r.mastery,confidence:r.confidence,notes:r.notes,completed_at:r.completed_at});
+  if(!error&&data) data.forEach(r=>state.taskState[r.task_id]={completed:r.completed,notes:r.notes,completed_at:r.completed_at});
   const {data:n}=await db.from('app_notes').select('notes').eq('user_id',state.user.id).maybeSingle(); if(n)state.notes=n.notes||'';
   const {data:p}=await db.from('user_preferences').select('start_date,settings').eq('user_id',state.user.id).maybeSingle();
   if(p?.start_date)state.startDate=p.start_date;

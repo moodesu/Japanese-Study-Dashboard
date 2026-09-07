@@ -7,7 +7,7 @@
 - Added accumulated `Studied` time from the existing task session records.
 - Prevented an active or paused timer from being silently reassigned to another task.
 - Starting from a lesson task now opens the existing widget and begins/resumes a work session for the exact Guided Lesson task ID.
-- Kept the global tomato navigation, widget, session logging, task completion, notes, mastery, confidence, audio, and task IDs unchanged.
+- Kept the global tomato navigation, widget, session logging, task completion, notes, audio, and task IDs unchanged.
 
 ## Smoke-test checklist
 

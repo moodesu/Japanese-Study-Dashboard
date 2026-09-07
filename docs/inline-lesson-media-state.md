@@ -16,7 +16,7 @@
 - Switch browser tabs for 5–10 seconds and return.
 - Confirm the task workspace and audio panel remain open, Conversation 2 remains selected, and its position is retained.
 - Repeat while audio is playing; browser playback policy may pause it, but the panel and track must remain restored.
-- Change task notes, mastery, confidence, and completion while the player is open and confirm it remains open after rendering.
+- Change task notes, Pomodoro state, and completion while the player is open and confirm it remains open after rendering.
 - Start, pause, and complete a task-linked Pomodoro while the player is open and confirm the media state remains intact.
 - Navigate away and use Back to return to the same lesson/task; confirm the same media panel and track are restored.
 - Repeat with vocabulary, reading, and listening audio.

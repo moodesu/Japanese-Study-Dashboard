@@ -3,7 +3,7 @@
 ## Changelog
 
 - Added **会話 · Conversation shadowing** to Tobira Beginning II Lessons 11–20, after grammar and its supporting workbook practice, before 話しましょう.
-- Scheduled the same task on day 5 of weeks 1–10. It shares completion, notes, mastery and confidence with its lesson workspace.
+- Scheduled the same task on day 5 of weeks 1–10. It shares completion, notes and accumulated study time with its lesson workspace.
 - Added a 15–20-minute routine: understand the passage, choose 20–30 seconds, listen/pause/repeat to prepare, then speak just behind the audio without pausing for 3–5 passes. Reduce reliance on the text and try normal speed when comfortable.
 - Reused each lesson’s existing conversation page range and private 会話 audio. Track selection, speed, seeking and −10s remain available inside the task. This does not add automatic A–B looping or recording.
 - New stable task IDs: `b2-l11-textbook_conversation_shadowing` through `b2-l20-textbook_conversation_shadowing`. Existing IDs, notes and completion remain untouched. The new task starts incomplete, including in previously completed lessons; progress totals therefore increase by one task per lesson.

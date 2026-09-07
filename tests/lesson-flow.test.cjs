@@ -12,7 +12,7 @@ vm.runInContext(fs.readFileSync(path.join(root, 'audio-map.js'), 'utf8'), contex
 context.AUDIO_LIBRARY=context.LESSON_AUDIO;
 vm.runInContext(fs.readFileSync(path.join(root, 'ninjal.js'), 'utf8'), context);
 // Exercise the real pure planning/rendering functions without booting auth.
-for (const name of ['defFor','pageFor','makeTask','lessonTasks','weeklyTasks','ts','taskStudyChecklist','lessonGuideSteps','flattenGuideSteps','guideAudioMarkup','guideMasteryOptions','guideConfidenceOptions','taskGoalFor','guideTaskWorkspaceMarkup','guideStepMarkup','lessonGuideMarkup','scrollToGuideActivity']) {
+for (const name of ['defFor','pageFor','makeTask','lessonTasks','weeklyTasks','ts','taskStudyChecklist','lessonGuideSteps','flattenGuideSteps','guideAudioMarkup','taskGoalFor','guideTaskWorkspaceMarkup','guideStepMarkup','lessonGuideMarkup','scrollToGuideActivity']) {
   const start=source.indexOf(`function ${name}(`);
   assert.ok(start>=0, `Missing ${name}`);
   const end=source.indexOf('\nfunction ',start+1);
@@ -78,6 +78,8 @@ assert.ok(steps[3].support.some(s=>s.id==='b2-l11-guide-video-vocabulary'));
 const conversationWorkspace=context.guideTaskWorkspaceMarkup(l,steps[1],1,steps,true,steps[2].id);
 assert.ok(conversationWorkspace.includes('data-guide-pomodoro="b2-l11-textbook_conversation"'),'Guided task timer uses the exact lesson task ID');
 assert.ok(conversationWorkspace.includes('Studied: 1h 15m'),'Guided task shows its existing accumulated focus time');
+assert.ok(conversationWorkspace.includes('<label>Notes<textarea'),'Guided task retains its notes field');
+assert.ok(!/Mastery|Confidence|data-guide-mastery|data-guide-confidence/.test(conversationWorkspace),'Guided task has no rating workflow');
 const conversationTracks=context.AUDIO_LIBRARY.lessons[11].groups.conversation;
 context.state.lessonMedia={taskId:'b2-l11-textbook_conversation',lesson:11,mediaType:'audio',category:'conversation',open:true,selectedTrack:conversationTracks[1].path,currentTime:12,wasPlaying:false};
 const restoredAudio=context.guideAudioMarkup(l,steps[1]);
@@ -90,6 +92,7 @@ assert.match(source,/tracks\.findIndex\(track=>track\.path===state\.lessonMedia\
 const saved={completed:true,notes:'Existing note',mastery:'studying',confidence:3};
 context.state.taskState['b2-l11-textbook_vocab']=saved;
 assert.equal(context.ts('b2-l11-textbook_vocab'),saved);
+assert.ok(!/Mastery|Confidence|studying/.test(context.guideTaskWorkspaceMarkup(l,steps[2],2,steps,false,steps[3].id)),'Historical rating values do not affect the lesson workspace');
 assert.equal(context.ts('b2-l11-textbook_vocab_pictures').completed,false,'Do not invent completion for split vocabulary');
 context.state.taskState['b2-l11-textbook_conversation']=saved;
 assert.equal(context.ts('b2-l11-textbook_conversation_shadowing').completed,false,'First-pass completion does not complete shadowing');
@@ -130,8 +133,14 @@ timerContext.logs=[];timerContext.state.pomodoro={status:'paused',mode:'work',re
 timerContext.stopPomodoroForTaskCompletion('conversation');assert.equal(timerContext.logs[0][1],120,'Paused elapsed work is logged');assert.equal(timerContext.state.pomodoro.taskId,null);
 timerContext.logs=[];timerContext.state.pomodoro={status:'running',mode:'work',remaining:1400,taskId:'different-task',startedAt:'start',endAt:null};
 assert.equal(timerContext.stopPomodoroForTaskCompletion('conversation'),false);assert.equal(timerContext.state.pomodoro.taskId,'different-task');assert.equal(timerContext.logs.length,0,'Another task timer is untouched');
-timerContext.state.taskState={conversation:{completed:false,mastery:'not_started'}};timerContext.ts=id=>timerContext.state.taskState[id]||{completed:false,mastery:'not_started'};timerContext.setTask=(id,patch)=>{timerContext.state.taskState[id]={...timerContext.ts(id),...patch};};
+timerContext.state.taskState={conversation:{completed:false}};timerContext.ts=id=>timerContext.state.taskState[id]||{completed:false};timerContext.setTask=(id,patch)=>{timerContext.state.taskState[id]={...timerContext.ts(id),...patch};};
 const toggleStart=source.indexOf('function toggle('),toggleEnd=source.indexOf('\nfunction weekDates',toggleStart);vm.runInContext(source.slice(toggleStart,toggleEnd),timerContext);
 timerContext.state.pomodoro={status:'running',mode:'work',remaining:1470,taskId:'conversation',startedAt:'start',endAt:null};timerContext.logs=[];
 timerContext.toggle('conversation');assert.equal(timerContext.state.taskState.conversation.completed,true);assert.equal(timerContext.state.pomodoro.taskId,null,'The shared completion path settles its matching Pomodoro');
+assert.ok(!source.includes("$('#mastery')"),'Task modal does not read or write mastery');
+assert.ok(!source.includes("$('#confidence')"),'Task modal does not read or write confidence');
+assert.ok(!source.includes('p.mastered'),'Lesson progress does not derive a mastered total');
+assert.ok(!source.includes('st.mastery'),'Dashboard and review logic do not depend on mastery');
+assert.match(source,/upsert\(\{user_id:state\.user\.id,task_id:id,completed:t\.completed,completed_at:t\.completed_at,notes:t\.notes\}/,'Cloud task writes contain only active workflow fields');
+assert.match(source,/state\.taskState\[r\.task_id\]=\{completed:r\.completed,notes:r\.notes,completed_at:r\.completed_at\}/,'Cloud hydration ignores historical rating columns');
 console.log('PASS: Lessons 11–20 ordering, exact page lookup, Plan parity, nested resources, stable records, no duplicate targets, consolidation unchanged.');
