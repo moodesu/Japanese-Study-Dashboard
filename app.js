@@ -367,7 +367,11 @@ async function cloudSave(id){
   if(error) toast('Cloud save failed; your local copy is safe.');
 }
 function setTask(id,p){ state.taskState[id]={...ts(id),...p}; saveLocal(); render(); cloudSave(id); }
-function toggle(id){ const t=ts(id); setTask(id,{completed:!t.completed,completed_at:!t.completed?new Date().toISOString():null,mastery:!t.completed && t.mastery==='not_started'?'studying':t.mastery}); }
+function toggle(id){
+  const t=ts(id), completing=!t.completed;
+  if(completing) stopPomodoroForTaskCompletion(id);
+  setTask(id,{completed:completing,completed_at:completing?new Date().toISOString():null,mastery:completing&&t.mastery==='not_started'?'studying':t.mastery});
+}
 function weekDates(w){ const s=new Date(state.startDate+'T00:00:00'); return Array.from({length:7},(_,i)=>addDays(s,w*7+i)); }
 function allTasks(w){ return Array.from({length:7},(_,d)=>weeklyTasks(w,d)).flat(); }
 function allCoreTasks(){ return Array.from({length:12},(_,w)=>allTasks(w)).flat(); }
@@ -536,6 +540,18 @@ function logSession(taskId,durationSeconds,startedAt,completedAt){
   state.sessions.push(session);
   saveSessions();
   cloudLogSession(session);
+}
+function stopPomodoroForTaskCompletion(taskId){
+  const p=state.pomodoro;
+  if(!taskId||p.taskId!==taskId) return false;
+  const wasActive=['running','paused'].includes(p.status);
+  if(p.status==='running') syncRemaining();
+  const elapsed=p.mode==='work'&&wasActive?Math.max(0,pomodoroDuration('work')-Number(p.remaining||0)):0;
+  if(elapsed>0) logSession(taskId,elapsed,p.startedAt,new Date().toISOString());
+  p.taskId=null;p.mode='work';p.status='idle';p.remaining=pomodoroDuration('work');p.endAt=null;p.startedAt=null;
+  savePomodoro();renderPomodoro();renderNav();
+  if(wasActive) toast('Task complete · Pomodoro stopped');
+  return true;
 }
 async function cloudLogSession(session){
   if(!db||!state.user) return;

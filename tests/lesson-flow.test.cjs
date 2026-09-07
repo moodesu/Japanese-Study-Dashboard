@@ -121,4 +121,17 @@ assert.equal(timerContext.startTaskPomodoro('new-task'),false,'A running timer i
 assert.equal(timerContext.state.pomodoro.taskId,'other-task');assert.match(timerContext.message,/Another task/);
 timerContext.state.pomodoro={status:'idle',mode:'short',remaining:300,taskId:'other-task',endAt:null,startedAt:null};
 assert.equal(timerContext.startTaskPomodoro('new-task'),true);assert.equal(timerContext.state.pomodoro.mode,'work');assert.equal(timerContext.started,'new-task','Starting from a lesson begins work linked to that task');
+timerContext.logs=[];timerContext.syncRemaining=()=>{};timerContext.savePomodoro=()=>{};timerContext.logSession=(...args)=>timerContext.logs.push(args);
+const stopTaskStart=source.indexOf('function stopPomodoroForTaskCompletion('),stopTaskEnd=source.indexOf('\nasync function cloudLogSession',stopTaskStart);
+vm.runInContext(source.slice(stopTaskStart,stopTaskEnd),timerContext);
+timerContext.state.pomodoro={status:'running',mode:'work',remaining:1440,taskId:'conversation',startedAt:'start',endAt:Date.now()+1440000};
+assert.equal(timerContext.stopPomodoroForTaskCompletion('conversation'),true);assert.equal(timerContext.logs[0][0],'conversation');assert.equal(timerContext.logs[0][1],60);assert.equal(timerContext.state.pomodoro.status,'idle');assert.equal(timerContext.state.pomodoro.taskId,null,'Completed task clears its timer link');assert.equal(timerContext.state.pomodoro.mode,'work','Task completion does not start a break');
+timerContext.logs=[];timerContext.state.pomodoro={status:'paused',mode:'work',remaining:1380,taskId:'conversation',startedAt:'start',endAt:null};
+timerContext.stopPomodoroForTaskCompletion('conversation');assert.equal(timerContext.logs[0][1],120,'Paused elapsed work is logged');assert.equal(timerContext.state.pomodoro.taskId,null);
+timerContext.logs=[];timerContext.state.pomodoro={status:'running',mode:'work',remaining:1400,taskId:'different-task',startedAt:'start',endAt:null};
+assert.equal(timerContext.stopPomodoroForTaskCompletion('conversation'),false);assert.equal(timerContext.state.pomodoro.taskId,'different-task');assert.equal(timerContext.logs.length,0,'Another task timer is untouched');
+timerContext.state.taskState={conversation:{completed:false,mastery:'not_started'}};timerContext.ts=id=>timerContext.state.taskState[id]||{completed:false,mastery:'not_started'};timerContext.setTask=(id,patch)=>{timerContext.state.taskState[id]={...timerContext.ts(id),...patch};};
+const toggleStart=source.indexOf('function toggle('),toggleEnd=source.indexOf('\nfunction weekDates',toggleStart);vm.runInContext(source.slice(toggleStart,toggleEnd),timerContext);
+timerContext.state.pomodoro={status:'running',mode:'work',remaining:1470,taskId:'conversation',startedAt:'start',endAt:null};timerContext.logs=[];
+timerContext.toggle('conversation');assert.equal(timerContext.state.taskState.conversation.completed,true);assert.equal(timerContext.state.pomodoro.taskId,null,'The shared completion path settles its matching Pomodoro');
 console.log('PASS: Lessons 11–20 ordering, exact page lookup, Plan parity, nested resources, stable records, no duplicate targets, consolidation unchanged.');
