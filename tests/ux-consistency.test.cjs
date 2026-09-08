@@ -19,12 +19,12 @@ assert.doesNotMatch(app,/book-section-label[^`]+<strong>pp\.\$\{esc\(sec\.pages/
 
 assert.match(app,/Book library · Hub/,'Hub uses the shared internal-workspace heading');
 assert.doesNotMatch(app,/One place for every Japanese book you study/,'marketing-style Hub hero copy is removed');
-assert.match(app,/const mapped=.*?,cover=b\.cover\?`\/\$\{String\(b\.cover\)/,'cover paths are stable root-relative app assets');
+assert.match(app,/cover=b\.cover\?String\(b\.cover\)\.replace\(\/\^\\\/\+\//,'cover paths preserve the known-good relative asset convention');
 assert.match(app,/class="book-cover-fallback"/,'book cards provide a designed missing-cover state');
 assert.match(app,/img\.onerror=\(\)=>\{img\.remove\(\);\}/,'broken images reveal the designed fallback');
 
 assert.match(repository,/repo-page-head app-page-heading/,'Repository uses the shared page heading');
-assert.match(repository,/Capture and reuse real Japanese/,'Repository heading is compact and task focused');
+assert.match(repository,/<h1>Japanese Repository<\/h1>/,'Repository heading is compact and task focused');
 assert.match(css,/\.repo-stats\s*\{[^}]*display:flex/s,'Repository counts use compact inline statistics');
 
 assert.match(html,/id="mobileBottomNav"/,'mobile primary navigation has a dedicated bottom bar');

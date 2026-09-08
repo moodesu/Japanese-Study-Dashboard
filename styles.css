@@ -3158,15 +3158,21 @@ html[data-theme="dark"] .guide-pomodoro-button { background:#30231f;color:#f2b69
 }
 
 .app-header .navbtn {
-  min-height:34px;
-  padding:7px 9px;
+  width:54px;
+  min-height:46px;
+  padding:5px 4px 4px;
+  display:inline-flex;
+  flex-direction:column;
+  justify-content:center;
+  gap:3px;
   border:1px solid transparent;
   border-radius:8px;
-  font-size:12px;
+  font-size:10px;
+  line-height:1.05;
   white-space:nowrap;
 }
-.app-header .navbtn svg { width:14px;height:14px;flex:none; }
-.app-header .navbtn:not(.icon-nav-btn) { gap:6px; }
+.app-header .navbtn svg { width:20px;height:20px;flex:none; }
+.app-header .navbtn:not(.icon-nav-btn) { gap:3px; }
 .app-header .theme-toggle svg,.app-header .smallbtn svg { width:14px;height:14px;flex:none; }
 
 .app-header .navbtn.active {
@@ -3177,7 +3183,7 @@ html[data-theme="dark"] .guide-pomodoro-button { background:#30231f;color:#f2b69
 }
 
 .app-header .navbtn:hover { border-color:transparent; }
-.app-header .icon-nav-btn,.app-header .wk-nav-btn,.app-header .pomo-nav-btn { min-width:34px;padding-inline:8px; }
+.app-header .icon-nav-btn { width:38px;min-width:38px; }
 
 .app-header .account {
   min-width:0;
@@ -3199,7 +3205,7 @@ html[data-theme="dark"] .guide-pomodoro-button { background:#30231f;color:#f2b69
 
 .account-state .sync { max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:9px; }
 .account-state #syncStatus { color:var(--accent); }
-.account-state #userLabel { color:var(--muted); }
+.account-state #userLabel { display:none; }
 .app-header .smallbtn { min-height:34px;padding:7px 9px;font-size:11px;white-space:nowrap; }
 .app-header .theme-toggle { width:34px;padding:0; }
 
@@ -3382,6 +3388,24 @@ html[data-theme="dark"] .lessonhero-grid div { padding:0;border:0;background:tra
 .repo-page-head.app-page-heading { align-items:center;margin-bottom:12px; }
 .repo-page-head.app-page-heading h1 { font-size:clamp(1.75rem,3vw,2.35rem); }
 .repo-head-actions { justify-content:flex-end; }
+.repo-export-menu { position:relative; }
+.repo-export-menu>summary { list-style:none;cursor:pointer; }
+.repo-export-menu>summary::-webkit-details-marker { display:none; }
+.repo-export-actions {
+  position:absolute;
+  top:calc(100% + 6px);
+  right:0;
+  z-index:12;
+  width:150px;
+  display:grid;
+  gap:5px;
+  padding:7px;
+  border:1px solid var(--line);
+  border-radius:var(--radius-control);
+  background:var(--surface);
+  box-shadow:var(--shadow);
+}
+.repo-export-actions .smallbtn { width:100%;justify-content:flex-start; }
 .repo-stats {
   display:flex;
   flex-wrap:wrap;
@@ -3539,7 +3563,7 @@ html[data-theme="dark"] .book-cover-fallback { background:linear-gradient(145deg
 
 @media(min-width:761px) and (max-width:1080px) {
   .app-header .nav-utility-label { display:none; }
-  .app-header :is(.repo-nav-btn,.grammar-nav-btn,.wk-nav-btn,.pomo-nav-btn) { min-width:34px;padding-inline:8px; }
+  .app-header :is(.repo-nav-btn,.grammar-nav-btn,.wk-nav-btn,.pomo-nav-btn) { width:38px;min-width:38px;padding-inline:4px; }
 }
 
 .repo-grammar-page { max-width:900px;padding-top:0; }
