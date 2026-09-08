@@ -1,0 +1,193 @@
+/* Hub-specific visual polish based on the approved dashboard mockup.
+ * Scoped to the Hub so shared app-shell and lesson styling remain authoritative. */
+
+.hub-collapsible-section{
+  margin:14px 0;
+  padding:0;
+  border:1px solid var(--line);
+  border-radius:15px;
+  background:color-mix(in srgb,var(--card) 96%,transparent);
+  overflow:hidden;
+  box-shadow:0 2px 10px rgba(25,39,55,.035);
+}
+
+.hub-section-header{
+  margin:0;
+  border:0;
+  background:transparent;
+}
+
+.hub-section-toggle{
+  width:100%;
+  min-height:62px;
+  display:flex;
+  align-items:center;
+  justify-content:flex-start;
+  gap:11px;
+  padding:12px 16px;
+  border:0;
+  background:transparent;
+  color:var(--ink);
+  text-align:left;
+  border-radius:0;
+}
+
+.hub-section-toggle:hover{
+  background:color-mix(in srgb,var(--soft) 44%,transparent);
+}
+
+.hub-section-toggle:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:-3px;
+}
+
+.hub-section-heading{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+
+.hub-section-title{
+  display:block;
+  font-size:18px;
+  line-height:1.15;
+  font-weight:800;
+  letter-spacing:-.015em;
+}
+
+.hub-section-heading .subtitle{
+  display:block;
+  margin:0;
+  font-size:12.5px;
+  line-height:1.35;
+  color:var(--muted);
+  font-weight:500;
+}
+
+.hub-section-heading .eyebrow{
+  margin-bottom:1px;
+}
+
+/* Small Font Awesome chevron beside the heading. */
+.hub-section-chevron{
+  order:-1;
+  flex:0 0 auto;
+  width:13px;
+  height:13px;
+  font-size:13px;
+  color:var(--accent);
+  transform:rotate(0deg);
+  transition:transform .16s ease;
+}
+
+.hub-collapsible-section.is-collapsed .hub-section-chevron{
+  transform:rotate(-90deg);
+}
+
+.hub-section-content{
+  padding:0 16px 16px;
+  border-top:1px solid color-mix(in srgb,var(--line) 72%,transparent);
+}
+
+.hub-section-content[hidden]{display:none!important}
+
+.hub-collapsible-section.is-collapsed .hub-section-toggle{
+  min-height:54px;
+}
+
+.hub-collapsible-section.is-collapsed .hub-section-heading .subtitle{
+  display:none;
+}
+
+.hub-collapsible-section .book-grid,
+.hub-collapsible-section .resource-grid,
+.hub-collapsible-section .programme-grid{
+  margin-top:14px;
+}
+
+/* Compact workbook CTA matching the mockup. */
+.supplementary-resource-card .secondary-action[data-open-supplementary]{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  width:auto;
+  min-width:0;
+  min-height:36px;
+  padding:7px 12px;
+  margin-top:10px;
+  border:1px solid color-mix(in srgb,var(--accent) 28%,var(--line));
+  border-radius:9px;
+  background:color-mix(in srgb,var(--card) 88%,var(--soft));
+  color:var(--ink);
+  font-size:12.5px;
+  line-height:1;
+  font-weight:750;
+  box-shadow:none;
+}
+
+.supplementary-resource-card .secondary-action[data-open-supplementary]::after{
+  content:'→';
+  color:var(--accent);
+  font-size:14px;
+  font-weight:800;
+  margin-left:1px;
+}
+
+.supplementary-resource-card .secondary-action[data-open-supplementary]:hover{
+  border-color:color-mix(in srgb,var(--accent) 52%,var(--line));
+  background:var(--soft);
+  transform:none;
+}
+
+.supplementary-resource-card .secondary-action[data-open-supplementary] svg,
+.supplementary-resource-card .secondary-action[data-open-supplementary] i{
+  width:13px;
+  height:13px;
+  font-size:13px;
+}
+
+.supplementary-resource-card .book-meta{
+  margin-bottom:0;
+}
+
+html[data-theme='dark'] .hub-collapsible-section{
+  background:color-mix(in srgb,var(--card) 94%,#0f1722);
+  box-shadow:none;
+}
+
+html[data-theme='dark'] .hub-section-toggle:hover{
+  background:color-mix(in srgb,var(--soft) 22%,transparent);
+}
+
+html[data-theme='dark'] .supplementary-resource-card .secondary-action[data-open-supplementary]{
+  background:color-mix(in srgb,var(--card) 90%,var(--soft));
+}
+
+@media(max-width:760px){
+  .hub-collapsible-section{
+    margin:10px 0;
+    border-radius:13px;
+  }
+  .hub-section-toggle{
+    min-height:56px;
+    padding:11px 12px;
+    gap:9px;
+  }
+  .hub-section-title{font-size:16px}
+  .hub-section-heading .subtitle{font-size:12px}
+  .hub-section-chevron{
+    width:12px;
+    height:12px;
+    font-size:12px;
+  }
+  .hub-section-content{
+    padding:0 10px 10px;
+  }
+  .supplementary-resource-card .secondary-action[data-open-supplementary]{
+    min-height:40px;
+    padding:8px 12px;
+    font-size:13px;
+  }
+}
