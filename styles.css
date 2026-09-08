@@ -1716,7 +1716,7 @@ summary:focus-visible {
 }
 
 /* Independent supplementary grammar practice */
-.supplementary-resource-card .resource-action { align-self:flex-start;margin-top:auto; }
+.supplementary-resource-card .secondary-action { align-self:flex-start;margin-top:auto;min-height:40px;padding:7px 11px; }
 .supplementary-page { max-width:980px;margin:0 auto; }
 .supplementary-header { margin-top:12px; }
 .supplementary-header small { color:var(--muted); }
@@ -2108,6 +2108,34 @@ html[data-theme="dark"] :is(.supplementary-unit,.supplementary-controls,.supplem
   align-items:flex-end;
 }
 
+.hub-section-header { margin:0; }
+.hub-section-toggle {
+  width:100%;
+  min-height:44px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  padding:3px 0;
+  border:0;
+  border-radius:8px;
+  background:transparent;
+  color:var(--ink);
+  font:inherit;
+  text-align:left;
+  cursor:pointer;
+}
+.hub-section-toggle:hover .hub-section-title { color:var(--accent-hover); }
+.hub-section-toggle:focus-visible { outline:3px solid color-mix(in srgb,var(--accent) 28%,transparent);outline-offset:3px; }
+.hub-section-heading { min-width:0;display:flex;flex-direction:column;align-items:flex-start; }
+.hub-section-title { font-size:20px;font-weight:800;line-height:1.25;transition:color .16s ease; }
+.hub-section-heading .subtitle { margin:2px 0 0;color:var(--muted);font-size:12px;font-weight:500;line-height:1.4; }
+.hub-section-chevron { flex:none;width:32px;height:32px;display:grid;place-items:center;color:var(--accent);transition:transform .16s ease; }
+.hub-section-toggle[aria-expanded="false"] .hub-section-chevron { transform:rotate(-90deg); }
+.hub-section-content[hidden] { display:none; }
+.hub-collapsible-section.is-collapsed { margin-bottom:0; }
+.hub-collapsible-section.is-collapsed .hub-section-heading .subtitle { display:none; }
+
 /* ---------------------------------------------------------
    WaniKani
    --------------------------------------------------------- */
@@ -2133,6 +2161,10 @@ html[data-theme="dark"] :is(.supplementary-unit,.supplementary-controls,.supplem
 }
 
 @media(max-width:760px) {
+  .hub-section-toggle { min-height:48px;gap:10px; }
+  .hub-section-title { font-size:18px; }
+  .hub-section-chevron { width:36px;height:36px; }
+  .supplementary-resource-card .secondary-action { min-height:44px; }
   .programme-grid {
     grid-template-columns:1fr;
   }

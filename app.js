@@ -950,6 +950,27 @@ function renderBookMap(bookId){
   $('#mainContent').querySelectorAll('[data-open-mapped-lesson]').forEach(button=>button.onclick=()=>{state.browsingProgrammeId=programme.id;state.lesson=Number(button.dataset.openMappedLesson);state.view='lesson';render();scrollTo({top:0,behavior:'smooth'});});
 }
 
+const HUB_SECTION_STORAGE_PREFIX='learningHub.section.';
+function hubSectionStorageKey(sectionId){return `${HUB_SECTION_STORAGE_PREFIX}${sectionId}.collapsed`;}
+function hubSectionCollapsed(sectionId){
+  try{return localStorage.getItem(hubSectionStorageKey(sectionId))==='true';}
+  catch(error){return false;}
+}
+function setHubSectionCollapsed(sectionId,collapsed){
+  try{localStorage.setItem(hubSectionStorageKey(sectionId),String(!!collapsed));}
+  catch(error){}
+}
+function hubSectionMarkup({id,title,subtitle='',eyebrow='',content,className=''}){
+  const collapsed=hubSectionCollapsed(id),contentId=`hub-section-${id}-content`;
+  return `<section class="library-section hub-collapsible-section ${className} ${collapsed?'is-collapsed':''}" data-hub-section="${esc(id)}"><header class="hub-section-header"><button type="button" class="hub-section-toggle" data-hub-section-toggle="${esc(id)}" aria-expanded="${collapsed?'false':'true'}" aria-controls="${esc(contentId)}"><span class="hub-section-heading">${eyebrow?`<span class="eyebrow">${esc(eyebrow)}</span>`:''}<span class="hub-section-title">${esc(title)}</span>${subtitle?`<span class="subtitle">${esc(subtitle)}</span>`:''}</span><i class="fa-solid fa-chevron-down hub-section-chevron" aria-hidden="true"></i></button></header><div class="hub-section-content" id="${esc(contentId)}"${collapsed?' hidden':''}>${content}</div></section>`;
+}
+function bindHubSectionToggles(root){
+  root.querySelectorAll('[data-hub-section-toggle]').forEach(button=>button.onclick=()=>{
+    setHubSectionCollapsed(button.dataset.hubSectionToggle,button.getAttribute('aria-expanded')==='true');
+    renderLibrary();
+  });
+}
+
 function renderLibrary(){
   $('#hero').hidden=true; $('#bottomArea').hidden=true; $('#weekView').hidden=true; $('#mainContent').hidden=false;
   const books=window.BOOKS||[], resources=window.STUDY_RESOURCES||[], programmes=window.PROGRAMMES||[];
@@ -967,11 +988,11 @@ function renderLibrary(){
     </section>
     ${state.programmeLifecycleError?`<div class="programme-warning"><strong>Programme setup required</strong><span>${esc(state.programmeLifecycleError)}</span></div>`:''}
     ${completeSuggestion}
-    ${active.length?`<section class="library-section programme-lifecycle-section"><div class="panelhead"><div><div class="eyebrow">Active programme</div><h2>Current study path</h2></div></div><div class="programme-grid">${active.map(programmeLifecycleCard).join('')}</div></section>`:''}
-    <section class="library-section programme-lifecycle-section"><div class="panelhead"><div><div class="eyebrow">${activeP?'Planned programmes':'Choose your next programme'}</div><h2>${activeP?'Mapped programmes ready for later':'Select a mapped programme to make active'}</h2></div></div>${readyPlanned.length?`<div class="programme-grid">${readyPlanned.map(programmeLifecycleCard).join('')}</div>`:`<div class="empty programme-picker-empty"><strong>${activeP?'No other mapped programme is ready yet.':'You do not currently have another mapped programme ready to activate.'}</strong><span>Book maps remain available in the library below.</span></div>`}${unavailablePlanned.length?`<details class="programme-not-ready"><summary>Planned programme maps (${unavailablePlanned.length})</summary><div class="programme-grid">${unavailablePlanned.map(programmeLifecycleCard).join('')}</div></details>`:''}</section>
-    ${completed.length?`<section class="library-section programme-lifecycle-section"><div class="panelhead"><div><div class="eyebrow">Completed programmes</div><h2>Previous study paths</h2><p class="subtitle">Progress, notes and study history remain available.</p></div></div><div class="programme-grid">${completed.map(programmeLifecycleCard).join('')}</div></section>`:''}
-    <section class="library-section"><div class="panelhead"><div><h2>Book library</h2><p class="subtitle">Mapped textbooks and reusable companion books.</p></div></div><div class="book-grid">${books.map(b=>{const p=programmes.find(x=>x.bookId===b.id);const mapped=!!(window.BOOK_MAPS||{})[b.id],cover=b.cover?String(b.cover).replace(/^\/+/, ''):'';return `<article class="book-card ${b.id===activeBook().id?'active-book':''} ${mapped?'mapped-book':''}" data-open-book="${esc(b.id)}" tabindex="0" role="button"><div class="book-card-top"><span class="book-status ${b.status}">${b.status==='active'?'In use':mapped?'Mapped':b.status==='planned'?'Planned':'Available'}</span><span class="book-level">${esc(b.level)}</span></div><div class="book-cover-visual"><div class="book-cover-fallback"><strong>${esc(b.title)}</strong><span>${esc(b.series)}</span></div>${cover?`<img src="${esc(cover)}" alt="${esc(b.title)} cover" loading="lazy">`:''}</div><div class="eyebrow">${esc(b.series)}</div><h3>${esc(b.title)}</h3><p>${esc(b.description)}</p><div class="book-meta">${p?`<span>Programme: ${esc(p.shortTitle||p.title)}</span>`:'<span>No programme mapped</span>'}${b.workbooks?.length?`<span>${b.workbooks.map(esc).join(' · ')}</span>`:''}${mapped?'<span>Open content map →</span>':''}</div></article>`}).join('')}</div></section>
-    <section class="library-section"><div class="panelhead"><div><h2>Study tools & input</h2><p class="subtitle">Supporting resources stay independent from textbook programmes.</p></div></div><div class="resource-grid">${window.JLHSupplementary?.hubCardMarkup()||''}${resources.map(r=>`<article class="resource-card"><div class="book-card-top"><span class="resource-type">${esc(r.type)}</span><span class="book-status ${r.status}">${r.status==='active'?'Active':'Available'}</span></div><h3>${esc(r.title)}</h3><p>${esc(r.description)}</p></article>`).join('')}</div></section>
+    ${active.length?hubSectionMarkup({id:'active-programme',eyebrow:'Active programme',title:'Current study path',className:'programme-lifecycle-section',content:`<div class="programme-grid">${active.map(programmeLifecycleCard).join('')}</div>`}):''}
+    ${hubSectionMarkup({id:'planned-programmes',eyebrow:activeP?'Planned programmes':'Choose your next programme',title:activeP?'Mapped programmes ready for later':'Select a mapped programme to make active',className:'programme-lifecycle-section',content:`${readyPlanned.length?`<div class="programme-grid">${readyPlanned.map(programmeLifecycleCard).join('')}</div>`:`<div class="empty programme-picker-empty"><strong>${activeP?'No other mapped programme is ready yet.':'You do not currently have another mapped programme ready to activate.'}</strong><span>Book maps remain available in the library below.</span></div>`}${unavailablePlanned.length?`<details class="programme-not-ready"><summary>Planned programme maps (${unavailablePlanned.length})</summary><div class="programme-grid">${unavailablePlanned.map(programmeLifecycleCard).join('')}</div></details>`:''}`})}
+    ${completed.length?hubSectionMarkup({id:'completed-programmes',eyebrow:'Completed programmes',title:'Previous study paths',subtitle:'Progress, notes and study history remain available.',className:'programme-lifecycle-section',content:`<div class="programme-grid">${completed.map(programmeLifecycleCard).join('')}</div>`}):''}
+    ${hubSectionMarkup({id:'books',title:'Book library',subtitle:'Mapped textbooks and reusable companion books.',content:`<div class="book-grid">${books.map(b=>{const p=programmes.find(x=>x.bookId===b.id);const mapped=!!(window.BOOK_MAPS||{})[b.id],cover=b.cover?String(b.cover).replace(/^\/+/, ''):'';return `<article class="book-card ${b.id===activeBook().id?'active-book':''} ${mapped?'mapped-book':''}" data-open-book="${esc(b.id)}" tabindex="0" role="button"><div class="book-card-top"><span class="book-status ${b.status}">${b.status==='active'?'In use':mapped?'Mapped':b.status==='planned'?'Planned':'Available'}</span><span class="book-level">${esc(b.level)}</span></div><div class="book-cover-visual"><div class="book-cover-fallback"><strong>${esc(b.title)}</strong><span>${esc(b.series)}</span></div>${cover?`<img src="${esc(cover)}" alt="${esc(b.title)} cover" loading="lazy">`:''}</div><div class="eyebrow">${esc(b.series)}</div><h3>${esc(b.title)}</h3><p>${esc(b.description)}</p><div class="book-meta">${p?`<span>Programme: ${esc(p.shortTitle||p.title)}</span>`:'<span>No programme mapped</span>'}${b.workbooks?.length?`<span>${b.workbooks.map(esc).join(' · ')}</span>`:''}${mapped?'<span>Open content map →</span>':''}</div></article>`}).join('')}</div>`})}
+    ${hubSectionMarkup({id:'study-tools',title:'Study tools & input',subtitle:'Supporting resources stay independent from textbook programmes.',content:`<div class="resource-grid">${window.JLHSupplementary?.hubCardMarkup()||''}${resources.map(r=>`<article class="resource-card"><div class="book-card-top"><span class="resource-type">${esc(r.type)}</span><span class="book-status ${r.status}">${r.status==='active'?'Active':'Available'}</span></div><h3>${esc(r.title)}</h3><p>${esc(r.description)}</p></article>`).join('')}</div>`})}
     <section class="library-section architecture-note"><div class="eyebrow">How this scales</div><h2>Book → map → programme → schedule</h2><p>A future textbook can first become a mapped library resource. Only when you decide to study it should it become a programme with its own workload, tasks and progress.</p><div class="hub-flow"><span>Book</span><b>→</b><span>Map</span><b>→</b><span>Programme</span><b>→</b><span>Schedule</span><b>→</b><span>Progress</span></div></section>`;
   $('#mainContent').querySelectorAll('[data-activate-programme]').forEach(button=>button.onclick=()=>openProgrammeConfirmation(button.dataset.activateProgramme));
   $('#mainContent').querySelectorAll('[data-complete-programme]').forEach(button=>button.onclick=()=>openProgrammeConfirmation());
@@ -983,6 +1004,7 @@ function renderLibrary(){
     b.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();open();}};
   });
   $('#mainContent').querySelectorAll('[data-open-supplementary]').forEach(button=>button.onclick=()=>{state.view='supplementary';state.libraryItem=null;render();scrollTo({top:0,behavior:'smooth'});});
+  bindHubSectionToggles($('#mainContent'));
   const supplementary=window.JLHSupplementary;
   if(supplementary&&!supplementary.data.loaded&&!supplementary.data.error){
     supplementary.load(db,state.user).then(()=>{

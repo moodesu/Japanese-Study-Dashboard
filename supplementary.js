@@ -76,7 +76,7 @@
     const resource=workbook();
     if(!resource)return '';
     const count=data.units.filter(unit=>unit.resource_id===resource.id).length;
-    return `<article class="resource-card supplementary-resource-card"><div class="book-card-top"><span class="resource-type">Grammar workbook</span><span class="book-status available">Optional</span></div><h3 lang="ja">${html(resource.title)}</h3><p>${html(resource.english_title)}</p><div class="book-meta"><span>${count} standalone grammar practice units</span><span>Private supplementary resource</span></div><button type="button" class="resource-action" data-open-supplementary="${WORKBOOK_SLUG}"><i class="fa-solid fa-book-open" aria-hidden="true"></i> Browse exercises</button></article>`;
+    return `<article class="resource-card supplementary-resource-card"><div class="book-card-top"><span class="resource-type">Grammar workbook</span><span class="book-status available">Optional</span></div><h3 lang="ja">${html(resource.title)}</h3><p>${html(resource.english_title)}</p><div class="book-meta"><span>${count} standalone grammar practice units</span><span>Private supplementary resource</span></div><button type="button" class="secondary-action" data-open-supplementary="${WORKBOOK_SLUG}"><i class="fa-solid fa-book-open" aria-hidden="true"></i> Browse exercises</button></article>`;
   }
 
   function reserveTab(label){
