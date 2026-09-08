@@ -139,9 +139,10 @@ window.PROGRAMMES = [
   },
   {
     id:"tobira-intermediate-future", bookId:"tobira-intermediate-i",
-    title:"TOBIRA Intermediate Japanese I · future programme", shortTitle:"Intermediate Japanese I",
-    status:"planned", activationReady:false, weeks:null, targetHours:[12,18],
-    description:"The textbook content map is ready. Build the workbook tasks and schedule when you decide to make Intermediate Japanese I an active programme."
+    title:"TOBIRA Intermediate Japanese I · 12-week programme", shortTitle:"Intermediate Japanese I · 12 weeks",
+    status:"planned", activationReady:true, curriculumKey:"INTERMEDIATE_CURRICULUM", weeks:12, targetHours:[12,18],
+    description:"A fully mapped reading-led pass through Intermediate Japanese I Lessons 1–8, all three unit projects, official media and final consolidation.",
+    scheduleKey:"INTERMEDIATE_WEEK_PLANS"
   },
   {
     id:"tobira-gateway-future", bookId:"tobira-gateway",
@@ -315,7 +316,7 @@ window.OPTIONAL_TASKS = [
 window.BOOKS = [
   {id:"tobira-beginning-i", title:"TOBIRA Beginning Japanese I", series:"TOBIRA", level:"Beginning Japanese", status:"available", description:"Foundation course. Use for targeted review or a future full pass when needed.", curriculum:false, resources:[]},
   {id:"tobira-beginning-ii", title:"TOBIRA Beginning Japanese II", series:"TOBIRA", level:"Beginning Japanese", status:"active", description:"Current core curriculum: Lessons 11–20, with textbook + Workbook 1 + Workbook 2 mapped to exact pages.", curriculum:true, cover:"assets/covers/tobira-beginning-ii.jpg", workbooks:["Workbook 1","Workbook 2"]},
-  {id:"tobira-intermediate-i", title:"TOBIRA Intermediate Japanese I", series:"TOBIRA", level:"Intermediate Japanese", status:"planned", description:"Mapped 8-lesson intermediate textbook. Ready for a future dedicated programme; not part of the current Beginning II schedule.", curriculum:false, cover:"assets/covers/tobira-intermediate-i.jpg"},
+  {id:"tobira-intermediate-i", title:"TOBIRA Intermediate Japanese I", series:"TOBIRA", level:"Intermediate Japanese", status:"planned", description:"Fully mapped 8-lesson, three-project reading-led programme. Available for explicit activation without affecting Beginning II history.", curriculum:true, cover:"assets/covers/tobira-intermediate-i.jpg"},
   {id:"tobira-gateway", title:"TOBIRA Gateway to Advanced Japanese", series:"TOBIRA", level:"Intermediate–Advanced", status:"planned", description:"Mapped 15-lesson content course with exact lesson ranges and its Grammar Power and Kanji Power companion books.", curriculum:false, cover:"assets/covers/tobira-gateway.jpg", workbooks:["Grammar Power","Kanji Power Up"]},
   {id:"tobira-grammar-power", title:"TOBIRA Grammar Power: Exercises for Mastery", series:"TOBIRA", level:"Intermediate–Advanced", status:"planned", description:"Mapped 15-lesson grammar companion with exact basic, application and expansion practice ranges.", curriculum:false, cover:"assets/covers/tobira-grammar-power.jpg"},
   {id:"tobira-kanji-power", title:"TOBIRA Power Up Your Kanji", series:"TOBIRA", level:"Intermediate–Advanced", status:"planned", description:"Mapped 15-lesson kanji companion covering 800 foundational kanji, with exact information and practice ranges.", curriculum:false, cover:"assets/covers/tobira-kanji-power.jpg"},

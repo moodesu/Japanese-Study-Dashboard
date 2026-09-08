@@ -21,14 +21,15 @@ assert.match(app, /db\.rpc\('transition_user_programme'/);
 assert.match(app, /state\.programmeLifecycle\.find\(row=>row\.status==='active'\)/, 'All routes share the loaded active programme');
 assert.match(app, /Choose your next programme/);
 assert.match(app, /Switch without completing/);
-assert.match(app, /Complete current & activate/);
+assert.match(app, /Complete current & \$\{reopening\?'reopen':'activate'\}/);
 assert.match(app, /Completed programmes/);
+assert.match(app, /Reopen programme/);
 assert.match(app, /if\(!activeProgramme\(\)\)\{programmeEmptyState\('Choose your next programme'/, 'Home and Plan stop showing stale work without an active programme');
 assert.match(app, /data-view-programme/, 'Completed programme history stays browsable');
 assert.match(html, /id="programmeDialog"/);
 
 assert.match(curriculum, /id:"tobira-beginning-ii-12w"[\s\S]*?activationReady:true/);
-assert.match(curriculum, /id:"tobira-intermediate-future"[\s\S]*?activationReady:false/);
+assert.match(curriculum, /id:"tobira-intermediate-future"[\s\S]*?activationReady:true[\s\S]*?curriculumKey:"INTERMEDIATE_CURRICULUM"/);
 assert.match(curriculum, /id:"tobira-gateway-future"[\s\S]*?activationReady:false/);
 
 console.log('Programme lifecycle regression checks passed.');

@@ -12,6 +12,8 @@
 - Added no-active-programme states for Home, Plan and Lessons.
 - Preserved completed programme progress, notes and study history, with a
   historical lesson entry point from Hub.
+- Added an explicit Reopen action for completed programmes; reopening changes
+  lifecycle state only and retains existing task progress and study history.
 - Kept books separate from programmes; incomplete programme mappings cannot
   be activated.
 
@@ -36,9 +38,11 @@ or deleted. `completed` is the historical archive state.
    scheduled work.
 8. Open the completed programme's lessons from Hub and inspect its preserved
    completion, notes, media and study time.
-9. When a second fully mapped programme is available, test Activate, Switch
+9. Reopen the completed programme and confirm its existing progress is still
+   present and it becomes active again.
+10. With Intermediate I available, test Activate, Switch
    without completing, and Complete current & activate.
-10. On mobile, confirm lifecycle cards and confirmation actions fit without
+11. On mobile, confirm lifecycle cards and confirmation actions fit without
     horizontal overflow; repeat in dark mode.
 
 Suggested commit: `feat(programmes): add explicit programme lifecycle`

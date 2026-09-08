@@ -333,7 +333,7 @@ const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); r
 const fmt = d => d.toLocaleDateString(undefined, {weekday:'long', month:'short', day:'numeric'});
 const fmtMinutes = m => `${Math.floor(m/60)}h${m%60?` ${m%60}m`:''}`;
 const dateKey = d => { const x = new Date(d); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; };
-const lessonForWeek = w => w < 10 ? CURRICULUM.lessons[w] : null;
+const programmeById = id => (window.PROGRAMMES||[]).find(programme=>programme.id===id) || null;
 const consolidationLessons = w => w === 10 ? CURRICULUM.lessons.slice(0,5) : CURRICULUM.lessons.slice(5,10);
 const programmeRecord = id => state.programmeLifecycle.find(row=>row.programme_id===id) || null;
 const programmeStatus = programme => programmeRecord(programme?.id)?.status || (!state.programmeLifecycleLoaded?programme?.status:'planned');
@@ -344,13 +344,32 @@ const activeProgramme = () => {
   return (window.PROGRAMMES||[]).find(programme=>programme.id===id) || null;
 };
 const activeBook = () => { const p=activeProgramme(); return (window.BOOKS||[]).find(b=>b.id===p?.bookId) || {title:'No active programme',level:'',series:''}; };
-const programmeCurriculum = p => p?.curriculumKey==='CURRICULUM' ? window.CURRICULUM : null;
+const programmeCurriculum = p => p?.curriculumKey ? window[p.curriculumKey] || null : null;
+const viewingProgramme = () => programmeById(state.browsingProgrammeId) || activeProgramme();
+const currentCurriculum = () => programmeCurriculum(viewingProgramme()) || window.CURRICULUM;
+const currentAudioLibrary = () => viewingProgramme()?.id==='tobira-intermediate-future' ? window.INTERMEDIATE_AUDIO : AUDIO_LIBRARY;
+const lessonForWeek = (w,programme=activeProgramme()) => {
+  const curriculum=programmeCurriculum(programme);
+  if(!curriculum)return null;
+  if(curriculum.lessonWeek)return curriculum.lessons.find(lesson=>curriculum.lessonWeek[lesson.n]===w)||null;
+  return w<10?curriculum.lessons[w]||null:null;
+};
+const activeWeekPlan = w => {
+  const plans=window[activeProgramme()?.scheduleKey]||window.WEEK_PLANS||[];
+  if(activeProgramme()?.id==='tobira-beginning-ii-12w')return weekPlan(w);
+  return plans[w]||{week:w+1,focus:'Study week',target:120,days:Array.from({length:7},()=>({focus:'Core study',target:120,extra:'Optional Japanese input'}))};
+};
+const programmeStartDate = () => {
+  const programme=activeProgramme(),record=programmeRecord(programme?.id);
+  if(programme?.id==='tobira-intermediate-future'&&record?.started_at)return String(record.started_at).slice(0,10);
+  return state.startDate;
+};
 function updateBackToTop(){ const button=$('#backToTop'); if(button) button.hidden=window.scrollY<500||!state.user; }
 function programmeSummary(p){ const b=(window.BOOKS||[]).find(x=>x.id===p.bookId); return {book:b, ready:p?.activationReady!==false && !!programmeCurriculum(p) && !!p.scheduleKey}; }
 
 function programmeProgress(programme){
   if(!programmeCurriculum(programme))return {done:0,total:0,pct:0};
-  const value=overallProgress();return {...value,pct:value.total?Math.round(value.done/value.total*100):0};
+  const value=overallProgress(programme);return {...value,pct:value.total?Math.round(value.done/value.total*100):0};
 }
 function programmeDate(value){return value?new Date(value).toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'}):'';}
 function programmeLifecycleCard(programme){
@@ -359,7 +378,7 @@ function programmeLifecycleCard(programme){
   const actions=status==='active'
     ? '<button class="smallbtn" type="button" data-complete-programme>Complete programme</button>'
     : status==='completed'
-      ? `<button class="smallbtn" type="button" data-view-programme="${esc(programme.id)}">View lessons</button>`
+      ? `<button class="smallbtn" type="button" data-view-programme="${esc(programme.id)}">View lessons</button><button class="smallbtn primary" type="button" data-activate-programme="${esc(programme.id)}">Reopen programme</button>`
       : summary.ready
         ? `<button class="smallbtn primary" type="button" data-activate-programme="${esc(programme.id)}">Activate programme</button>`
         : '<span class="programme-history-note">Programme mapping not ready</span>';
@@ -374,13 +393,14 @@ function openProgrammeConfirmation(targetId=null){
   const dialog=$('#programmeDialog'),title=$('#programmeDialogTitle'),copy=$('#programmeDialogCopy'),actions=$('#programmeDialogActions');if(!dialog||!title||!copy||!actions)return;
   const current=activeProgramme(),target=(window.PROGRAMMES||[]).find(programme=>programme.id===targetId);
   if(target){
-    title.textContent=`Activate ${target.title}?`;
+    const reopening=programmeStatus(target)==='completed';
+    title.textContent=`${reopening?'Reopen':'Activate'} ${target.title}?`;
     if(current){
-      copy.textContent=`${current.title} is currently active. Choose whether to complete it or keep it planned.`;
-      actions.innerHTML='<button class="smallbtn primary" type="button" data-programme-action="complete_and_activate">Complete current & activate</button><button class="smallbtn" type="button" data-programme-action="switch">Switch without completing</button><button class="smallbtn" type="button" data-programme-cancel>Cancel</button>';
+      copy.textContent=`${current.title} is currently active. Choose whether to complete it or keep it planned. Existing progress in both programmes is preserved.`;
+      actions.innerHTML=`<button class="smallbtn primary" type="button" data-programme-action="complete_and_activate">Complete current & ${reopening?'reopen':'activate'}</button><button class="smallbtn" type="button" data-programme-action="switch">Switch without completing</button><button class="smallbtn" type="button" data-programme-cancel>Cancel</button>`;
     }else{
-      copy.textContent='This will become your active study programme.';
-      actions.innerHTML='<button class="smallbtn primary" type="button" data-programme-action="activate">Activate</button><button class="smallbtn" type="button" data-programme-cancel>Cancel</button>';
+      copy.textContent=`This will become your active study programme. ${reopening?'Its existing task progress, notes and study time will be retained.':''}`;
+      actions.innerHTML=`<button class="smallbtn primary" type="button" data-programme-action="activate">${reopening?'Reopen':'Activate'}</button><button class="smallbtn" type="button" data-programme-cancel>Cancel</button>`;
     }
   }else{
     title.textContent='Complete programme?';copy.textContent='This preserves your progress and moves the programme to Completed.';
@@ -418,13 +438,17 @@ async function transitionProgramme(targetId,action){
   finally{buttons?.forEach(button=>button.disabled=false);}
 }
 
-function lessonByNumber(n){ return CURRICULUM.lessons.find(l => l.n === Number(n)); }
-function defFor(key){ return TASK_TYPES.find(x => x.key === key); }
+function lessonByNumber(n){ return currentCurriculum().lessons.find(l => l.n === Number(n)); }
+function defFor(key,l=null){
+  const definitions=l?.programmeId==='tobira-intermediate-future'?[...(window.INTERMEDIATE_TASK_TYPES||[]),...TASK_TYPES]:[...TASK_TYPES,...(window.INTERMEDIATE_TASK_TYPES||[])];
+  return definitions.find(x=>x.key===key);
+}
 function pageFor(l, key){
-  const def = defFor(key);
+  const def = defFor(key,l);
   if(def?.book === 'Textbook'){
     const p = l.textbook?.pages?.[def.field] ?? l.textbook?.[def.field];
-    return { book:'Textbook', page:p || `${l.textbook.start}–${l.textbook.end}` };
+    const section=(l.sections||[]).find(item=>item.taskKey===key);
+    return { book:'Textbook', page:p || section?.pages || `${l.textbook.start}–${l.textbook.end}` };
   }
   for (const b of ['workbook2','workbook1']) {
     if (l[b]?.[key] != null) return { book: b === 'workbook2' ? 'Workbook 2' : 'Workbook 1', page: l[b][key] };
@@ -432,15 +456,34 @@ function pageFor(l, key){
   return null;
 }
 function makeTask(l, key, opts={}){
-  const def = defFor(key), ref = pageFor(l,key);
+  const def = defFor(key,l), ref = pageFor(l,key);
   if(!def || !ref) return null;
   const section = (l.sections||[]).find(x=>x.taskKey===key);
-  return { id:`b2-l${l.n}-${key}`, lesson:l.n, key, title:def.label, book:ref.book, page:ref.page, duration:def.duration, desc:def.desc, section:section?.label||null, sectionPages:section?.pages||null, sectionSteps:section?.steps||[], sectionItems:section?.items||[], ...opts };
+  const id=l.programmeId==='tobira-intermediate-future'?(section?.id||`ti-l${l.n}-${key}`):`b2-l${l.n}-${key}`;
+  return { id, programmeId:l.programmeId||'tobira-beginning-ii-12w', lesson:l.n, key, title:def.label, book:ref.book, page:ref.page, duration:def.duration, desc:def.desc, section:section?.label||null, sectionPages:section?.pages||null, sectionSteps:section?.steps||[], sectionItems:section?.items||[], ...opts };
 }
-function lessonTasks(l){ return TASK_TYPES.map(d=>makeTask(l,d.key)).filter(Boolean); }
-function weeklyTasks(w,d){
+function lessonTasks(l){
+  const keys=l?.programmeId==='tobira-intermediate-future'?(l.sections||[]).map(section=>section.taskKey):TASK_TYPES.map(def=>def.key);
+  return [...new Set(keys)].map(key=>makeTask(l,key)).filter(Boolean);
+}
+function intermediateWeeklyTasks(w,d,programme){
+  const curriculum=programmeCurriculum(programme),schedule=window.INTERMEDIATE_SCHEDULE||{};
+  const lesson=lessonForWeek(w,programme);
+  if(lesson)return (schedule.lessonDays?.[d]||[]).map(key=>makeTask(lesson,key)).filter(Boolean);
+  const project=(schedule.projects||[]).find(item=>item.week===w);
+  if(project&&d===0){
+    const lessonNumber=project.unit===1?3:project.unit===2?6:8;
+    const task=lessonTasks(curriculum.lessons.find(item=>item.n===lessonNumber)).find(item=>item.id===project.id);
+    return task?[{...task,worksheet:project.worksheet,pdfKey:`unit-${project.unit}`}]:[];
+  }
+  const label=project?`${project.title} consolidation`:'Full-course consolidation';
+  return [{id:`ti-w${w+1}-d${d+1}-consolidation`,programmeId:programme.id,key:'consolidation',title:label,duration:'45–90 min',book:'Your notes',desc:project?'Complete the unit project, catch up unfinished lesson work and consolidate the unit.':'Finish incomplete work, revisit recorded problems and complete a final reading or speaking production.'}];
+}
+function weeklyTasks(w,d,programme=null){
+  programme=programme||(typeof activeProgramme==='function'?activeProgramme():(window.PROGRAMMES||[])[0]);
+  if(programme?.id==='tobira-intermediate-future')return intermediateWeeklyTasks(w,d,programme);
   if(w>=10) return consolidationTasks(w,d);
-  const l=lessonForWeek(w);
+  const l=lessonForWeek(w,programme);
   const schedule=B2_LESSON_FLOW.filter(section=>section.day===d).flatMap(section=>[section.key,...section.support]);
   return schedule.map(k=>makeTask(l,k)).filter(Boolean);
 }
@@ -475,17 +518,17 @@ function toggle(id){
   if(completing) stopPomodoroForTaskCompletion(id);
   setTask(id,{completed:completing,completed_at:completing?new Date().toISOString():null});
 }
-function weekDates(w){ const s=new Date(state.startDate+'T00:00:00'); return Array.from({length:7},(_,i)=>addDays(s,w*7+i)); }
-function allTasks(w){ return Array.from({length:7},(_,d)=>weeklyTasks(w,d)).flat(); }
-function allCoreTasks(){ return Array.from({length:12},(_,w)=>allTasks(w)).flat(); }
+function weekDates(w){ const s=new Date(programmeStartDate()+'T00:00:00'); return Array.from({length:7},(_,i)=>addDays(s,w*7+i)); }
+function allTasks(w,programme=activeProgramme()){ return Array.from({length:7},(_,d)=>weeklyTasks(w,d,programme)).flat(); }
+function allCoreTasks(programme=activeProgramme()){ return Array.from({length:programme?.weeks||12},(_,w)=>allTasks(w,programme)).flat(); }
 function progress(w){ const a=allTasks(w); return {done:a.filter(t=>ts(t.id).completed).length,total:a.length}; }
-function overallProgress(){ const a=allCoreTasks(); return {done:a.filter(t=>ts(t.id).completed).length,total:a.length}; }
+function overallProgress(programme=activeProgramme()){ const a=allCoreTasks(programme); return {done:a.filter(t=>ts(t.id).completed).length,total:a.length}; }
 function lessonProgress(n){
   const a=lessonTasks(lessonByNumber(n));
   return {done:a.filter(t=>ts(t.id).completed).length,total:a.length};
 }
 function currentWeekIndex(){
-  const start=new Date(state.startDate+'T00:00:00');
+  const start=new Date(programmeStartDate()+'T00:00:00');
   const diff=Math.floor((new Date().setHours(0,0,0,0)-start.getTime())/86400000);
   return Math.max(0,Math.min(11,Math.floor(diff/7)));
 }
@@ -528,12 +571,12 @@ function renderPomodoroSettings(){
 function savePomodoro(){ localStorage.setItem('pomodoroState', JSON.stringify(state.pomodoro)); }
 function saveSessions(){ localStorage.setItem('pomodoroSessions', JSON.stringify(state.sessions)); }
 function taskLessonNumber(id){
-  const m = /^b2-l(\d+)-/.exec(id||'') || /^b2-consolidation-w\d+-l(\d+)-/.exec(id||'');
+  const m = /^b2-l(\d+)-/.exec(id||'') || /^ti-l(\d+)-/.exec(id||'') || /^b2-consolidation-w\d+-l(\d+)-/.exec(id||'');
   return m ? +m[1] : null;
 }
 function findTaskById(id){
   if(!id) return null;
-  const core = allCoreTasks();
+  const core = (window.PROGRAMMES||[]).flatMap(programme=>programmeCurriculum(programme)?allCoreTasks(programme):[]);
   const hab = Array.from({length:12},(_,w)=>Array.from({length:7},(_,d)=>habits(w,d)).flat()).flat();
   return [...core,...hab].find(t=>t.id===id) || null;
 }
@@ -692,7 +735,7 @@ function skipSession(){
   advanceMode();
 }
 function currentWeekDay(){
-  const start=new Date(state.startDate+'T00:00:00'); const today=new Date(); today.setHours(0,0,0,0);
+  const start=new Date(programmeStartDate()+'T00:00:00'); const today=new Date(); today.setHours(0,0,0,0);
   const diffDays=Math.floor((today-start)/86400000);
   if(diffDays<0) return {w:0,d:0};
   return {w:Math.min(11,Math.floor(diffDays/7)), d:((diffDays%7)+7)%7};
@@ -761,7 +804,9 @@ function render(){
   }
   else if(state.view==='library' && state.libraryItem) renderBookMap(state.libraryItem);
   else renderLibrary();
-  $('#globalNotes').value=state.notes; $('#startDate').value=state.startDate; renderStatus();
+  $('#globalNotes').value=state.notes;
+  const startDateInput=$('#startDate');if(startDateInput){const lifecycleStart=activeProgramme()?.id==='tobira-intermediate-future';startDateInput.value=programmeStartDate();startDateInput.disabled=lifecycleStart;startDateInput.title=lifecycleStart?'This programme starts on its first activation date.':'Change the plan start date.';}
+  renderStatus();
   renderPomodoroSettings();
   renderPomodoro();
   updateBackToTop();
@@ -778,7 +823,7 @@ function renderGate(){
 function renderHeader(){
   const w=state.week,l=lessonForWeek(w),p=progress(w),ds=weekDates(w),book=activeBook();
   $('#weekLabel').textContent=`Week ${w+1}`;
-  $('#lessonLabel').textContent=l?`Lesson ${l.n}: ${l.title}`:(w===10?'Lessons 11–15: consolidation':'Lessons 16–20: consolidation');
+  $('#lessonLabel').textContent=l?`Lesson ${l.n}: ${l.title}`:activeWeekPlan(w).focus;
   $('#lessonEnglish').textContent=l?l.english:`Re-test, repair and consolidate ${book.title}.`;
   const activeP=activeProgramme();
   const programmeLabel=$('#lessonLabel');
@@ -789,7 +834,7 @@ function renderHeader(){
 }
 function renderNav(){
   $('#mainNav').innerHTML=`<button class="navbtn home-nav-btn ${state.view==='dashboard'?'active':''}" data-view="dashboard" title="Home"><i class="fa-solid fa-house" aria-hidden="true"></i><span>Home</span></button><button class="navbtn ${state.view==='plan'?'active':''}" data-view="plan" title="Plan"><i class="fa-solid fa-calendar-days" aria-hidden="true"></i><span>Plan</span></button><button class="navbtn ${state.view==='lesson'?'active':''}" data-view="lesson" title="Lessons"><i class="fa-solid fa-book-open" aria-hidden="true"></i><span>Lessons</span></button><button class="navbtn ${state.view==='library'?'active':''}" data-view="library" title="Hub"><i class="fa-solid fa-layer-group" aria-hidden="true"></i><span>Hub</span></button><button class="navbtn repo-nav-btn ${state.view==='repository'?'active':''}" data-view="repository" title="Japanese Repository"><i class="fa-solid fa-language" aria-hidden="true"></i><span class="nav-utility-label">Repository</span></button><button class="navbtn grammar-nav-btn" id="grammarNavBtn" type="button" title="Grammar Library"><i class="fa-solid fa-spell-check" aria-hidden="true"></i><span class="nav-utility-label">Grammar</span></button><button class="navbtn icon-nav-btn" id="searchNavBtn" type="button" title="Search" aria-label="Search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i></button><button class="navbtn wk-nav-btn ${state.view==='wanikani'?'active':''}" data-view="wanikani" title="WaniKani"><i class="fa-solid fa-paintbrush" aria-hidden="true"></i><span class="nav-utility-label">WaniKani</span></button><button class="navbtn pomo-nav-btn" id="pomoNavBtn" type="button" title="Pomodoro" aria-label="Open Pomodoro"><i class="fa-solid fa-clock" aria-hidden="true"></i><span class="nav-utility-label">Pomodoro</span></button>`;
-  const navigate=view=>{state.view=view;if(state.view==='lesson'){state.browsingProgrammeId=null;if(!lessonByNumber(state.lesson))state.lesson=11;}closeMobileMore();render();scrollTo({top:0,behavior:'smooth'});};
+  const navigate=view=>{state.view=view;if(state.view==='lesson'){state.browsingProgrammeId=null;if(!lessonByNumber(state.lesson))state.lesson=currentCurriculum().lessons[0]?.n;}closeMobileMore();render();scrollTo({top:0,behavior:'smooth'});};
   $('#mainNav').querySelectorAll('.navbtn[data-view]').forEach(b=>b.onclick=()=>navigate(b.dataset.view));
   const mobileNav=$('#mobileBottomNav');
   if(mobileNav){
@@ -834,6 +879,8 @@ function initMobileNavigation(){
 function renderBookMap(bookId){
   const book=(window.BOOKS||[]).find(b=>b.id===bookId);
   const map=(window.BOOK_MAPS||{})[bookId];
+  const programme=(window.PROGRAMMES||[]).find(item=>item.bookId===bookId&&programmeCurriculum(item));
+  const mappedStatus=programme?programmeStatus(programme):'mapped';
   if(!book){ state.libraryItem=null; renderLibrary(); return; }
   if(!map){
     $('#hero').hidden=true;$('#bottomArea').hidden=true;$('#weekView').hidden=true;$('#mainContent').hidden=false;
@@ -861,12 +908,13 @@ function renderBookMap(bookId){
         ${canDo.length?`<details class="mapped-cando"><summary>Can-Do goals (${canDo.length})</summary><ul>${canDo.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></details>`:''}
         ${components.length?`<div class="mapped-components">${components.map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</div>`:''}
         ${l.project?`<div class="mapped-project"><span>Project</span><strong>${esc(l.project)}</strong></div>`:''}
+        ${programme&&mappedStatus!=='planned'?`<button type="button" class="smallbtn" data-open-mapped-lesson="${l.n}">Open guided lesson</button>`:''}
       </article>`;
   };
   $('#mainContent').innerHTML=`
     <div class="book-detail-toolbar">
       <button class="smallbtn" id="backToLibrary">← Learning hub</button>
-      <span class="book-status mapped">Mapped · not scheduled</span>
+      <span class="book-status ${esc(mappedStatus)}">${mappedStatus==='planned'?'Planned · fully mapped':mappedStatus[0].toUpperCase()+mappedStatus.slice(1)}</span>
     </div>
     <section class="library-hero book-detail-hero app-page-header">
       <div class="eyebrow">${esc(book.series)} · ${esc(book.level)}</div>
@@ -891,13 +939,14 @@ function renderBookMap(bookId){
     </section>
     ${projects.length?`<section class="library-section">
       <div class="panelhead"><div><h2>Unit projects</h2><p class="subtitle">Projects are integration work, not extra daily textbook pages.</p></div></div>
-      <div class="project-map">${projects.map(p=>`<article class="project-map-card"><div class="eyebrow">${esc(p.unit)} · Lessons ${esc(p.lessons)}</div><h3>${esc(p.title)}</h3><p>${esc(p.note)}</p></article>`).join('')}</div>
+      <div class="project-map">${projects.map(p=>`<article class="project-map-card"><div class="eyebrow">${esc(p.unit)} · Lessons ${esc(p.lessons)}${p.pages?` · pp.${esc(p.pages)}`:''}</div><h3>${esc(p.title)}</h3><p>${esc(p.note)}</p></article>`).join('')}</div>
     </section>`:''}
     <section class="library-section">
-      <div class="panelhead"><div><h2>Programme status</h2><p class="subtitle">This book is mapped, but it is deliberately not part of your current schedule.</p></div></div>
+      <div class="panelhead"><div><h2>Programme status</h2><p class="subtitle">The book and programme lifecycle remain separate. Activating this mapped programme is always explicit.</p></div></div>
       <div class="future-programme panel"><strong>Ready for the next step:</strong> ${esc(map.programmeNote||`Create a dedicated study programme when you decide how you want to use ${book.title}. The current Beginning Japanese II programme and its progress are unaffected.`)}</div>
     </section>`;
   $('#backToLibrary').onclick=()=>{state.libraryItem=null;state.view='library';render();scrollTo({top:0,behavior:'smooth'});};
+  $('#mainContent').querySelectorAll('[data-open-mapped-lesson]').forEach(button=>button.onclick=()=>{state.browsingProgrammeId=programme.id;state.lesson=Number(button.dataset.openMappedLesson);state.view='lesson';render();scrollTo({top:0,behavior:'smooth'});});
 }
 
 function renderLibrary(){
@@ -1071,7 +1120,7 @@ function roadmapState(){try{return JSON.parse(localStorage.getItem('hubRoadmap')
 function roadmapDone(id){const r=roadmapState();return Object.prototype.hasOwnProperty.call(r,id)?!!r[id]:ROADMAP_DEFAULT_DONE.has(id)}
 function setRoadmapDone(id,done){const r=roadmapState();r[id]=!!done;localStorage.setItem('hubRoadmap',JSON.stringify(r));render();}
 function studyContext(){
-  const start=new Date(state.startDate+'T00:00:00'); const today=new Date(); today.setHours(0,0,0,0);
+  const start=new Date(programmeStartDate()+'T00:00:00'); const today=new Date(); today.setHours(0,0,0,0);
   if(today<start) return {w:0,d:0,date:start,preStart:true};
   const x=currentWeekDay(); return {w:x.w,d:x.d,date:addDays(start,x.w*7+x.d),preStart:false};
 }
@@ -1096,7 +1145,7 @@ function searchIndex(q){
   q=q.trim().toLowerCase(); if(!q)return [];
   const rows=[];
   for(const t of allCoreTasks()) rows.push({type:'Task',title:t.title,meta:`${activeBook().title} · ${t.book}${t.page?' · p.'+t.page:''}`,id:t.id,score:(t.title+' '+t.book+' '+(t.section||'')).toLowerCase().includes(q)?2:1});
-  for(const l of CURRICULUM.lessons) rows.push({type:'Lesson',title:`Lesson ${l.n}: ${l.title}`,meta:l.english||'',id:`lesson-${l.n}`,score:(l.title+' '+(l.english||'')).toLowerCase().includes(q)?2:1});
+  for(const l of currentCurriculum().lessons) rows.push({type:'Lesson',title:`Lesson ${l.n}: ${l.title}`,meta:l.english||'',id:`lesson-${l.n}`,score:(l.title+' '+(l.english||'')).toLowerCase().includes(q)?2:1});
   for(const b of (window.BOOKS||[])) rows.push({type:'Book',title:b.title,meta:`${b.series} · ${b.level}`,id:b.id,score:(b.title+' '+b.series+' '+b.level+' '+(b.description||'')).toLowerCase().includes(q)?2:1});
   const noteRows=Object.entries(state.taskState).filter(([id,v])=>v.notes&&v.notes.toLowerCase().includes(q)).map(([id,v])=>({type:'Note',title:v.notes.slice(0,90),meta:`${findTaskById(id)?.title||id}`,id,score:3}));
   const repositoryRows=(typeof repositoryState!=='undefined'?repositoryState.entries:[]).filter(entry=>repositoryEntrySearchText(entry).includes(q)).map(entry=>({type:'Sentence',title:entry.japanese||entry.original_japanese,meta:entry.english||entry.intent_english||'Japanese Repository',id:entry.id,score:4}));
@@ -1171,7 +1220,8 @@ function renderWeek(){
   if(!activeProgramme()){programmeEmptyState('Choose your next programme','Study Plan needs an active mapped programme.');return;}
   $('#hero').hidden=false; $('#bottomArea').hidden=false; $('#weekView').hidden=false; $('#mainContent').hidden=true;
   const ds=weekDates(state.week);
-  $('#weekView').innerHTML=`<div class="tabsrow"><button class="smallbtn" id="prevWeek">←</button><div class="weektabs" id="weekTabs"></div><button class="smallbtn" id="nextWeek">→</button></div><div class="week-overview"><div><div class="eyebrow">WEEK ${state.week+1}</div><h2>${esc(weekPlan(state.week).focus)}</h2><p class="subtitle">Core target: ${fmtMinutes(weekPlan(state.week).days.reduce((a,x)=>a+x.target,0))} this week, with optional input bringing the overall plan toward 15–20 hours.</p></div></div>${ds.map((date,d)=>{const core=weeklyTasks(state.week,d),hs=habits(state.week,d),plan=weekPlan(state.week).days[d]||{focus:'Core study',target:120,extra:'30 min Japanese input'},isToday=dateKey(date)===dateKey(new Date());return `<section class="day ${isToday?'today':''}"><div class="dayhead"><div><div class="eyebrow">${isToday?'TODAY · ':''}${date.toLocaleDateString(undefined,{weekday:'long'})}</div><h2>${fmt(date)}</h2><p class="dayfocus"><strong>${esc(plan.focus)}</strong> · target ${fmtMinutes(plan.target)} · ${esc(plan.extra)}</p></div><span class="daycount">${core.filter(t=>ts(t.id).completed).length}/${core.length}</span></div>${core.length?`<div class="tasklist">${core.map(card).join('')}</div>`:''}<details class="habits"><summary>Optional input <span>WaniKani · Migaku · shadowing · reading</span></summary><p class="habit-target">Recommended: ${esc(plan.extra)}</p><div class="habitlist">${hs.map(card).join('')}</div></details></section>`}).join('')}`;
+  const currentPlan=activeWeekPlan(state.week);
+  $('#weekView').innerHTML=`<div class="tabsrow"><button class="smallbtn" id="prevWeek">←</button><div class="weektabs" id="weekTabs"></div><button class="smallbtn" id="nextWeek">→</button></div><div class="week-overview"><div><div class="eyebrow">WEEK ${state.week+1}</div><h2>${esc(currentPlan.focus)}</h2><p class="subtitle">Core target: ${fmtMinutes(currentPlan.days.reduce((a,x)=>a+x.target,0))} this week, with optional Japanese input alongside the mapped programme.</p></div></div>${ds.map((date,d)=>{const core=weeklyTasks(state.week,d),hs=habits(state.week,d),plan=currentPlan.days[d]||{focus:'Core study',target:120,extra:'Optional Japanese input'},isToday=dateKey(date)===dateKey(new Date());return `<section class="day ${isToday?'today':''}"><div class="dayhead"><div><div class="eyebrow">${isToday?'TODAY · ':''}${date.toLocaleDateString(undefined,{weekday:'long'})}</div><h2>${fmt(date)}</h2><p class="dayfocus"><strong>${esc(plan.focus)}</strong> · target ${fmtMinutes(plan.target)} · ${esc(plan.extra)}</p></div><span class="daycount">${core.filter(t=>ts(t.id).completed).length}/${core.length}</span></div>${core.length?`<div class="tasklist">${core.map(card).join('')}</div>`:''}<details class="habits"><summary>Optional input <span>WaniKani · Migaku · shadowing · reading</span></summary><p class="habit-target">Recommended: ${esc(plan.extra)}</p><div class="habitlist">${hs.map(card).join('')}</div></details></section>`}).join('')}`;
   $('#weekView').querySelectorAll('[data-check]').forEach(e=>e.onchange=()=>toggle(e.dataset.check));
   $('#prevWeek').onclick=()=>{state.week=Math.max(0,state.week-1);render();};
   $('#nextWeek').onclick=()=>{state.week=Math.min(11,state.week+1);render();};
@@ -1273,16 +1323,18 @@ function initLessonVideoEmbeds(){
 }
 
 function lessonVideoPanelMarkup(l){
-  const videos=(state.lessonVideos||[]).filter(video=>Number(video.lesson)===l.n);
+  const official=l.resources?.video?[{lesson:l.n,video_type:'lesson',sort_order:0,title:`Lesson ${l.n} publisher video`,youtube_url:`https://www.youtube.com/watch?v=${l.resources.video}`}]:[];
+  const videos=[...official,...(state.lessonVideos||[]).filter(video=>Number(video.lesson)===l.n)];
   const typeDefinitions=[
+    {key:'lesson',label:'Lesson video',guide:'Use the official lesson video with its mapped video worksheet.'},
     {key:'vocabulary',label:'Vocabulary practice',guide:'Repeat aloud at a good tempo, then check the vocabulary and particles in the textbook.'},
     {key:'grammar',label:'Grammar instruction',guide:'For each item: watch the video, read the textbook explanation, then complete and check its audio exercise.'},
     {key:'dialogue',label:'Dialogue practice',guide:'Watch and speak along, then read the opening dialogue aloud with its audio.'}
   ];
   let body='';
-  if(!state.lessonVideosLoaded){
+  if(!state.lessonVideosLoaded&&!official.length){
     body='<div class="video-empty">Loading private video links…</div>';
-  }else if(state.lessonVideosError){
+  }else if(state.lessonVideosError&&!official.length){
     body='<div class="video-empty">Video links are unavailable. Check that the updated Supabase schema has been run.</div>';
   }else if(!videos.length){
     body='<div class="video-empty">No videos are mapped for this lesson yet. Import the completed CSV in Supabase to add them.</div>';
@@ -1296,37 +1348,39 @@ function lessonVideoPanelMarkup(l){
       }).join('')}</div></div>`;
     }).join('');
   }
-  return `<section class="panel lesson-video-panel"><div class="panelhead"><div><div class="eyebrow">Private video links</div><h2>Tobira lesson videos</h2><p class="subtitle">Follow the publisher's self-study sequence without storing video files in the app.</p></div><span class="audio-private-badge">Authenticated</span></div><div class="video-groups">${body}</div></section>`;
+  const worksheet=l.resources?.videoWorksheet?`<a class="resource-action" href="${esc(l.resources.videoWorksheet)}" target="_blank" rel="noopener noreferrer">Video worksheet ↗</a>`:'';
+  return `<section class="panel lesson-video-panel"><div class="panelhead"><div><div class="eyebrow">Lesson video resources</div><h2>Tobira lesson videos</h2><p class="subtitle">Follow the publisher's self-study sequence without storing video files in the app.</p></div>${worksheet}</div><div class="video-groups">${body}</div></section>`;
 }
 
 function audioPanelMarkup(n){
-  const lessonAudio=AUDIO_LIBRARY.lessons?.[n];
+  const audioLibrary=currentAudioLibrary(),lessonAudio=audioLibrary.lessons?.[n];
   if(!lessonAudio) return '';
-  const groups=(AUDIO_LIBRARY.categories||[]).map(category=>{
+  const groups=(audioLibrary.categories||[]).map(category=>{
     const tracks=lessonAudio.groups?.[category.key]||[];
     if(!tracks.length) return '';
     return `<div class="audio-group" id="audio-group-${esc(category.key)}"><div class="audio-group-heading"><strong>${esc(category.label)}</strong><span>${esc(category.english)} · ${tracks.length}</span></div>${category.guide?`<p class="audio-group-guide">${esc(category.guide)}</p>`:''}<div class="audio-track-list">${tracks.map(track=>`<button type="button" class="audio-track" data-audio-path="${esc(track.path)}"><span>${esc(track.badge||String(track.number).padStart(2,'0'))}</span><strong>${esc(track.title)}</strong></button>`).join('')}</div></div>`;
   }).join('');
   return `<section class="panel lesson-audio-panel">
-    <div class="panelhead"><div><div class="eyebrow">Private lesson audio</div><h2>Listen and shadow</h2><p class="subtitle">会話 · 単語リスト · 話しましょう · 読みましょう · 聞きましょう</p></div><span class="audio-private-badge">Authenticated</span></div>
+    <div class="panelhead"><div><div class="eyebrow">${audioLibrary.bucket?'Private lesson audio':'Official lesson audio'}</div><h2>Listen and shadow</h2><p class="subtitle">Reading · Dialogue · Conversation · Vocabulary · Culture</p></div>${audioLibrary.bucket?'<span class="audio-private-badge">Authenticated</span>':''}</div>
     <div class="lesson-audio-layout">
       <div class="audio-groups">${groups}</div>
       <div class="audio-player-card">
-        <div class="audio-now"><span id="audioNowCategory">Lesson ${n} audio</span><strong id="audioNowTitle">Choose a track</strong><small id="audioNowFile">Stored privately in Supabase</small></div>
+        <div class="audio-now"><span id="audioNowCategory">Lesson ${n} audio</span><strong id="audioNowTitle">Choose a track</strong><small id="audioNowFile">${audioLibrary.bucket?'Stored privately in Supabase':'Official publisher audio'}</small></div>
         <audio id="lessonAudioPlayer" controls preload="metadata"></audio>
         <div class="audio-controls"><button type="button" class="smallbtn" id="audioPrevious" disabled>← Previous</button><button type="button" class="smallbtn" id="audioBack">−10s</button><button type="button" class="smallbtn" id="audioForward">+10s</button><button type="button" class="smallbtn" id="audioNext" disabled>Next →</button></div>
         <label class="audio-speed">Playback speed <select id="audioSpeed"><option value="0.75">0.75×</option><option value="1">1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label>
-        <p class="audio-status" id="audioStatus">Select a track to create a temporary private playback link.</p>
+        <p class="audio-status" id="audioStatus">${audioLibrary.bucket?'Select a track to create a temporary private playback link.':'Select an official publisher track.'}</p>
       </div>
     </div>
   </section>`;
 }
 
 async function signedLessonAudioUrl(track){
+  if(track?.url)return track.url;
   const cached=audioUrlCache.get(track.path);
   if(cached?.expiresAt>Date.now()+60000) return cached.url;
   if(!db||!state.user) throw new Error('Sign in to play private audio.');
-  const {data,error}=await db.storage.from(AUDIO_LIBRARY.bucket).createSignedUrl(track.path,3600);
+  const {data,error}=await db.storage.from(currentAudioLibrary().bucket).createSignedUrl(track.path,3600);
   if(error) throw error;
   const signedUrl=data?.signedUrl;
   if(!signedUrl) throw new Error('No playback URL was returned.');
@@ -1336,7 +1390,7 @@ async function signedLessonAudioUrl(track){
 
 const textbookPdfUrlCache=new Map();
 function textbookPdfConfig(lesson){
-  const book=window.TEXTBOOK_PDFS?.books?.[state.browsingProgrammeId||state.programmeId],pdf=book?.lessons?.[Number(lesson)];
+  const book=window.TEXTBOOK_PDFS?.books?.[state.browsingProgrammeId||state.programmeId],key=String(lesson).startsWith('unit-')?String(lesson):Number(lesson),pdf=book?.lessons?.[key];
   return pdf?{...pdf,label:book.label}:null;
 }
 function parsePrintedPageRange(value){
@@ -1414,12 +1468,12 @@ function initTextbookPdfLinks(){
   dialog.onclick=event=>{if(event.target===dialog)closeTextbookPdfFallback();};
   document.querySelectorAll('[data-textbook-pages]').forEach(button=>button.onclick=event=>{
     event.preventDefault();event.stopPropagation();
-    openTextbookPdfInNewTab(Number(button.dataset.textbookLesson),button.dataset.textbookLabel,button.dataset.textbookPages);
+    openTextbookPdfInNewTab(button.dataset.textbookPdfKey||Number(button.dataset.textbookLesson),button.dataset.textbookLabel,button.dataset.textbookPages);
   });
 }
 
 function initLessonAudio(n){
-  const lessonAudio=AUDIO_LIBRARY.lessons?.[n], player=$('#lessonAudioPlayer');
+  const audioLibrary=currentAudioLibrary(),lessonAudio=audioLibrary.lessons?.[n], player=$('#lessonAudioPlayer');
   if(!lessonAudio||!player) return;
   const tracks=lessonAudio.tracks||[];
   const buttons=[...document.querySelectorAll('.audio-track')];
@@ -1440,7 +1494,7 @@ function initLessonAudio(n){
     const track=tracks[index]; if(!track) return;
     if(autoplay) document.querySelectorAll('.guide-inline-player').forEach(other=>other.pause());
     currentIndex=index; updateSelection();
-    const categoryDef=(AUDIO_LIBRARY.categories||[]).find(x=>x.key===track.category);
+    const categoryDef=(audioLibrary.categories||[]).find(x=>x.key===track.category);
     category.textContent=`${categoryDef?.label||''} · ${categoryDef?.english||''}`;
     title.textContent=track.title;
     file.textContent=track.filename;
@@ -1523,14 +1577,14 @@ if(!window.__guideNoteLifecycleBound){
 }
 
 function initGuideAudio(n){
-  const lessonAudio=AUDIO_LIBRARY.lessons?.[n];
+  const audioLibrary=currentAudioLibrary(),lessonAudio=audioLibrary.lessons?.[n];
   if(!lessonAudio) return;
   const allBoxes=[...document.querySelectorAll('.guide-inline-audio')];
   document.querySelectorAll('.guide-audio-toggle').forEach(toggle=>{
     const workspace=toggle.closest('.guide-task-workspace');
-    const box=workspace?.querySelector('.guide-inline-audio');
-    if(!box) return;
     const category=toggle.dataset.guideAudio;
+    const box=[...(workspace?.querySelectorAll('.guide-inline-audio')||[])].find(item=>item.dataset.guideAudioBox===category);
+    if(!box) return;
     const taskId=toggle.dataset.guideTaskId;
     const tracks=lessonAudio.groups?.[category]||[];
     const player=box.querySelector('.guide-inline-player');
@@ -1557,7 +1611,7 @@ function initGuideAudio(n){
       if(autoplay) document.querySelector('#lessonAudioPlayer')?.pause();
       currentIndex=index; updateControls();
       now.innerHTML=`<strong>${esc(track.title)}</strong><small>${esc(track.filename)}</small>`;
-      status.textContent='Preparing private audio…';
+      status.textContent=audioLibrary.bucket?'Preparing private audio…':'Preparing official publisher audio…';
       const sameSavedTrack=state.lessonMedia?.taskId===taskId&&state.lessonMedia.selectedTrack===track.path;
       state.lessonMedia={...emptyLessonMediaState(),...state.lessonMedia,taskId,lesson:n,mediaType:'audio',category,open:true,selectedTrack:track.path,currentTime:sameSavedTrack?Number(state.lessonMedia.currentTime||0):Number(audioPlaybackState.positions?.[track.path]||0),wasPlaying:false};
       saveLessonMediaState();
@@ -1574,7 +1628,7 @@ function initGuideAudio(n){
           status.textContent=saved>0?`Resumed at ${Math.floor(saved/60)}:${String(Math.floor(saved%60)).padStart(2,'0')}.`:'Ready to play.';
           if(autoplay) player.play().catch(()=>{});
         };
-        player.onerror=()=>{status.textContent='Audio file unavailable. Check the expected Supabase object path.';};
+        player.onerror=()=>{status.textContent=audioLibrary.bucket?'Audio file unavailable. Check the expected Supabase object path.':'Official publisher audio is currently unavailable.';};
       }catch(error){
         status.textContent=error?.message||'Unable to open this audio track.';
       }
@@ -1699,9 +1753,9 @@ function taskStudyChecklist(l,t){
 
 function guideAudioMarkup(l,step){
   if(!step.audio) return '';
-  const tracks=AUDIO_LIBRARY.lessons?.[l.n]?.groups?.[step.audio]||[];
+  const audioLibrary=typeof currentAudioLibrary==='function'?currentAudioLibrary():AUDIO_LIBRARY,tracks=audioLibrary.lessons?.[l.n]?.groups?.[step.audio]||[];
   if(!tracks.length) return '<p class="guide-resource-note">No mapped audio tracks are available for this task.</p>';
-  const category=(AUDIO_LIBRARY.categories||[]).find(item=>item.key===step.audio)||{};
+  const category=(audioLibrary.categories||[]).find(item=>item.key===step.audio)||{};
   const audioGuide=step.audioGuide||category.guide;
   const taskId=step.taskId||step.id;
   const isOpen=state.lessonMedia?.open&&Number(state.lessonMedia.lesson)===Number(l.n)&&state.lessonMedia.taskId===taskId&&state.lessonMedia.category===step.audio;
@@ -1711,7 +1765,7 @@ function guideAudioMarkup(l,step){
       <div class="guide-inline-audio-head"><div><span>${esc(category.label||'')}</span><strong>${esc(category.english||step.audio)} · ${tracks.length} ${tracks.length===1?'track':'tracks'}</strong></div><button type="button" class="guide-audio-close" aria-label="Close inline audio">×</button></div>
       ${audioGuide?`<p>${esc(audioGuide)}</p>`:''}
       <label class="guide-audio-select-label">Track <select class="guide-audio-select">${tracks.map((track,index)=>`<option value="${index}">${esc(track.badge||String(index+1).padStart(2,'0'))} · ${esc(track.title)}</option>`).join('')}</select></label>
-      <div class="guide-audio-now"><strong>Choose a track</strong><small>Private Lesson ${l.n} audio</small></div>
+      <div class="guide-audio-now"><strong>Choose a track</strong><small>${audioLibrary.bucket?'Private':'Official publisher'} Lesson ${l.n} audio</small></div>
       <audio class="guide-inline-player" controls preload="metadata"></audio>
       <div class="guide-inline-controls"><button type="button" data-audio-command="previous">← Previous</button><button type="button" data-audio-command="back">−10s</button><button type="button" data-audio-command="forward">+10s</button><button type="button" data-audio-command="next">Next →</button><label>Speed <select class="guide-audio-speed"><option value="0.75">0.75×</option><option value="1">1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label></div>
       <div class="guide-audio-status">Ready to load inside this task.</div>
@@ -1719,7 +1773,7 @@ function guideAudioMarkup(l,step){
   </div>`;
 }
 
-function lessonGuideSteps(l){
+function beginningLessonGuideSteps(l){
   const tasks=lessonTasks(l), task=key=>tasks.find(t=>t.key===key), steps=[];
   const addTask=(key,instruction,audio=null)=>{
     const t=task(key); if(!t) return;
@@ -1804,6 +1858,47 @@ function lessonGuideSteps(l){
   });
 }
 
+function intermediateLessonGuideSteps(l){
+  const tasks=lessonTasks(l),byKey=key=>tasks.find(task=>task.key===key);
+  const resourceFor=step=>{
+    const context=(step.label||'').toLowerCase();
+    return (l.resources?.links||[]).filter(link=>{
+      const mapped=String(link.context||'').toLowerCase();
+      if(step.key==='before')return mapped.includes('before starting');
+      if(step.key.startsWith('reading1'))return mapped.includes('reading 1');
+      if(step.key.startsWith('reading2'))return mapped.includes('reading 2');
+      if(step.key.startsWith('dialogue')||step.key==='conversation')return mapped.includes('dialogue');
+      if(step.key==='consolidation')return mapped.includes('plus activity');
+      return false;
+    });
+  };
+  return (l.sections||[]).map(section=>{
+    const task=byKey(section.taskKey),vocabularyAudio=section.key==='before'?'vocabulary_before':section.key.startsWith('reading1')?'vocabulary_reading1':section.key.startsWith('reading2')?'vocabulary_reading2':section.key.startsWith('dialogue')||section.key==='conversation'?'vocabulary_dialogue':section.key==='consolidation'?'vocabulary_other':null;
+    const step={id:task.id,taskId:task.id,title:section.label,resource:'Textbook',page:`p.${task.page}`,instruction:section.desc||task.desc,audio:section.audio,vocabularyAudio,checklist:taskStudyChecklist(l,task),externalResources:resourceFor(section),publisherNotes:(l.resources?.notes||[]).filter(note=>note.section===section.key).map(note=>note.text)};
+    if(section.key==='before'){
+      step.videos=[{title:`Lesson ${l.n} publisher video`,youtube_url:`https://www.youtube.com/watch?v=${l.resources.video}`}];
+      step.externalResources=[...(step.externalResources||[]),{title:'Video worksheet',url:l.resources.videoWorksheet},{title:'Publisher lesson page',url:l.resources.protected}].filter(item=>item.url);
+    }
+    if(section.key==='grammar'){
+      step.support=(l.textbook.grammar||[]).map(item=>({id:`ti-l${l.n}-grammar-${item.number}`,title:`Grammar ${item.number}: ${item.heading}`,resource:`Textbook · p.${task.page}`,instruction:item.gloss,canonicalLabel:item.heading,checklist:['Read the publisher explanation and examples.','Find or open the matching canonical Grammar Library guide.','Produce one original example in the lesson context.']}));
+    }
+    if(section.key==='consolidation'){
+      if(currentAudioLibrary().lessons?.[l.n]?.groups?.presentation?.length)step.audio='presentation';
+      step.externalResources=[...(step.externalResources||[]),{title:'Lesson worksheet',url:l.resources.worksheet},{title:'PLUS Activity',url:l.resources.plus}].filter(item=>item.url);
+    }
+    if(section.key==='unit_project'){
+      const unit=Number(task.id.split('-').at(-1)),project=(window.INTERMEDIATE_CURRICULUM.projects||[]).find(item=>item.unit===unit);
+      step.pdfKey=`unit-${unit}`;
+      step.externalResources=project?.worksheet?[{title:'Project worksheet',url:project.worksheet}]:[];
+    }
+    return step;
+  });
+}
+
+function lessonGuideSteps(l){
+  return l?.programmeId==='tobira-intermediate-future'?intermediateLessonGuideSteps(l):beginningLessonGuideSteps(l);
+}
+
 function flattenGuideSteps(steps){ return steps.flatMap(step=>[step,...flattenGuideSteps(step.support||[])]); }
 
 function guideSectionProgress(step){
@@ -1842,14 +1937,17 @@ function guideTaskWorkspaceMarkup(l,step,index,steps,isCurrent,nextId){
   const hasOpenVideo=Number(state.lessonVideo?.lesson)===Number(l.n)&&state.lessonVideo?.area===`task:${step.id}`&&Boolean(state.lessonVideo?.videoId);
   const details=step.details?.length?`<div class="guide-workspace-section"><strong>Lesson outcomes</strong><ul>${step.details.map(item=>`<li>${esc(item)}</li>`).join('')}</ul></div>`:'';
   const checklist=step.checklist?.length?`<div class="guide-workspace-section"><strong>Do this</strong><ol>${step.checklist.map(item=>`<li>${esc(item)}</li>`).join('')}</ol></div>`:'';
-  const textbookReference=step.resource==='Textbook'&&step.page?`<div class="guide-workspace-section guide-textbook-reference"><strong>Textbook reference</strong><button type="button" class="resource-action textbook-pages-button" data-textbook-lesson="${l.n}" data-textbook-label="${esc(step.title)}" data-textbook-pages="${esc(step.page)}"><span class="resource-action-icon" aria-hidden="true">▤</span>Open textbook</button></div>`:'';
+  const textbookReference=step.resource==='Textbook'&&step.page?`<div class="guide-workspace-section guide-textbook-reference"><strong>Textbook reference</strong><button type="button" class="resource-action textbook-pages-button" data-textbook-lesson="${l.n}" ${step.pdfKey?`data-textbook-pdf-key="${esc(step.pdfKey)}"`:''} data-textbook-label="${esc(step.title)}" data-textbook-pages="${esc(step.page)}"><span class="resource-action-icon" aria-hidden="true">▤</span>Open textbook</button></div>`:'';
   const videos=step.videos?.length?`<div class="guide-workspace-section"><strong>Publisher video${step.videos.length===1?'':'s'}</strong><div class="guide-actions guide-video-list">${guideVideoLinks(step.videos,l.n,`task:${step.id}`)}</div></div>`:'';
+  const externalResources=step.externalResources?.length?`<div class="guide-workspace-section guide-external-resources"><strong>Official and contextual resources</strong><div class="guide-actions">${step.externalResources.map(item=>`<a class="secondary-action" href="${esc(item.url)}" target="_blank" rel="noopener noreferrer">${esc(item.title)} ↗</a>`).join('')}</div></div>`:'';
+  const grammarLibrary=step.canonicalLabel?`<div class="guide-workspace-section"><strong>Canonical grammar</strong><button type="button" class="secondary-action" data-guide-grammar="${esc(step.canonicalLabel)}">Open ${esc(step.canonicalLabel)} in Grammar Library →</button></div>`:'';
+  const publisherNotes=step.publisherNotes?.length?`<div class="guide-workspace-section guide-publisher-notes"><strong>Publisher context</strong>${step.publisherNotes.map(note=>`<p>${esc(note)}</p>`).join('')}</div>`:'';
   const previous=steps[index-1], next=steps[index+1];
   return `<details class="guide-task-workspace" data-guide-workspace="${esc(step.id)}" ${isCurrent||(!status.completed&&(hasOpenMedia||hasOpenVideo))?'open':''}>
     <summary><span>${isCurrent?'Current task':section.complete?'Completed':section.done?'In progress':'Upcoming'}</span><strong>Instructions · resources · notes</strong><b>Open</b></summary>
     <div class="guide-workspace-body">
       <div class="guide-lesson-context"><strong>Lesson ${l.n} · ${esc(l.english)}</strong>${goal?`<span>Can-do connection: ${esc(goal)}</span>`:''}</div>
-      ${details}${checklist}${textbookReference}${videos}${guideAudioMarkup(l,step)}
+      ${details}${checklist}${textbookReference}${videos}${externalResources}${publisherNotes}${grammarLibrary}${guideAudioMarkup(l,step)}${step.vocabularyAudio?guideAudioMarkup(l,{...step,audio:step.vocabularyAudio}):''}
       ${step.grammarLabel?window.JLHNinjal?.panelMarkup(step.grammarLabel)||'':''}
       <div class="guide-workspace-section guide-task-record"><strong>Task record</strong>
         <label>Notes<textarea class="guide-task-notes" data-guide-notes="${esc(step.id)}" placeholder="Errors, useful examples, or what needs another pass…">${esc(status.notes||'')}</textarea></label>
@@ -1897,8 +1995,8 @@ function focusGuideTarget(){
   requestAnimationFrame(()=>scrollToGuideActivity(target));
 }
 
-function openGuidedLesson(lesson,taskId=null){
-  state.browsingProgrammeId=null;
+function openGuidedLesson(lesson,taskId=null,programmeId=null){
+  state.browsingProgrammeId=programmeId;
   if(window.JLHRouter){window.JLHRouter.navigate(window.JLHRouter.lessonURL(lesson,taskId));return;}
   state.lesson=Number(lesson); state.view='lesson'; state.guideTarget=taskId; state.activeGuideTaskId=taskId; render();
 }
@@ -1908,29 +2006,33 @@ function renderLesson(n){
   if(!state.programmeLifecycleLoaded){programmeEmptyState('Loading your study programme','Your active programme is being restored from your account.');return;}
   if(!activeProgramme()&&!historicalProgramme){programmeEmptyState('Choose your next programme','Lessons need an active mapped programme. Completed programmes remain available from Hub.');return;}
   const l=lessonByNumber(n); if(!l)return;
+  const curriculum=currentCurriculum(),lessonIndex=curriculum.lessons.findIndex(item=>item.n===l.n);
   $('#hero').hidden=true; $('#bottomArea').hidden=true; $('#weekView').hidden=true; $('#mainContent').hidden=false;
-  const tasks=lessonTasks(l), w=n-11, p=lessonProgress(n), pct=p.total?p.done/p.total*100:0;
-  const reference=lessonReferenceStateFor(n), referenceSections=[['overview','Overview'],['videos','Videos'],['audio','Audio'],['textbook','Textbook'],['workbooks','Workbooks']];
+  const tasks=lessonTasks(l), w=curriculum.lessonWeek?.[n]??lessonIndex, p=lessonProgress(n), pct=p.total?p.done/p.total*100:0;
+  const contextualAudio=l.programmeId==='tobira-intermediate-future';
+  const hasWorkbooks=(l.workbookMap?.workbook1?.length||0)+(l.workbookMap?.workbook2?.length||0)>0;
+  const reference=lessonReferenceStateFor(n), referenceSections=[['overview','Overview'],['videos','Videos'],...(!contextualAudio?[['audio','Audio']]:[]),['textbook','Textbook'],...(hasWorkbooks?[['workbooks','Workbooks']]:[])];
   const referenceTab=referenceSections.some(([key])=>key===reference.activeSection)?reference.activeSection:'overview';
   const tb=tasks.filter(t=>t.book==='Textbook'), wb2=tasks.filter(t=>t.book==='Workbook 2'), wb1=tasks.filter(t=>t.book==='Workbook 1');
-  const grammar=l.textbook.grammar.map((x,i)=>`<li><strong>${i+1}.</strong> ${esc(x)}</li>`).join('');
+  const grammar=l.textbook.grammar.map((x,i)=>`<li><strong>${x.number||i+1}.</strong> <button type="button" class="repo-link inline-grammar-link" data-guide-grammar="${esc(x.heading||x)}">${esc(x.heading||x)}</button>${x.gloss?`<span class="grammar-gloss">${esc(x.gloss)}</span>`:''}</li>`).join('');
   const cando=l.textbook.cando.map(x=>`<li>${esc(x)}</li>`).join('');
   const textbookSections=(l.sections||[]).map(sec=>{
     const t=tasks.find(x=>x.key===sec.taskKey);
     const st=t?ts(t.id):{};
     const items=sec.items?.length?`<div class="section-items"><span>Includes</span><ul>${sec.items.map(x=>`<li>${esc(x.label)}</li>`).join('')}</ul></div>`:'';
     const steps=sec.steps?.length?`<div class="section-steps"><span>Study sequence</span><ol>${sec.steps.map(x=>`<li>${esc(x)}</li>`).join('')}</ol></div>`:'';
-    return `<div class="book-section ${t&&st.completed?'done':''}" data-task="${esc(t?.id||'')}"><div class="book-section-main"><span class="book-section-label">${esc(sec.label)}</span>${items}${steps}</div><div class="book-section-actions"><button type="button" class="resource-action textbook-pages-button" data-textbook-lesson="${l.n}" data-textbook-label="${esc(sec.label)}" data-textbook-pages="${esc(sec.pages||'')}"><span class="resource-action-icon" aria-hidden="true">▤</span>View pp.${esc(sec.pages||'—')}</button><span class="book-section-status">${t&&st.completed?'✓ Complete':'Open task'}</span></div></div>`;
+    const projectUnit=sec.key==='unit_project'?Number(String(sec.id).split('-').at(-1)):null;
+    return `<div class="book-section ${t&&st.completed?'done':''}" data-task="${esc(t?.id||'')}"><div class="book-section-main"><span class="book-section-label">${esc(sec.label)}</span>${items}${steps}</div><div class="book-section-actions"><button type="button" class="resource-action textbook-pages-button" data-textbook-lesson="${l.n}" ${projectUnit?`data-textbook-pdf-key="unit-${projectUnit}"`:''} data-textbook-label="${esc(sec.label)}" data-textbook-pages="${esc(sec.pages||'')}"><span class="resource-action-icon" aria-hidden="true">▤</span>View pp.${esc(sec.pages||'—')}</button><span class="book-section-status">${t&&st.completed?'✓ Complete':'Open task'}</span></div></div>`;
   }).join('');
   const wb2Rows=(l.workbookMap?.workbook2||[]).map(x=>{const t=tasks.find(y=>y.key===x.taskKey), st=t?ts(t.id):{};return `<button class="book-section compact ${st.completed?'done':''}" data-task="${esc(t?.id||'')}"><div class="book-section-main"><span class="book-section-label">${esc(x.label)}</span><strong>p.${esc(x.page)}</strong></div><span class="book-section-status">${st.completed?'✓':'Open'}</span></button>`}).join('');
   const wb1Rows=(l.workbookMap?.workbook1||[]).map(x=>{const t=tasks.find(y=>y.key===x.taskKey), st=t?ts(t.id):{};return `<button class="book-section compact ${st.completed?'done':''}" data-task="${esc(t?.id||'')}"><div class="book-section-main"><span class="book-section-label">${esc(x.label)}</span><strong>p.${esc(x.page)}</strong></div><span class="book-section-status">${st.completed?'✓':'Open'}</span></button>`}).join('');
   $('#mainContent').innerHTML=`
-    <div class="lesson-toolbar"><button class="smallbtn" id="backDashboard">← ${historicalProgramme?'Hub':'Dashboard'}</button>${historicalProgramme?'':`<button class="smallbtn" id="backPlan">Week ${w+1} plan</button>`}<div class="lesson-select"><button class="smallbtn" id="prevLesson" ${n===11?'disabled':''}>← L${n-1}</button><button class="smallbtn" id="nextLesson" ${n===20?'disabled':''}>L${n+1} →</button></div></div>
+    <div class="lesson-toolbar"><button class="smallbtn" id="backDashboard">← ${historicalProgramme?'Hub':'Dashboard'}</button>${historicalProgramme?'':`<button class="smallbtn" id="backPlan">Week ${w+1} plan</button>`}<div class="lesson-select"><button class="smallbtn" id="prevLesson" ${lessonIndex<=0?'disabled':''}>← ${lessonIndex>0?`L${curriculum.lessons[lessonIndex-1].n}`:'Previous'}</button><button class="smallbtn" id="nextLesson" ${lessonIndex>=curriculum.lessons.length-1?'disabled':''}>${lessonIndex<curriculum.lessons.length-1?`L${curriculum.lessons[lessonIndex+1].n}`:'Next'} →</button></div></div>
     ${historicalProgramme?`<div class="programme-history-banner"><strong>Completed programme</strong><span>You are viewing preserved lesson progress and notes from ${esc(historicalProgramme.title)}.</span></div>`:''}
-    <section class="lessonhero app-page-header"><div class="lessonhero-copy"><div class="eyebrow">${esc(CURRICULUM.book)} · Lesson ${l.n}</div><h1>${esc(l.title)}</h1><p>${esc(l.english)}</p></div><div class="lessonhero-progress"><div class="lessonhero-grid app-compact-stats"><div><strong>${p.done}/${p.total}</strong><span>mapped tasks</span></div><div><strong>${Math.round(pct)}%</strong><span>lesson progress</span></div></div><div class="progress" aria-label="${Math.round(pct)}% lesson progress"><i style="width:${pct}%"></i></div></div></section>
+    <section class="lessonhero app-page-header"><div class="lessonhero-copy"><div class="eyebrow">${esc(curriculum.book)} · Lesson ${l.n}</div><h1>${esc(l.title)}</h1><p>${esc(l.english)}</p></div><div class="lessonhero-progress"><div class="lessonhero-grid app-compact-stats"><div><strong>${p.done}/${p.total}</strong><span>mapped tasks</span></div><div><strong>${Math.round(pct)}%</strong><span>lesson progress</span></div></div><div class="progress" aria-label="${Math.round(pct)}% lesson progress"><i style="width:${pct}%"></i></div></div></section>
     ${lessonGuideMarkup(l)}
     <details class="lesson-reference" id="lessonReference" ${reference.open?'open':''}>
-      <summary><span><strong>Lesson reference</strong><small>Can-do goals · all videos · textbook map · audio player · workbook maps</small></span><b>Open reference</b></summary>
+      <summary><span><strong>Lesson reference</strong><small>Can-do goals · videos · textbook map${contextualAudio?' · audio stays inside its study task':' · audio player · workbook maps'}</small></span><b>Open reference</b></summary>
       <div class="lesson-reference-body">
         <nav class="lesson-reference-tabs" role="tablist" aria-label="Lesson reference sections">
           ${referenceSections.map(([key,label])=>`<button type="button" role="tab" id="lesson-reference-tab-${key}" aria-controls="lesson-reference-panel-${key}" aria-selected="${referenceTab===key?'true':'false'}" class="${referenceTab===key?'active':''}" data-lesson-reference-tab="${key}">${label}</button>`).join('')}
@@ -1957,8 +2059,8 @@ function renderLesson(n){
     `;
   $('#backDashboard').onclick=()=>{state.view=historicalProgramme?'library':'dashboard';render();};
   if($('#backPlan'))$('#backPlan').onclick=()=>{state.week=w;state.view='plan';render();};
-  $('#prevLesson').onclick=()=>{if(n>11){state.lesson=n-1;render();}};
-  $('#nextLesson').onclick=()=>{if(n<20){state.lesson=n+1;render();}};
+  $('#prevLesson').onclick=()=>{if(lessonIndex>0){state.lesson=curriculum.lessons[lessonIndex-1].n;render();}};
+  $('#nextLesson').onclick=()=>{if(lessonIndex<curriculum.lessons.length-1){state.lesson=curriculum.lessons[lessonIndex+1].n;render();}};
   $('#mainContent').querySelectorAll('[data-guide-check]').forEach(input=>input.onchange=()=>{
     const taskId=input.dataset.guideCheck, nextId=nextGuideActivityId(l,taskId,input.checked);
     flushGuideTaskRecord(taskId);
@@ -1973,6 +2075,7 @@ function renderLesson(n){
   initLessonAudio(n);
   initLessonVideoEmbeds();
   initTextbookPdfLinks();
+  $('#mainContent').querySelectorAll('[data-guide-grammar]').forEach(button=>button.onclick=()=>{state.view='repository';render();requestAnimationFrame(()=>window.JLHOpenGrammarLibraryFor?.(button.dataset.guideGrammar));});
   const lessonReference=$('#lessonReference');
   const showReferenceSection=section=>{
     lessonReference.querySelectorAll('[data-lesson-reference-tab]').forEach(button=>{const active=button.dataset.lessonReferenceTab===section;button.classList.toggle('active',active);button.setAttribute('aria-selected',String(active));});
@@ -2039,7 +2142,8 @@ function openTask(id){
   if(!t){ toast('This study task is no longer in the active programme. Refresh the page.'); return; }
   const s=ts(id);
   $('#modalTitle').textContent=t.title;
-  $('#modalSub').textContent=`${t.lesson?`${esc(CURRICULUM.book)} · Lesson ${t.lesson}`:'Daily habit'} · ${t.book}${t.page?` · p.${t.page}`:''}`;
+  const taskProgramme=programmeById(t.programmeId),taskCurriculum=programmeCurriculum(taskProgramme)||currentCurriculum();
+  $('#modalSub').textContent=`${t.lesson?`${esc(taskCurriculum.book)} · Lesson ${t.lesson}`:'Daily habit'} · ${t.book}${t.page?` · p.${t.page}`:''}`;
   const pageLink=t.page?`<div class="book-reference"><span>BOOK REFERENCE</span><strong>${esc(t.book)} · ${t.page.includes?.('–')?'pages':'page'} ${esc(t.page)}</strong>${t.section?`<small>Lesson section: ${esc(t.section)}${t.sectionPages?` · pp.${esc(t.sectionPages)}`:''}</small>`:''}<small>Use this exact location in your physical book/workbook.</small></div>`:'';
   const lessonLink=t.lesson?`<button type="button" class="smallbtn" id="openRelatedLesson">Open Lesson ${t.lesson} workspace</button>`:'';
   const secs=taskSeconds(id);

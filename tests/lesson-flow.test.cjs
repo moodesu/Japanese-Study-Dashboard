@@ -14,7 +14,7 @@ vm.runInContext(fs.readFileSync(path.join(root, 'audio-map.js'), 'utf8'), contex
 context.AUDIO_LIBRARY=context.LESSON_AUDIO;
 vm.runInContext(fs.readFileSync(path.join(root, 'ninjal.js'), 'utf8'), context);
 // Exercise the real pure planning/rendering functions without booting auth.
-for (const name of ['defFor','pageFor','makeTask','lessonTasks','weeklyTasks','ts','taskStudyChecklist','lessonGuideSteps','flattenGuideSteps','guideSectionProgress','nextGuideActivityId','guideAudioMarkup','taskGoalFor','guideTaskWorkspaceMarkup','guideStepMarkup','lessonGuideMarkup','scrollToGuideActivity','emptyLessonReferenceState','lessonReferenceStateFor']) {
+for (const name of ['defFor','pageFor','makeTask','lessonTasks','weeklyTasks','ts','taskStudyChecklist','beginningLessonGuideSteps','intermediateLessonGuideSteps','lessonGuideSteps','flattenGuideSteps','guideSectionProgress','nextGuideActivityId','guideAudioMarkup','taskGoalFor','guideTaskWorkspaceMarkup','guideStepMarkup','lessonGuideMarkup','scrollToGuideActivity','emptyLessonReferenceState','lessonReferenceStateFor']) {
   const start=source.indexOf(`function ${name}(`);
   assert.ok(start>=0, `Missing ${name}`);
   const end=source.indexOf('\nfunction ',start+1);

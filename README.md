@@ -15,6 +15,11 @@ Pomodoro sessions, Repository or Grammar data. Completing or switching a
 programme preserves its task history. Only programmes with a complete
 curriculum and schedule mapping can be activated.
 
+TOBIRA Intermediate Japanese I is included as a fully mapped, planned 12-week
+programme covering Lessons 1–8, all three unit projects, official media and the
+private split-PDF map. It becomes active only through the Hub. See
+`docs/intermediate-i-programme.md` for the programme and storage conventions.
+
 ## Japanese Repository (v1.1)
 
 The **文** navigation button opens the sentence-first personal repository. It

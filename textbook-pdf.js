@@ -24,6 +24,22 @@
           19:{path:'lesson-19.pdf',startPage:317,endPage:352},
           20:{path:'lesson-20.pdf',startPage:353,endPage:388}
         }
+      },
+      'tobira-intermediate-future':{
+        label:'TOBIRA Intermediate Japanese I',
+        lessons:{
+          1:{path:'lesson-01.pdf',startPage:23,endPage:44},
+          2:{path:'lesson-02.pdf',startPage:45,endPage:66},
+          3:{path:'lesson-03.pdf',startPage:67,endPage:86},
+          4:{path:'lesson-04.pdf',startPage:89,endPage:108},
+          5:{path:'lesson-05.pdf',startPage:109,endPage:132},
+          6:{path:'lesson-06.pdf',startPage:133,endPage:154},
+          7:{path:'lesson-07.pdf',startPage:157,endPage:180},
+          8:{path:'lesson-08.pdf',startPage:181,endPage:206},
+          'unit-1':{path:'unit-01-project.pdf',startPage:87,endPage:88},
+          'unit-2':{path:'unit-02-project.pdf',startPage:155,endPage:156},
+          'unit-3':{path:'unit-03-project.pdf',startPage:207,endPage:208}
+        }
       }
     }
   };
