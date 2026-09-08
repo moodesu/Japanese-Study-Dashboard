@@ -1715,6 +1715,48 @@ summary:focus-visible {
   }
 }
 
+/* Independent supplementary grammar practice */
+.supplementary-resource-card .resource-action { align-self:flex-start;margin-top:auto; }
+.supplementary-page { max-width:980px;margin:0 auto; }
+.supplementary-header { margin-top:12px; }
+.supplementary-header small { color:var(--muted); }
+.supplementary-controls { display:flex;align-items:end;justify-content:space-between;gap:14px;margin:12px 0;padding:14px; }
+.supplementary-controls label { flex:1;min-width:0;display:grid;gap:5px; }
+.supplementary-controls label>span { color:var(--muted);font-size:.78rem;font-weight:750; }
+.supplementary-controls input { width:100%;min-width:0;box-sizing:border-box; }
+.supplementary-filters { display:flex;gap:6px;flex-wrap:wrap; }
+.supplementary-unit-list { display:grid;gap:8px; }
+.supplementary-unit { min-width:0;display:flex;align-items:center;justify-content:space-between;gap:18px;padding:14px 16px;border:1px solid var(--line);border-radius:var(--radius-card);background:var(--surface); }
+.supplementary-unit>div:first-child { min-width:0; }
+.supplementary-unit span,.supplementary-unit small { display:block;color:var(--muted);font-size:.78rem; }
+.supplementary-unit h2 { margin:3px 0;font-size:1rem;overflow-wrap:break-word;word-break:normal; }
+.supplementary-unit-actions { flex:none;display:flex;align-items:center;gap:7px;flex-wrap:wrap;justify-content:flex-end; }
+.supplementary-empty { margin-top:12px; }
+.supplementary-grammar-practice { margin:13px 0 2px;padding:16px; }
+.supplementary-grammar-practice>h2 { margin:2px 0 10px; }
+.supplementary-practice-group>h3 { margin:10px 0 6px;font-size:.86rem; }
+.supplementary-practice-row { min-width:0;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 0;border-top:1px solid var(--line); }
+.supplementary-practice-row>div { min-width:0;display:grid;gap:2px; }
+.supplementary-practice-row span,.supplementary-practice-row small { color:var(--muted);font-size:.78rem;line-height:1.4; }
+.repo-used-in-books { margin:13px 0 2px;padding:16px; }
+.repo-used-in-books>h2 { margin:2px 0 8px; }
+.repo-used-in-books .repo-link { width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:left; }
+.repo-used-in-books .repo-link span { color:var(--muted);font-size:.8rem; }
+.guide-supplementary-practice .guide-actions { align-items:flex-start; }
+
+html[data-theme="dark"] :is(.supplementary-unit,.supplementary-controls,.supplementary-grammar-practice,.repo-used-in-books) { background:var(--surface);border-color:var(--line); }
+
+@media(max-width:760px) {
+  .supplementary-controls { align-items:stretch;flex-direction:column;padding:12px; }
+  .supplementary-controls input { font-size:16px; }
+  .supplementary-filters { display:grid;grid-template-columns:1fr; }
+  .supplementary-unit,.supplementary-practice-row { align-items:stretch;flex-direction:column;gap:10px;padding:13px; }
+  .supplementary-unit-actions { width:100%;justify-content:stretch; }
+  .supplementary-unit-actions>* ,.supplementary-practice-row>.resource-action { width:100%;justify-content:center; }
+  .supplementary-grammar-practice,.repo-used-in-books { padding:13px; }
+  .repo-used-in-books .repo-link { align-items:flex-start;flex-direction:column;gap:2px; }
+}
+
 /* Programme lifecycle: the Hub owns active/planned/completed study paths. */
 .programme-lifecycle-section { margin-top:18px; }
 .programme-card-actions { display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:13px; }

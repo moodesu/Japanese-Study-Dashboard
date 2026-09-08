@@ -74,10 +74,47 @@ const db={};
   const app=read('app.js'),repository=read('repository.js'),router=read('router.js'),html=read('index.html'),styles=read('styles.css');
   assert.match(app,/JLHSupplementary\?\.hubCardMarkup/);
   assert.match(app,/JLHSupplementary\?\.lessonMarkup/);
+  assert.match(app,/supplementary\.load\(db,state\.user\)\.then\(\(\)=>\{/,'The Hub starts or joins supplementary loading');
+  assert.match(app,/if\(state\.view==='library'&&!state\.libraryItem\)renderLibrary\(\)/,'A completed load rerenders only the visible Hub');
+  assert.match(app,/if\(state\.view==='library'\)state\.libraryItem=null/,'Hub navigation returns to the root library where supplementary resources are rendered');
   assert.match(app,/db\.storage\.from\(bucket\)\.createSignedUrl\(config\.path,3600\)/,'Supplementary PDFs reuse the existing private signer');
   assert.match(repository,/JLHSupplementary\?\.grammarMarkup/);
   assert.match(router,/parts\[0\]==='resources'/);
   assert.ok(html.indexOf('grammar-occurrences.js')<html.indexOf('repository.js'));
+  assert.ok(html.indexOf('supplementary.js')<html.indexOf('app.js'),'The supplementary module loads before the Hub renderer');
   assert.match(styles,/\.supplementary-controls input \{ font-size:16px; \}/);
+
+  // Hub async lifecycle: the first data-backed render has no card, callers
+  // share one in-flight request, and completion causes the existing card to
+  // appear without a page reload.
+  const asyncContext={console,Map,setTimeout,window:null};asyncContext.window=asyncContext;
+  vm.createContext(asyncContext);vm.runInContext(read('supplementary.js'),asyncContext);
+  const asyncSupplementary=asyncContext.JLHSupplementary;
+  assert.equal(asyncSupplementary.hubCardMarkup(),'');
+  let releaseResources;
+  const resourcesPromise=new Promise(resolve=>{releaseResources=resolve;});
+  const results={
+    supplementary_resources:resourcesPromise,
+    supplementary_resource_parts:Promise.resolve({data:[{id:'part'}],error:null}),
+    supplementary_units:Promise.resolve({data:Array.from({length:127},(_,index)=>({id:`u${index+1}`,resource_id:'resource',unit_number:index+1})),error:null}),
+    grammar_supplementary_links:Promise.resolve({data:[],error:null})
+  };
+  const asyncDb={from(table){const query={select(){return query;},eq(){return query;},order(){return query;},then(resolve,reject){return results[table].then(resolve,reject);}};return query;}};
+  const firstLoad=asyncSupplementary.load(asyncDb,{id:'owner'}),secondLoad=asyncSupplementary.load(asyncDb,{id:'owner'});
+  assert.equal(firstLoad,secondLoad,'Hub and Repository join the same in-flight supplementary request');
+  let rerenders=0,rendered='';
+  firstLoad.then(()=>{rerenders++;rendered=asyncSupplementary.hubCardMarkup();});
+  releaseResources({data:[{id:'resource',user_id:'owner',slug:'multimedia-basic-grammar',title:'マルチメディア日本語基本文法ワークブック',english_title:'Multimedia Exercises for Basic Japanese Grammar'}],error:null});
+  await firstLoad;await Promise.resolve();
+  assert.equal(rerenders,1);
+  assert.match(rendered,/マルチメディア日本語基本文法ワークブック/);
+  assert.match(rendered,/Multimedia Exercises for Basic Japanese Grammar/);
+  assert.match(rendered,/127 standalone grammar practice units/);
+  assert.match(rendered,/Browse exercises/);
+  const programmeIndependent=rendered;
+  for(const activeProgramme of ['tobira-beginning-ii-12w','tobira-intermediate-future',null]){
+    asyncContext.activeProgramme=activeProgramme;
+    assert.equal(asyncSupplementary.hubCardMarkup(),programmeIndependent,`Card is independent of programme state: ${activeProgramme}`);
+  }
   console.log('PASS: 127 supplementary units, canonical reuse, private split-PDF pages, RLS declarations and independent UI routes.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

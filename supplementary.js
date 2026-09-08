@@ -4,6 +4,7 @@
 (function(){
   const WORKBOOK_SLUG='multimedia-basic-grammar';
   const data={resources:[],parts:[],units:[],links:[],loaded:false,loading:false,error:'',query:'',filter:'all'};
+  let loadPromise=null;
 
   const html=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   const grammarKey=value=>String(value||'').normalize('NFKC').trim().replace(/^[~〜～]+/u,'').replace(/\s+/gu,'').toLowerCase();
@@ -13,24 +14,28 @@
   const enrichedUnit=unit=>unit?{...unit,resource:workbook(),part:partById(unit.resource_part_id)}:null;
   const practicesForGrammar=id=>data.links.filter(link=>link.grammar_id===id).map(link=>({link,unit:enrichedUnit(unitById(link.supplementary_unit_id))})).filter(item=>item.unit);
 
-  async function load(db,user,force=false){
-    if(!db||!user||data.loading||(data.loaded&&!force))return data;
+  function load(db,user,force=false){
+    if(!db||!user||(data.loaded&&!force))return Promise.resolve(data);
+    if(data.loading)return loadPromise||Promise.resolve(data);
     data.loading=true;data.error='';
-    try{
-      const [resources,parts,units,links]=await Promise.all([
-        db.from('supplementary_resources').select('*').eq('user_id',user.id).order('title'),
-        db.from('supplementary_resource_parts').select('*').order('sort_order'),
-        db.from('supplementary_units').select('*').order('sort_order'),
-        db.from('grammar_supplementary_links').select('*').eq('user_id',user.id)
-      ]);
-      const failed=[resources,parts,units,links].find(result=>result.error);
-      if(failed)throw failed.error;
-      data.resources=resources.data||[];data.parts=parts.data||[];data.units=units.data||[];data.links=links.data||[];data.loaded=true;
-    }catch(error){
-      data.error=error?.message||'Supplementary resources are unavailable.';
-      data.resources=[];data.parts=[];data.units=[];data.links=[];data.loaded=false;
-    }finally{data.loading=false;}
-    return data;
+    loadPromise=(async()=>{
+      try{
+        const [resources,parts,units,links]=await Promise.all([
+          db.from('supplementary_resources').select('*').eq('user_id',user.id).order('title'),
+          db.from('supplementary_resource_parts').select('*').order('sort_order'),
+          db.from('supplementary_units').select('*').order('sort_order'),
+          db.from('grammar_supplementary_links').select('*').eq('user_id',user.id)
+        ]);
+        const failed=[resources,parts,units,links].find(result=>result.error);
+        if(failed)throw failed.error;
+        data.resources=resources.data||[];data.parts=parts.data||[];data.units=units.data||[];data.links=links.data||[];data.loaded=true;
+      }catch(error){
+        data.error=error?.message||'Supplementary resources are unavailable.';
+        data.resources=[];data.parts=[];data.units=[];data.links=[];data.loaded=false;
+      }finally{data.loading=false;loadPromise=null;}
+      return data;
+    })();
+    return loadPromise;
   }
 
   function reset(){data.resources=[];data.parts=[];data.units=[];data.links=[];data.loaded=false;data.loading=false;data.error='';}
@@ -68,8 +73,10 @@
   }
 
   function hubCardMarkup(){
-    const count=workbook()?data.units.filter(unit=>unit.resource_id===workbook().id).length:127;
-    return `<article class="resource-card supplementary-resource-card"><div class="book-card-top"><span class="resource-type">Grammar workbook</span><span class="book-status available">Optional</span></div><h3 lang="ja">マルチメディア日本語基本文法ワークブック</h3><p>Multimedia Exercises for Basic Japanese Grammar</p><div class="book-meta"><span>${count} standalone grammar practice units</span><span>Private supplementary resource</span></div><button type="button" class="resource-action" data-open-supplementary="${WORKBOOK_SLUG}"><i class="fa-solid fa-book-open" aria-hidden="true"></i> Browse exercises</button></article>`;
+    const resource=workbook();
+    if(!resource)return '';
+    const count=data.units.filter(unit=>unit.resource_id===resource.id).length;
+    return `<article class="resource-card supplementary-resource-card"><div class="book-card-top"><span class="resource-type">Grammar workbook</span><span class="book-status available">Optional</span></div><h3 lang="ja">${html(resource.title)}</h3><p>${html(resource.english_title)}</p><div class="book-meta"><span>${count} standalone grammar practice units</span><span>Private supplementary resource</span></div><button type="button" class="resource-action" data-open-supplementary="${WORKBOOK_SLUG}"><i class="fa-solid fa-book-open" aria-hidden="true"></i> Browse exercises</button></article>`;
   }
 
   function reserveTab(label){

@@ -21,6 +21,7 @@ window.JLHRouter=(()=>{
     if(p==='/'||p==='/index.html')r.type='home';
     else if(p==='/plan'||/^\/plan\/week\/[0-9]+$/.test(p)){r.type='plan';r.week=parts[2]?Number(parts[2])-1:0;if(r.week<0||r.week>11)throw Error('Week not found');}
     else if(p==='/books'||p==='/hub')r.type='books';
+    else if(parts[0]==='resources'&&parts.length===2){r.type='supplementary';r.slug=parts[1];}
     else if(parts[0]==='books'&&parts.length===2){r.type='book';r.book=parts[1];}
     else if(parts[0]==='books'&&parts[2]==='lessons'&&parts.length===4&&/^\d+$/.test(parts[3])){r.type='lesson';r.book=parts[1];r.lesson=Number(parts[3]);}
     else if(p==='/wanikani')r.type='wanikani';
@@ -57,6 +58,7 @@ window.JLHRouter=(()=>{
     if(state.view==='plan')path=`/plan/week/${state.week+1}`;
     else if(state.view==='lesson')path=lessonURL(state.lesson,lessonTask?.lesson===state.lesson?lessonTask.id:null);
     else if(state.view==='library')path=state.libraryItem?'/books/'+encode(state.libraryItem):'/books';
+    else if(state.view==='supplementary')path='/resources/'+encode(window.JLHSupplementary?.slug||'multimedia-basic-grammar');
     else if(state.view==='wanikani')path='/wanikani';
     else if(state.view==='repository'){
       const r=repositoryState;
@@ -98,7 +100,7 @@ window.JLHRouter=(()=>{
   }
   function title(){
     const d=window.JLHDictionary?.routeState?.();
-    const labels={dashboard:'Home',plan:`Plan · Week ${state.week+1}`,lesson:`Lesson ${state.lesson}`,library:state.libraryItem?(window.BOOKS||[]).find(x=>x.id===state.libraryItem)?.title:'Book library',wanikani:'WaniKani',repository:repositoryState.mode==='dictionary'?(d?.title||'Dictionary'):repositoryState.mode==='grammar'?repositoryState.grammarLabel:repositoryState.mode==='grammar-library'?'Grammar Library':repositoryState.mode==='detail'?'Saved sentence':repositoryState.mode==='form'?'Edit sentence':repositoryState.mode==='import'?'Import Learning Hub JSON':'Japanese Repository'};
+    const labels={dashboard:'Home',plan:`Plan · Week ${state.week+1}`,lesson:`Lesson ${state.lesson}`,library:state.libraryItem?(window.BOOKS||[]).find(x=>x.id===state.libraryItem)?.title:'Book library',supplementary:'Basic Grammar Workbook',wanikani:'WaniKani',repository:repositoryState.mode==='dictionary'?(d?.title||'Dictionary'):repositoryState.mode==='grammar'?repositoryState.grammarLabel:repositoryState.mode==='grammar-library'?'Grammar Library':repositoryState.mode==='detail'?'Saved sentence':repositoryState.mode==='form'?'Edit sentence':repositoryState.mode==='import'?'Import Learning Hub JSON':'Japanese Repository'};
     document.title=(routeError?'Page unavailable':labels[state.view]||'Learning Hub')+' · Japanese Learning Hub';
   }
   function showError(message){
@@ -162,6 +164,10 @@ window.JLHRouter=(()=>{
       else if(r.type==='plan'){state.view='plan';state.week=r.week;}
       else if(r.type==='wanikani')state.view='wanikani';
       else if(r.type==='books'){state.view='library';state.libraryItem=null;}
+      else if(r.type==='supplementary'){
+        if(r.slug!==(window.JLHSupplementary?.slug||'multimedia-basic-grammar'))throw Error('Supplementary resource not found.');
+        state.view='supplementary';state.libraryItem=null;
+      }
       else if(r.type==='book'){
         if(!(window.BOOKS||[]).some(x=>x.id===r.book))throw Error('Book not found.');
         state.view='library';state.libraryItem=r.book;
@@ -227,6 +233,7 @@ window.JLHRouter=(()=>{
     if(d.week!==undefined)return '/plan/week/'+(Number(d.week)+1);
     if(d.lesson)return lessonURL(d.lesson);
     if(d.openBook)return '/books/'+encode(d.openBook);
+    if(d.openSupplementary)return '/resources/'+encode(d.openSupplementary);
     if(d.repoEntry)return entryURL(d.repoEntry);
     if(d.repoGrammar)return grammarURL(entry,d.repoGrammar,null);
     if(d.repoGuide)return query('/grammar/'+encode(d.repoGuide),{entry:entry&&!entry.routeStandalone?entry.id:''});
@@ -250,12 +257,12 @@ window.JLHRouter=(()=>{
     if(id==='openRelatedLesson'){
       const task=findTaskById(modalTask);if(task?.lesson)return lessonURL(task.lesson,task.id);
     }
-    const map={backDashboard:state.browsingProgrammeId?'/books':'/',backPlan:'/plan/week/'+(state.week+1),backToLibrary:'/books',repoBack:'/repository',repoGrammarLibrary:'/grammar',repoGrammarLibraryBack:'/repository',repoAdd:'/repository/new',repoImport:'/repository/import',repoEdit:entry?entryURL(entry.id)+'/edit':null,repoCancel:entry?entryURL(entry.id):'/repository',repoCancelBottom:entry?entryURL(entry.id):'/repository',repoGrammarBack:entry&&!entry.routeStandalone?entryURL(entry.id):'/grammar',repoDictionaryOpen:dictionaryURL({id:null,setup:false}),dictionaryBack:entry?grammarURL(entry):'/grammar',dictionarySetup:dictionaryURL({setup:true}),dictionaryResults:dictionaryURL({id:null,setup:false}),dictionarySaved:dictionaryURL({id:window.JLHDictionary?.routeState?.().linkedId,setup:false}),prevLesson:state.lesson>11?lessonURL(state.lesson-1):null,nextLesson:state.lesson<20?lessonURL(state.lesson+1):null,prevWeek:state.week>0?'/plan/week/'+state.week:null,nextWeek:state.week<11?'/plan/week/'+(state.week+2):null,openWkDashboard:'/wanikani'};
+    const map={backDashboard:state.browsingProgrammeId?'/books':'/',backPlan:'/plan/week/'+(state.week+1),backToLibrary:'/books',supplementaryBack:'/books',repoBack:'/repository',repoGrammarLibrary:'/grammar',repoGrammarLibraryBack:'/repository',repoAdd:'/repository/new',repoImport:'/repository/import',repoEdit:entry?entryURL(entry.id)+'/edit':null,repoCancel:entry?entryURL(entry.id):'/repository',repoCancelBottom:entry?entryURL(entry.id):'/repository',repoGrammarBack:entry&&!entry.routeStandalone?entryURL(entry.id):'/grammar',repoDictionaryOpen:dictionaryURL({id:null,setup:false}),dictionaryBack:entry?grammarURL(entry):'/grammar',dictionarySetup:dictionaryURL({setup:true}),dictionaryResults:dictionaryURL({id:null,setup:false}),dictionarySaved:dictionaryURL({id:window.JLHDictionary?.routeState?.().linkedId,setup:false}),prevLesson:state.lesson>11?lessonURL(state.lesson-1):null,nextLesson:state.lesson<20?lessonURL(state.lesson+1):null,prevWeek:state.week>0?'/plan/week/'+state.week:null,nextWeek:state.week<11?'/plan/week/'+(state.week+2):null,openWkDashboard:'/wanikani'};
     return map[id]||null;
   }
   function decorate(){
     if(!started)return;
-    document.querySelectorAll('[data-view],[data-week],[data-lesson],[data-open-book],[data-repo-entry],[data-repo-grammar],[data-repo-guide],[data-repo-lesson],[data-repo-grammar-lesson],[data-guided-task],[data-guide-step-nav],[data-guide-scroll],[data-task],[data-today-task],[data-dictionary-entry],[data-dictionary-term],[data-search-type],#backDashboard,#backPlan,#backToLibrary,#repoBack,#repoGrammarLibrary,#repoGrammarLibraryBack,#repoAdd,#repoImport,#repoEdit,#repoCancel,#repoCancelBottom,#repoGrammarBack,#repoDictionaryOpen,#dictionaryBack,#dictionarySetup,#dictionaryResults,#dictionarySaved,#prevLesson,#nextLesson,#prevWeek,#nextWeek,#openWkDashboard,#resumeWeek,#openWeekToday,#openNext,#openNextTask,#openRelatedLesson').forEach(node=>{
+    document.querySelectorAll('[data-view],[data-week],[data-lesson],[data-open-book],[data-open-supplementary],[data-repo-entry],[data-repo-grammar],[data-repo-guide],[data-repo-lesson],[data-repo-grammar-lesson],[data-guided-task],[data-guide-step-nav],[data-guide-scroll],[data-task],[data-today-task],[data-dictionary-entry],[data-dictionary-term],[data-search-type],#backDashboard,#backPlan,#backToLibrary,#supplementaryBack,#repoBack,#repoGrammarLibrary,#repoGrammarLibraryBack,#repoAdd,#repoImport,#repoEdit,#repoCancel,#repoCancelBottom,#repoGrammarBack,#repoDictionaryOpen,#dictionaryBack,#dictionarySetup,#dictionaryResults,#dictionarySaved,#prevLesson,#nextLesson,#prevWeek,#nextWeek,#openWkDashboard,#resumeWeek,#openWeekToday,#openNext,#openNextTask,#openRelatedLesson').forEach(node=>{
       if(node.localName==='a'||node.disabled)return;
       const url=routeFor(node);if(!url)return;
       if(node.localName!=='button'&&!node.matches('[data-open-book]')){

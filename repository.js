@@ -64,7 +64,15 @@ function repositoryGrammarCatalogue(){
   for(const curriculum of curricula)for(const lesson of (curriculum.lessons||[])){
     for(const [index,grammar] of (lesson.textbook?.grammar||[]).entries()){
       const label=grammar?.heading||grammar;
-      if(!rows.some(row=>row.label===label&&row.programmeId===curriculum.programmeId)) rows.push({label,lesson:lesson.n,index:grammar?.number||index+1,programmeId:curriculum.programmeId});
+      const programmeId=curriculum.programmeId||'tobira-beginning-ii-12w';
+      const number=grammar?.number||index+1;
+      const occurrences=window.JLHGrammarOccurrences?.forOccurrence(programmeId,lesson.n,number)||[];
+      const canonicals=occurrences.length?occurrences.map(row=>row.canonical):[label];
+      for(const canonical of canonicals){
+        if(!rows.some(row=>row.canonical===canonical&&row.lesson===lesson.n&&row.index===number&&row.programmeId===programmeId)){
+          rows.push({label,canonical,lesson:lesson.n,index:number,programmeId});
+        }
+      }
     }
   }
   return rows;
@@ -197,6 +205,7 @@ async function loadRepositoryData(force=false){
     repositoryState.grammarClarifications=clarifications.data||[];
     repositoryState.grammarRelated=related.data||[];
     repositoryState.grammarLinks=links.data||[];
+    await window.JLHSupplementary?.load(db,state.user,force);
     repositoryState.loaded=true;
   }catch(error){
     if(state.user?.id!==userId) return;
@@ -218,6 +227,7 @@ function resetRepositorySession(){
   repositoryState.grammarLabel=''; repositoryState.grammarReturnScroll=0;
   repositoryState.grammarGuides=[]; repositoryState.grammarVariants=[]; repositoryState.grammarClarifications=[];
   repositoryState.grammarRelated=[]; repositoryState.grammarLinks=[];
+  window.JLHSupplementary?.reset();
   repositoryState.grammarLibraryReady=false; repositoryState.grammarLibraryError='';
   repositoryState.grammarGuideId=null; repositoryState.grammarQuery=''; repositoryState.grammarFilter='all'; repositoryState.pendingGuideIds=new Set(); pendingRepositoryImport=null; repositoryImportSnapshot='';
 }
@@ -297,10 +307,12 @@ function repositoryGrammarNavLink(guide,prefix=''){
 
 function repositoryGrammarMarkup(entry){
   const label=repositoryState.grammarLabel, guide=repositoryGrammarGuide(label,entry);
-  const lessons=repositoryGrammarCatalogue().filter(row=>repositoryGrammarKey(row.label)===repositoryGrammarKey(guide?.pattern||label));
+  const lessons=repositoryGrammarCatalogue().filter(row=>repositoryGrammarKey(row.canonical)===repositoryGrammarKey(guide?.pattern||label));
   const contextLinks=guide&&!entry.routeStandalone?repositoryState.grammarLinks.filter(link=>link.repository_id===entry.id&&link.grammar_id===guide.id):[];
   const text=value=>renderRepositoryFurigana(value,repositoryPlainFromFurigana(value));
   const pending=guide&&(guide.guide_status==='pending'||guide.is_placeholder),linkedCount=guide?new Set(repositoryState.grammarLinks.filter(link=>link.grammar_id===guide.id).map(link=>link.repository_id)).size:0;
+  const practice=guide?window.JLHSupplementary?.grammarMarkup(guide.id)||'':'';
+  const usedInBooks=lessons.length?`<section class="panel repo-used-in-books"><div class="eyebrow">Course context</div><h2>Used in your books</h2>${lessons.map(row=>{const programme=(window.PROGRAMMES||[]).find(item=>item.id===row.programmeId);return `<button type="button" class="repo-link" data-repo-grammar-lesson="${row.lesson}" data-repo-grammar-index="${row.index}" data-repo-grammar-programme="${esc(row.programmeId||'tobira-beginning-ii-12w')}"><strong>${esc(programme?.title||programme?.shortTitle||'Mapped textbook')}</strong><span>Lesson ${row.lesson} · Grammar ${row.index}</span></button>`;}).join('')}</section>`:'';
   const body=guide?`
     <article class="repo-guide-article">
       <section class="repo-guide-section"><h2>Overview</h2>${guide.summary?`<p>${text(guide.summary)}</p>`:''}${guide.is_placeholder?'<p class="subtitle">This canonical guide is waiting for a full grammar-guide import.</p>':''}</section>
@@ -313,13 +325,15 @@ function repositoryGrammarMarkup(entry){
     ${repositoryReferenceExamplesMarkup(guide,text)}
     ${guide.related.length?`<section class="repo-guide-section repo-related-grammar"><h2>Related grammar</h2><nav class="repo-grammar-nav-list" aria-label="Related grammar">${guide.related.map(item=>repositoryGrammarNavLink(item)).join('')}</nav></section>`:''}
   `:`<section class="panel"><h2>Explanation not yet in the guide library</h2><p>This label does not yet have a standalone Learning Hub explanation. The saved sentence context below is not a substitute for a grammar reference.</p><a class="repo-link" href="https://www.google.com/search?q=${encodeURIComponent(label+' Japanese grammar explanation')}" target="_blank" rel="noopener noreferrer">Search grammar references ↗</a></section>`;
-  const furtherStudy=`<section class="panel repo-further-study"><div class="eyebrow">References &amp; further study</div><div class="grammar-source-list">${window.JLHDictionary?.referenceMarkup()||''}${window.JLHNinjal?.panelMarkup(label)||''}${guide?.references?.map(source=>`<a class="grammar-source-row" href="${esc(source.url)}" target="_blank" rel="noopener noreferrer"><div><strong>${esc(source.title)}</strong><span>Open external reference.</span></div><b>Open ↗</b></a>`).join('')||''}</div>${lessons.length?`<div class="repo-textbook-connections"><strong>Textbook connections</strong>${lessons.map(row=>`<button type="button" class="repo-link" data-repo-grammar-lesson="${row.lesson}" data-repo-grammar-index="${row.index}" data-repo-grammar-programme="${esc(row.programmeId||'tobira-beginning-ii-12w')}">Lesson ${row.lesson} · Grammar ${row.index}: <span class="repo-linked-grammar-label" lang="ja">${text(row.label)}</span></button>`).join('')}</div>`:''}</section>`;
+  const furtherStudy=`<section class="panel repo-further-study"><div class="eyebrow">References &amp; further study</div><div class="grammar-source-list">${window.JLHDictionary?.referenceMarkup()||''}${window.JLHNinjal?.panelMarkup(label)||''}${guide?.references?.map(source=>`<a class="grammar-source-row" href="${esc(source.url)}" target="_blank" rel="noopener noreferrer"><div><strong>${esc(source.title)}</strong><span>Open external reference.</span></div><b>Open ↗</b></a>`).join('')||''}</div></section>`;
   return `<section class="repo-page repo-grammar-page">
     <header class="repo-grammar-header app-page-header"><div><button type="button" class="app-page-breadcrumb" id="repoGrammarBack">← ${entry.routeStandalone?'Grammar Library':'Back to sentence'}</button><div class="eyebrow">Grammar reference</div><h1 id="repoGrammarTitle" tabindex="-1">${guide?text(guide.title):esc(label)}</h1>${guide?.meaning?`<p class="repo-grammar-meaning">${text(guide.meaning)}</p>`:''}${guide&&(guide.jlpt_level||guide.register)?`<div class="repo-grammar-meta">${guide.jlpt_level?`<span>${esc(guide.jlpt_level)}</span>`:''}${guide.register?`<span>${esc(guide.register)}</span>`:''}</div>`:''}</div>${pending?`<div class="app-page-toolbar"><button type="button" class="smallbtn" id="repoViewPending">View pending guides</button><button type="button" class="smallbtn primary" id="repoCopySingleGuidePrompt">Copy generation prompt</button></div>`:''}</header>
     <div class="repo-grammar-content">
       ${pending?`<section class="panel repo-guide-pending"><strong>Guide pending</strong><span>Referenced by ${linkedCount} saved sentence${linkedCount===1?'':'s'}.</span></section>`:''}
       ${entry.routeStandalone?'':`<section class="panel repo-sentence-context"><h2>In this sentence</h2><p class="repo-context-sentence" lang="ja"><strong>${repositoryJapaneseWithSurfaces(entry,contextLinks.map(link=>link.surface))}</strong></p>${contextLinks.map(link=>`<div class="repo-context-link"><div class="repo-context-mapping"><span lang="ja">${esc(link.surface)}</span><span aria-hidden="true">→</span><strong lang="ja">${esc(guide?.pattern||label)}</strong></div>${link.note?`<p class="repo-context-note">${esc(link.note)}</p>`:''}</div>`).join('')}${entry.english?`<p>${esc(entry.english)}</p>`:''}${entry.explanation?`<h3>Saved sentence explanation</h3><p class="repo-grammar-context">${esc(entry.explanation)}</p>`:''}</section>`}
+      ${practice}
       ${body}
+      ${usedInBooks}
       ${!repositoryState.grammarLibraryReady?'<p class="subtitle">Saved grammar library unavailable. Apply the separate grammar migration if needed, then reload.</p>':''}
       ${furtherStudy}
     </div>
@@ -606,6 +620,7 @@ function bindRepositoryEvents(selected){
   $('#repoDictionaryOpen')?.addEventListener('click',()=>window.JLHDictionary?.open(selected));
   if(repositoryState.mode==='dictionary') window.JLHDictionary?.bind();
   document.querySelectorAll('[data-repo-grammar]').forEach(button=>button.onclick=()=>openRepositoryGrammar(button.dataset.repoGrammar));
+  window.JLHSupplementary?.bind(document,{db,user:state.user,message:toast,openGuide:id=>window.JLHRouter?.navigate(`/grammar/${encodeURIComponent(id)}`)});
   document.querySelectorAll('[data-repo-grammar-lesson]').forEach(button=>button.onclick=()=>{const intermediate=button.dataset.repoGrammarProgramme==='tobira-intermediate-future';openGuidedLesson(Number(button.dataset.repoGrammarLesson),`${intermediate?'ti':'b2'}-l${button.dataset.repoGrammarLesson}-${intermediate?'grammar-':'guide-grammar-'}${button.dataset.repoGrammarIndex}`,intermediate?'tobira-intermediate-future':null);});
   $('#repoGrammarBack')?.addEventListener('click',closeRepositoryGrammar);
   document.querySelectorAll('[data-repo-guide]').forEach(x=>x.onclick=()=>{

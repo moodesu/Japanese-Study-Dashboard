@@ -802,6 +802,7 @@ function render(){
     renderRepository();
     if(!repositoryState.loaded&&!repositoryState.loading) loadRepositoryData();
   }
+  else if(state.view==='supplementary') renderSupplementaryLibrary();
   else if(state.view==='library' && state.libraryItem) renderBookMap(state.libraryItem);
   else renderLibrary();
   $('#globalNotes').value=state.notes;
@@ -834,7 +835,7 @@ function renderHeader(){
 }
 function renderNav(){
   $('#mainNav').innerHTML=`<button class="navbtn home-nav-btn ${state.view==='dashboard'?'active':''}" data-view="dashboard" title="Home"><i class="fa-solid fa-house" aria-hidden="true"></i><span>Home</span></button><button class="navbtn ${state.view==='plan'?'active':''}" data-view="plan" title="Plan"><i class="fa-solid fa-calendar-days" aria-hidden="true"></i><span>Plan</span></button><button class="navbtn ${state.view==='lesson'?'active':''}" data-view="lesson" title="Lessons"><i class="fa-solid fa-book-open" aria-hidden="true"></i><span>Lessons</span></button><button class="navbtn ${state.view==='library'?'active':''}" data-view="library" title="Hub"><i class="fa-solid fa-layer-group" aria-hidden="true"></i><span>Hub</span></button><button class="navbtn repo-nav-btn ${state.view==='repository'?'active':''}" data-view="repository" title="Japanese Repository"><i class="fa-solid fa-language" aria-hidden="true"></i><span class="nav-utility-label">Repository</span></button><button class="navbtn grammar-nav-btn" id="grammarNavBtn" type="button" title="Grammar Library"><i class="fa-solid fa-spell-check" aria-hidden="true"></i><span class="nav-utility-label">Grammar</span></button><button class="navbtn icon-nav-btn" id="searchNavBtn" type="button" title="Search" aria-label="Search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i></button><button class="navbtn wk-nav-btn ${state.view==='wanikani'?'active':''}" data-view="wanikani" title="WaniKani"><i class="fa-solid fa-paintbrush" aria-hidden="true"></i><span class="nav-utility-label">WaniKani</span></button><button class="navbtn pomo-nav-btn" id="pomoNavBtn" type="button" title="Pomodoro" aria-label="Open Pomodoro"><i class="fa-solid fa-clock" aria-hidden="true"></i><span class="nav-utility-label">Pomodoro</span></button>`;
-  const navigate=view=>{state.view=view;if(state.view==='lesson'){state.browsingProgrammeId=null;if(!lessonByNumber(state.lesson))state.lesson=currentCurriculum().lessons[0]?.n;}closeMobileMore();render();scrollTo({top:0,behavior:'smooth'});};
+  const navigate=view=>{state.view=view;if(state.view==='library')state.libraryItem=null;if(state.view==='lesson'){state.browsingProgrammeId=null;if(!lessonByNumber(state.lesson))state.lesson=currentCurriculum().lessons[0]?.n;}closeMobileMore();render();scrollTo({top:0,behavior:'smooth'});};
   $('#mainNav').querySelectorAll('.navbtn[data-view]').forEach(b=>b.onclick=()=>navigate(b.dataset.view));
   const mobileNav=$('#mobileBottomNav');
   if(mobileNav){
@@ -970,7 +971,7 @@ function renderLibrary(){
     <section class="library-section programme-lifecycle-section"><div class="panelhead"><div><div class="eyebrow">${activeP?'Planned programmes':'Choose your next programme'}</div><h2>${activeP?'Mapped programmes ready for later':'Select a mapped programme to make active'}</h2></div></div>${readyPlanned.length?`<div class="programme-grid">${readyPlanned.map(programmeLifecycleCard).join('')}</div>`:`<div class="empty programme-picker-empty"><strong>${activeP?'No other mapped programme is ready yet.':'You do not currently have another mapped programme ready to activate.'}</strong><span>Book maps remain available in the library below.</span></div>`}${unavailablePlanned.length?`<details class="programme-not-ready"><summary>Planned programme maps (${unavailablePlanned.length})</summary><div class="programme-grid">${unavailablePlanned.map(programmeLifecycleCard).join('')}</div></details>`:''}</section>
     ${completed.length?`<section class="library-section programme-lifecycle-section"><div class="panelhead"><div><div class="eyebrow">Completed programmes</div><h2>Previous study paths</h2><p class="subtitle">Progress, notes and study history remain available.</p></div></div><div class="programme-grid">${completed.map(programmeLifecycleCard).join('')}</div></section>`:''}
     <section class="library-section"><div class="panelhead"><div><h2>Book library</h2><p class="subtitle">Mapped textbooks and reusable companion books.</p></div></div><div class="book-grid">${books.map(b=>{const p=programmes.find(x=>x.bookId===b.id);const mapped=!!(window.BOOK_MAPS||{})[b.id],cover=b.cover?String(b.cover).replace(/^\/+/, ''):'';return `<article class="book-card ${b.id===activeBook().id?'active-book':''} ${mapped?'mapped-book':''}" data-open-book="${esc(b.id)}" tabindex="0" role="button"><div class="book-card-top"><span class="book-status ${b.status}">${b.status==='active'?'In use':mapped?'Mapped':b.status==='planned'?'Planned':'Available'}</span><span class="book-level">${esc(b.level)}</span></div><div class="book-cover-visual"><div class="book-cover-fallback"><strong>${esc(b.title)}</strong><span>${esc(b.series)}</span></div>${cover?`<img src="${esc(cover)}" alt="${esc(b.title)} cover" loading="lazy">`:''}</div><div class="eyebrow">${esc(b.series)}</div><h3>${esc(b.title)}</h3><p>${esc(b.description)}</p><div class="book-meta">${p?`<span>Programme: ${esc(p.shortTitle||p.title)}</span>`:'<span>No programme mapped</span>'}${b.workbooks?.length?`<span>${b.workbooks.map(esc).join(' · ')}</span>`:''}${mapped?'<span>Open content map →</span>':''}</div></article>`}).join('')}</div></section>
-    <section class="library-section"><div class="panelhead"><div><h2>Study tools & input</h2><p class="subtitle">Supporting resources stay independent from textbook programmes.</p></div></div><div class="resource-grid">${resources.map(r=>`<article class="resource-card"><div class="book-card-top"><span class="resource-type">${esc(r.type)}</span><span class="book-status ${r.status}">${r.status==='active'?'Active':'Available'}</span></div><h3>${esc(r.title)}</h3><p>${esc(r.description)}</p></article>`).join('')}</div></section>
+    <section class="library-section"><div class="panelhead"><div><h2>Study tools & input</h2><p class="subtitle">Supporting resources stay independent from textbook programmes.</p></div></div><div class="resource-grid">${window.JLHSupplementary?.hubCardMarkup()||''}${resources.map(r=>`<article class="resource-card"><div class="book-card-top"><span class="resource-type">${esc(r.type)}</span><span class="book-status ${r.status}">${r.status==='active'?'Active':'Available'}</span></div><h3>${esc(r.title)}</h3><p>${esc(r.description)}</p></article>`).join('')}</div></section>
     <section class="library-section architecture-note"><div class="eyebrow">How this scales</div><h2>Book → map → programme → schedule</h2><p>A future textbook can first become a mapped library resource. Only when you decide to study it should it become a programme with its own workload, tasks and progress.</p><div class="hub-flow"><span>Book</span><b>→</b><span>Map</span><b>→</b><span>Programme</span><b>→</b><span>Schedule</span><b>→</b><span>Progress</span></div></section>`;
   $('#mainContent').querySelectorAll('[data-activate-programme]').forEach(button=>button.onclick=()=>openProgrammeConfirmation(button.dataset.activateProgramme));
   $('#mainContent').querySelectorAll('[data-complete-programme]').forEach(button=>button.onclick=()=>openProgrammeConfirmation());
@@ -981,6 +982,28 @@ function renderLibrary(){
     b.onclick=open;
     b.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();open();}};
   });
+  $('#mainContent').querySelectorAll('[data-open-supplementary]').forEach(button=>button.onclick=()=>{state.view='supplementary';state.libraryItem=null;render();scrollTo({top:0,behavior:'smooth'});});
+  const supplementary=window.JLHSupplementary;
+  if(supplementary&&!supplementary.data.loaded&&!supplementary.data.error){
+    supplementary.load(db,state.user).then(()=>{
+      if(state.view==='library'&&!state.libraryItem)renderLibrary();
+    });
+  }
+}
+
+function renderSupplementaryLibrary(){
+  $('#hero').hidden=true;$('#bottomArea').hidden=true;$('#weekView').hidden=true;$('#mainContent').hidden=false;
+  const supplementary=window.JLHSupplementary;
+  if(!supplementary){$('#mainContent').innerHTML='<section class="panel"><h1>Supplementary resources unavailable</h1></section>';return;}
+  $('#mainContent').innerHTML=supplementary.browserMarkup();
+  supplementary.bind($('#mainContent'),{
+    db,user:state.user,message:toast,rerender:renderSupplementaryLibrary,
+    openGuide:id=>window.JLHRouter?.navigate(`/grammar/${encodeURIComponent(id)}`)
+  });
+  $('#supplementaryBack')?.addEventListener('click',()=>{state.view='library';render();scrollTo({top:0,behavior:'smooth'});});
+  if(!supplementary.data.loaded&&!supplementary.data.loading&&!supplementary.data.error){
+    supplementary.load(db,state.user).then(()=>{if(state.view==='supplementary')render();});
+  }
 }
 
 function lessonButton(l){
@@ -1801,8 +1824,9 @@ function beginningLessonGuideSteps(l){
   (l.textbook.grammar||[]).forEach((name,index)=>{
     const item=index+1;
     const videos=grammarVideos.filter(video=>parseInt(String(video.grammar_index),10)===item);
+    const canonicalLabels=window.JLHGrammarOccurrences?.forOccurrence(l.programmeId||'tobira-beginning-ii-12w',l.n,item).map(row=>row.canonical)||[];
     steps.push({
-      id:`b2-l${l.n}-guide-grammar-${item}`, title:`Grammar ${item}: ${name}`, resource:'Textbook',grammarLabel:name,
+      id:`b2-l${l.n}-guide-grammar-${item}`, title:`Grammar ${item}: ${name}`, resource:'Textbook',grammarLabel:name,canonicalLabels,canonicalLabel:canonicalLabels[0]||null,
       page:grammarPageFromVideos(videos,l.textbook.pages.grammar), videos,
       checklist:videos.length
         ? ['Watch every linked video part in order.','Read the matching textbook explanation and examples.','Complete and check the audio-icon exercise.','Say an original example aloud without copying the model.']
@@ -1880,7 +1904,10 @@ function intermediateLessonGuideSteps(l){
       step.externalResources=[...(step.externalResources||[]),{title:'Video worksheet',url:l.resources.videoWorksheet},{title:'Publisher lesson page',url:l.resources.protected}].filter(item=>item.url);
     }
     if(section.key==='grammar'){
-      step.support=(l.textbook.grammar||[]).map(item=>({id:`ti-l${l.n}-grammar-${item.number}`,title:`Grammar ${item.number}: ${item.heading}`,resource:`Textbook · p.${task.page}`,instruction:item.gloss,canonicalLabel:item.heading,checklist:['Read the publisher explanation and examples.','Find or open the matching canonical Grammar Library guide.','Produce one original example in the lesson context.']}));
+      step.support=(l.textbook.grammar||[]).map(item=>{
+        const mapped=window.JLHGrammarOccurrences?.forOccurrence(l.programmeId,l.n,item.number).map(row=>row.canonical)||[];
+        return {id:`ti-l${l.n}-grammar-${item.number}`,title:`Grammar ${item.number}: ${item.heading}`,resource:`Textbook · p.${task.page}`,instruction:item.gloss,canonicalLabels:mapped,canonicalLabel:mapped[0]||item.heading,checklist:['Read the publisher explanation and examples.','Find or open the matching canonical Grammar Library guide.','Produce one original example in the lesson context.']};
+      });
     }
     if(section.key==='consolidation'){
       if(currentAudioLibrary().lessons?.[l.n]?.groups?.presentation?.length)step.audio='presentation';
@@ -1897,6 +1924,13 @@ function intermediateLessonGuideSteps(l){
 
 function lessonGuideSteps(l){
   return l?.programmeId==='tobira-intermediate-future'?intermediateLessonGuideSteps(l):beginningLessonGuideSteps(l);
+}
+
+function lessonGrammarCanonicals(l,grammar,index){
+  const number=grammar?.number||index+1;
+  const programmeId=l.programmeId||'tobira-beginning-ii-12w';
+  const mapped=window.JLHGrammarOccurrences?.forOccurrence(programmeId,l.n,number).map(row=>row.canonical)||[];
+  return mapped.length?mapped:[grammar?.heading||grammar];
 }
 
 function flattenGuideSteps(steps){ return steps.flatMap(step=>[step,...flattenGuideSteps(step.support||[])]); }
@@ -1940,14 +1974,16 @@ function guideTaskWorkspaceMarkup(l,step,index,steps,isCurrent,nextId){
   const textbookReference=step.resource==='Textbook'&&step.page?`<div class="guide-workspace-section guide-textbook-reference"><strong>Textbook reference</strong><button type="button" class="resource-action textbook-pages-button" data-textbook-lesson="${l.n}" ${step.pdfKey?`data-textbook-pdf-key="${esc(step.pdfKey)}"`:''} data-textbook-label="${esc(step.title)}" data-textbook-pages="${esc(step.page)}"><span class="resource-action-icon" aria-hidden="true">▤</span>Open textbook</button></div>`:'';
   const videos=step.videos?.length?`<div class="guide-workspace-section"><strong>Publisher video${step.videos.length===1?'':'s'}</strong><div class="guide-actions guide-video-list">${guideVideoLinks(step.videos,l.n,`task:${step.id}`)}</div></div>`:'';
   const externalResources=step.externalResources?.length?`<div class="guide-workspace-section guide-external-resources"><strong>Official and contextual resources</strong><div class="guide-actions">${step.externalResources.map(item=>`<a class="secondary-action" href="${esc(item.url)}" target="_blank" rel="noopener noreferrer">${esc(item.title)} ↗</a>`).join('')}</div></div>`:'';
-  const grammarLibrary=step.canonicalLabel?`<div class="guide-workspace-section"><strong>Canonical grammar</strong><button type="button" class="secondary-action" data-guide-grammar="${esc(step.canonicalLabel)}">Open ${esc(step.canonicalLabel)} in Grammar Library →</button></div>`:'';
+  const canonicalLabels=[...new Set((step.canonicalLabels?.length?step.canonicalLabels:[step.canonicalLabel]).filter(Boolean))];
+  const grammarLibrary=canonicalLabels.length?`<div class="guide-workspace-section"><strong>Canonical grammar</strong><div class="guide-actions">${canonicalLabels.map(canonical=>`<button type="button" class="secondary-action" data-guide-grammar="${esc(canonical)}">Open ${esc(canonical)} in Grammar Library →</button>`).join('')}</div></div>`:'';
+  const supplementaryPractice=canonicalLabels.length?window.JLHSupplementary?.lessonMarkup(canonicalLabels,repositoryState.grammarGuides)||'':'';
   const publisherNotes=step.publisherNotes?.length?`<div class="guide-workspace-section guide-publisher-notes"><strong>Publisher context</strong>${step.publisherNotes.map(note=>`<p>${esc(note)}</p>`).join('')}</div>`:'';
   const previous=steps[index-1], next=steps[index+1];
   return `<details class="guide-task-workspace" data-guide-workspace="${esc(step.id)}" ${isCurrent||(!status.completed&&(hasOpenMedia||hasOpenVideo))?'open':''}>
     <summary><span>${isCurrent?'Current task':section.complete?'Completed':section.done?'In progress':'Upcoming'}</span><strong>Instructions · resources · notes</strong><b>Open</b></summary>
     <div class="guide-workspace-body">
       <div class="guide-lesson-context"><strong>Lesson ${l.n} · ${esc(l.english)}</strong>${goal?`<span>Can-do connection: ${esc(goal)}</span>`:''}</div>
-      ${details}${checklist}${textbookReference}${videos}${externalResources}${publisherNotes}${grammarLibrary}${guideAudioMarkup(l,step)}${step.vocabularyAudio?guideAudioMarkup(l,{...step,audio:step.vocabularyAudio}):''}
+      ${details}${checklist}${textbookReference}${videos}${externalResources}${publisherNotes}${grammarLibrary}${supplementaryPractice}${guideAudioMarkup(l,step)}${step.vocabularyAudio?guideAudioMarkup(l,{...step,audio:step.vocabularyAudio}):''}
       ${step.grammarLabel?window.JLHNinjal?.panelMarkup(step.grammarLabel)||'':''}
       <div class="guide-workspace-section guide-task-record"><strong>Task record</strong>
         <label>Notes<textarea class="guide-task-notes" data-guide-notes="${esc(step.id)}" placeholder="Errors, useful examples, or what needs another pass…">${esc(status.notes||'')}</textarea></label>
@@ -2014,7 +2050,7 @@ function renderLesson(n){
   const reference=lessonReferenceStateFor(n), referenceSections=[['overview','Overview'],['videos','Videos'],...(!contextualAudio?[['audio','Audio']]:[]),['textbook','Textbook'],...(hasWorkbooks?[['workbooks','Workbooks']]:[])];
   const referenceTab=referenceSections.some(([key])=>key===reference.activeSection)?reference.activeSection:'overview';
   const tb=tasks.filter(t=>t.book==='Textbook'), wb2=tasks.filter(t=>t.book==='Workbook 2'), wb1=tasks.filter(t=>t.book==='Workbook 1');
-  const grammar=l.textbook.grammar.map((x,i)=>`<li><strong>${x.number||i+1}.</strong> <button type="button" class="repo-link inline-grammar-link" data-guide-grammar="${esc(x.heading||x)}">${esc(x.heading||x)}</button>${x.gloss?`<span class="grammar-gloss">${esc(x.gloss)}</span>`:''}</li>`).join('');
+  const grammar=l.textbook.grammar.map((x,i)=>`<li><strong>${x.number||i+1}.</strong> ${lessonGrammarCanonicals(l,x,i).map(canonical=>`<button type="button" class="repo-link inline-grammar-link" data-guide-grammar="${esc(canonical)}">${esc(canonical)}</button>`).join(' ')}${x.gloss?`<span class="grammar-gloss">${esc(x.gloss)}</span>`:''}</li>`).join('');
   const cando=l.textbook.cando.map(x=>`<li>${esc(x)}</li>`).join('');
   const textbookSections=(l.sections||[]).map(sec=>{
     const t=tasks.find(x=>x.key===sec.taskKey);
@@ -2075,6 +2111,7 @@ function renderLesson(n){
   initLessonAudio(n);
   initLessonVideoEmbeds();
   initTextbookPdfLinks();
+  window.JLHSupplementary?.bind($('#mainContent'),{db,user:state.user,message:toast,openGuide:id=>window.JLHRouter?.navigate(`/grammar/${encodeURIComponent(id)}`)});
   $('#mainContent').querySelectorAll('[data-guide-grammar]').forEach(button=>button.onclick=()=>{state.view='repository';render();requestAnimationFrame(()=>window.JLHOpenGrammarLibraryFor?.(button.dataset.guideGrammar));});
   const lessonReference=$('#lessonReference');
   const showReferenceSection=section=>{
@@ -2241,7 +2278,7 @@ $('#loginForm').onsubmit=async e=>{
     if(submit)submit.disabled=false;
   }
 };
-$('#logout').onclick=async()=>{if(db)await db.auth.signOut();clearPrivateSessionCaches();state.lessonVideos=[];state.lessonVideosLoaded=false;state.lessonVideosError=false;state.programmeLifecycle=[];state.programmeLifecycleLoaded=false;state.programmeId=null;state.browsingProgrammeId=null;state.user=null;state.ready=true;render();};
+$('#logout').onclick=async()=>{if(db)await db.auth.signOut();clearPrivateSessionCaches();window.JLHSupplementary?.reset();state.lessonVideos=[];state.lessonVideosLoaded=false;state.lessonVideosError=false;state.programmeLifecycle=[];state.programmeLifecycleLoaded=false;state.programmeId=null;state.browsingProgrammeId=null;state.user=null;state.ready=true;render();};
 const pomoToggle=$('#pomoToggle'); if(pomoToggle) pomoToggle.onclick=()=>{state.pomodoro.status==='running'?pausePomodoro():startPomodoro();};
 const pomoSkip=$('#pomoSkip'); if(pomoSkip) pomoSkip.onclick=()=>skipSession();
 const pomoReset=$('#pomoReset'); if(pomoReset) pomoReset.onclick=()=>resetSession();

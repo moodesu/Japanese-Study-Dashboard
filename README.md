@@ -261,6 +261,19 @@ updates the lesson URL, so ordinary renders and browser Back/Forward retain the
 same workspace. Completing any top-level or supporting activity advances to the
 next unfinished activity in curriculum order.
 
+### Supplementary grammar practice
+
+The Hub also exposes **マルチメディア日本語基本文法ワークブック** as an
+independent optional resource. Textbook grammar occurrences connect to the
+existing canonical Grammar Library, and canonical guides connect to workbook
+units; there is no direct programme-to-workbook mapping. Practice links never
+affect task or programme progress. The four copyrighted PDFs remain private in
+Supabase Storage and open through short-lived signed URLs in a new tab.
+
+Apply `migrations/20260908_supplementary_grammar_resources.sql` separately and
+see `docs/supplementary-grammar-practice.md` for paths, mapping policy and smoke
+tests.
+
 Existing task IDs, notes and completion records are retained. Historical
 Mastery and Confidence database values are left untouched but are no longer
 shown, written, or used by the study workflow. Picture
