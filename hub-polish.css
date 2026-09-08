@@ -1,30 +1,27 @@
-/* Hub-specific visual polish based on the approved dashboard mockup.
- * Scoped to the Hub so shared app-shell and lesson styling remain authoritative. */
+/* Hub visual polish v2
+ * Compact book cards, section icons, small chevrons and restrained workbook CTA.
+ * Scoped to Hub classes only. */
 
 .hub-collapsible-section{
-  margin:14px 0;
+  margin:12px 0;
   padding:0;
   border:1px solid var(--line);
-  border-radius:15px;
+  border-radius:14px;
   background:color-mix(in srgb,var(--card) 96%,transparent);
   overflow:hidden;
-  box-shadow:0 2px 10px rgba(25,39,55,.035);
+  box-shadow:0 2px 9px rgba(25,39,55,.03);
 }
 
-.hub-section-header{
-  margin:0;
-  border:0;
-  background:transparent;
-}
+.hub-section-header{margin:0;border:0;background:transparent}
 
 .hub-section-toggle{
   width:100%;
-  min-height:62px;
+  min-height:58px;
   display:flex;
   align-items:center;
   justify-content:flex-start;
-  gap:11px;
-  padding:12px 16px;
+  gap:9px;
+  padding:10px 14px;
   border:0;
   background:transparent;
   color:var(--ink);
@@ -33,161 +30,221 @@
 }
 
 .hub-section-toggle:hover{
-  background:color-mix(in srgb,var(--soft) 44%,transparent);
+  background:color-mix(in srgb,var(--soft) 40%,transparent);
 }
-
 .hub-section-toggle:focus-visible{
   outline:2px solid var(--accent);
   outline-offset:-3px;
+}
+
+.hub-section-chevron{
+  order:-2;
+  flex:0 0 auto;
+  width:11px;
+  height:11px;
+  font-size:11px;
+  color:var(--accent);
+  transform:rotate(0deg);
+  transition:transform .15s ease;
+}
+.hub-collapsible-section.is-collapsed .hub-section-chevron{transform:rotate(-90deg)}
+
+.hub-section-icon{
+  order:-1;
+  width:28px;
+  height:28px;
+  display:grid;
+  place-items:center;
+  flex:0 0 auto;
+  border-radius:8px;
+  background:var(--soft);
+  color:var(--accent);
+  font-size:13px;
+}
+.hub-section-icon svg,
+.hub-section-icon i{
+  width:13px;
+  height:13px;
 }
 
 .hub-section-heading{
   min-width:0;
   display:flex;
   flex-direction:column;
-  gap:2px;
+  gap:1px;
 }
-
 .hub-section-title{
   display:block;
-  font-size:18px;
+  font-size:17px;
   line-height:1.15;
   font-weight:800;
   letter-spacing:-.015em;
 }
-
 .hub-section-heading .subtitle{
   display:block;
   margin:0;
-  font-size:12.5px;
-  line-height:1.35;
+  font-size:12px;
+  line-height:1.32;
   color:var(--muted);
   font-weight:500;
 }
-
-.hub-section-heading .eyebrow{
-  margin-bottom:1px;
-}
-
-/* Small Font Awesome chevron beside the heading. */
-.hub-section-chevron{
-  order:-1;
-  flex:0 0 auto;
-  width:13px;
-  height:13px;
-  font-size:13px;
-  color:var(--accent);
-  transform:rotate(0deg);
-  transition:transform .16s ease;
-}
-
-.hub-collapsible-section.is-collapsed .hub-section-chevron{
-  transform:rotate(-90deg);
-}
+.hub-section-heading .eyebrow{margin-bottom:1px}
 
 .hub-section-content{
-  padding:0 16px 16px;
+  padding:0 14px 14px;
   border-top:1px solid color-mix(in srgb,var(--line) 72%,transparent);
 }
-
 .hub-section-content[hidden]{display:none!important}
-
-.hub-collapsible-section.is-collapsed .hub-section-toggle{
-  min-height:54px;
-}
-
-.hub-collapsible-section.is-collapsed .hub-section-heading .subtitle{
-  display:none;
-}
+.hub-collapsible-section.is-collapsed .hub-section-toggle{min-height:50px}
+.hub-collapsible-section.is-collapsed .hub-section-heading .subtitle{display:none}
 
 .hub-collapsible-section .book-grid,
 .hub-collapsible-section .resource-grid,
-.hub-collapsible-section .programme-grid{
-  margin-top:14px;
+.hub-collapsible-section .programme-grid{margin-top:12px}
+
+/* --- Compact Book Library ------------------------------------------------ */
+
+.hub-collapsible-section[data-hub-section="books"] .book-grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:10px;
 }
 
-/* Compact workbook CTA matching the mockup. */
+.hub-collapsible-section[data-hub-section="books"] .book-card{
+  min-width:0;
+  padding:11px;
+  border-radius:12px;
+  box-shadow:none;
+}
+
+.hub-collapsible-section[data-hub-section="books"] .book-card-top{
+  margin-bottom:7px;
+}
+
+.hub-collapsible-section[data-hub-section="books"] .book-card h3{
+  margin:4px 0 4px;
+  font-size:15px;
+  line-height:1.25;
+}
+
+.hub-collapsible-section[data-hub-section="books"] .book-card p{
+  margin:0 0 7px;
+  font-size:12px;
+  line-height:1.4;
+}
+
+.hub-collapsible-section[data-hub-section="books"] .book-card .eyebrow{
+  font-size:10px;
+}
+
+.hub-collapsible-section[data-hub-section="books"] .book-meta{
+  gap:4px;
+  font-size:10.5px;
+}
+
+.hub-collapsible-section[data-hub-section="books"] .book-cover-visual{
+  height:142px;
+  min-height:142px;
+  margin:0 0 8px;
+  border-radius:9px;
+  overflow:hidden;
+}
+
+.hub-collapsible-section[data-hub-section="books"] .book-cover-visual img{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  object-position:center;
+  display:block;
+}
+
+.hub-collapsible-section[data-hub-section="books"] .book-cover-fallback{
+  height:100%;
+  padding:12px;
+}
+
+.hub-collapsible-section[data-hub-section="books"] .book-cover-fallback strong{
+  font-size:15px;
+}
+
+/* Workbook CTA */
 .supplementary-resource-card .secondary-action[data-open-supplementary]{
   display:inline-flex;
   align-items:center;
   justify-content:center;
-  gap:8px;
+  gap:7px;
   width:auto;
   min-width:0;
-  min-height:36px;
-  padding:7px 12px;
-  margin-top:10px;
+  min-height:34px;
+  padding:6px 11px;
+  margin-top:9px;
   border:1px solid color-mix(in srgb,var(--accent) 28%,var(--line));
-  border-radius:9px;
-  background:color-mix(in srgb,var(--card) 88%,var(--soft));
+  border-radius:8px;
+  background:color-mix(in srgb,var(--card) 90%,var(--soft));
   color:var(--ink);
-  font-size:12.5px;
+  font-size:12px;
   line-height:1;
   font-weight:750;
   box-shadow:none;
 }
-
 .supplementary-resource-card .secondary-action[data-open-supplementary]::after{
   content:'→';
   color:var(--accent);
-  font-size:14px;
+  font-size:13px;
   font-weight:800;
   margin-left:1px;
 }
-
 .supplementary-resource-card .secondary-action[data-open-supplementary]:hover{
   border-color:color-mix(in srgb,var(--accent) 52%,var(--line));
   background:var(--soft);
   transform:none;
 }
-
 .supplementary-resource-card .secondary-action[data-open-supplementary] svg,
 .supplementary-resource-card .secondary-action[data-open-supplementary] i{
-  width:13px;
-  height:13px;
-  font-size:13px;
-}
-
-.supplementary-resource-card .book-meta{
-  margin-bottom:0;
+  width:12px;height:12px;font-size:12px
 }
 
 html[data-theme='dark'] .hub-collapsible-section{
   background:color-mix(in srgb,var(--card) 94%,#0f1722);
   box-shadow:none;
 }
-
 html[data-theme='dark'] .hub-section-toggle:hover{
-  background:color-mix(in srgb,var(--soft) 22%,transparent);
+  background:color-mix(in srgb,var(--soft) 20%,transparent);
 }
 
-html[data-theme='dark'] .supplementary-resource-card .secondary-action[data-open-supplementary]{
-  background:color-mix(in srgb,var(--card) 90%,var(--soft));
+@media(max-width:980px){
+  .hub-collapsible-section[data-hub-section="books"] .book-grid{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+  }
 }
 
 @media(max-width:760px){
-  .hub-collapsible-section{
-    margin:10px 0;
-    border-radius:13px;
+  .hub-collapsible-section{margin:9px 0;border-radius:12px}
+  .hub-section-toggle{min-height:54px;padding:9px 11px;gap:8px}
+  .hub-section-chevron{width:10px;height:10px;font-size:10px}
+  .hub-section-icon{width:26px;height:26px;border-radius:7px;font-size:12px}
+  .hub-section-title{font-size:15.5px}
+  .hub-section-heading .subtitle{font-size:11.5px}
+  .hub-section-content{padding:0 9px 9px}
+
+  .hub-collapsible-section[data-hub-section="books"] .book-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:8px;
   }
-  .hub-section-toggle{
-    min-height:56px;
-    padding:11px 12px;
-    gap:9px;
+  .hub-collapsible-section[data-hub-section="books"] .book-card{
+    padding:9px;
   }
-  .hub-section-title{font-size:16px}
-  .hub-section-heading .subtitle{font-size:12px}
-  .hub-section-chevron{
-    width:12px;
-    height:12px;
-    font-size:12px;
-  }
-  .hub-section-content{
-    padding:0 10px 10px;
+  .hub-collapsible-section[data-hub-section="books"] .book-cover-visual{
+    height:122px;
+    min-height:122px;
   }
   .supplementary-resource-card .secondary-action[data-open-supplementary]{
-    min-height:40px;
-    padding:8px 12px;
-    font-size:13px;
+    min-height:38px;padding:7px 11px;font-size:12.5px
+  }
+}
+
+@media(max-width:430px){
+  .hub-collapsible-section[data-hub-section="books"] .book-grid{
+    grid-template-columns:1fr 1fr;
   }
 }

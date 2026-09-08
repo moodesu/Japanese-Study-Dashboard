@@ -1,0 +1,9 @@
+Add these two includes to index.html:
+
+1. Immediately after styles.css:
+<link rel="stylesheet" href="hub-polish.css">
+
+2. Immediately after app.js:
+<script src="hub-polish.js"></script>
+
+If hub-polish.css is already included from the previous pass, keep only one copy.
