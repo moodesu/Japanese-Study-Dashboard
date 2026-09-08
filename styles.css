@@ -3350,6 +3350,7 @@ html[data-theme="dark"] .lessonhero-grid div { padding:0;border:0;background:tra
 }
 .hub-current h2 { margin:2px 0;font-size:14px;line-height:1.25; }
 .hub-current p { display:none; }
+.hub-programme-meta { display:block;margin-top:3px;color:var(--muted);font-size:11px;line-height:1.3; }
 .library-section { margin-top:16px; }
 .library-section .panelhead h2 { font-size:20px; }
 .library-section .panelhead .subtitle { margin:2px 0 0;font-size:12px; }
@@ -3451,16 +3452,18 @@ html[data-theme="dark"] .book-cover-fallback { background:linear-gradient(145deg
     align-items:center;
     justify-content:center;
     min-height:34px;
-    padding:7px 11px;
-    border:1px solid var(--line);
+    gap:5px;
+    padding:6px 9px;
+    border:1px solid transparent;
     border-radius:8px;
     background:var(--surface-alt);
     color:var(--ink);
     font:inherit;
-    font-size:12px;
+    font-size:11px;
     font-weight:800;
   }
   .mobile-more-toggle[aria-expanded="true"] { border-color:var(--accent);color:var(--accent); }
+  .mobile-more-toggle svg { width:13px;height:13px; }
   .mobile-bottom-nav {
     position:fixed;
     z-index:45;
@@ -3778,4 +3781,30 @@ html[data-theme="dark"] .app-page-header {
   .today-card.app-next-action { padding:13px; }
   .repo-grammar-filters.app-compact-stats { overflow-x:auto;flex-wrap:nowrap;padding-bottom:2px; }
   .repo-grammar-filters.app-compact-stats .smallbtn { flex:none; }
+  .library-hero.app-page-header .hub-current {
+    width:100%;
+    min-width:0;
+    padding:10px 0 0;
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:10px;
+    border-top:1px solid var(--line);
+    border-radius:0;
+    background:transparent;
+  }
+  .library-hero.app-page-header .hub-current>div { min-width:0; }
+  .library-hero.app-page-header .hub-current h2 {
+    margin-top:3px;
+    font-size:15px;
+    line-height:1.3;
+    overflow-wrap:normal;
+    word-break:keep-all;
+  }
+  .library-hero.app-page-header .hub-current>.book-status {
+    flex:none;
+    margin:1px 0 0;
+    padding:4px 7px;
+    white-space:nowrap;
+  }
 }
