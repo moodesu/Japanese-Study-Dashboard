@@ -248,3 +248,259 @@ html[data-theme='dark'] .hub-section-toggle:hover{
     grid-template-columns:1fr 1fr;
   }
 }
+
+
+/* --- Grammar Library + guide shell -------------------------------------- */
+
+/* Grammar routes should read as Grammar, not Repository, in the shell. */
+body:has(.repo-grammar-page) .repo-nav-btn.active,
+body:has(.repo-grammar-library-grid) .repo-nav-btn.active{
+  background:transparent!important;
+  color:var(--muted)!important;
+}
+body:has(.repo-grammar-page) .grammar-nav-btn,
+body:has(.repo-grammar-library-grid) .grammar-nav-btn{
+  background:var(--soft)!important;
+  color:var(--accent)!important;
+}
+
+/* Faster-scanning Grammar Library cards. */
+.repo-grammar-library-grid{
+  gap:10px;
+}
+.repo-grammar-card-wrap{
+  position:relative;
+}
+.repo-match-badge{
+  position:absolute;
+  top:13px;
+  right:13px;
+  z-index:2;
+  pointer-events:none;
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  min-height:25px;
+  padding:4px 8px;
+  border:1px solid color-mix(in srgb,var(--accent) 28%,var(--line));
+  border-radius:999px;
+  background:color-mix(in srgb,var(--soft) 82%,var(--card));
+  color:var(--accent);
+  font-size:.68rem;
+  line-height:1;
+  font-weight:800;
+  letter-spacing:.02em;
+}
+.repo-match-badge.related{
+  color:var(--muted);
+  border-color:color-mix(in srgb,var(--muted) 24%,var(--line));
+  background:color-mix(in srgb,var(--card) 82%,var(--soft));
+}
+.repo-match-badge svg,
+.repo-match-badge i{
+  width:10px;
+  height:10px;
+  font-size:10px;
+}
+.repo-grammar-card{
+  gap:7px!important;
+  padding:14px 15px 15px!important;
+  box-shadow:none!important;
+  transition:border-color .15s ease,background .15s ease,transform .15s ease;
+}
+.repo-grammar-card:hover{
+  transform:translateY(-1px);
+  background:color-mix(in srgb,var(--panel) 95%,var(--soft));
+}
+.repo-grammar-card-wrap:has(.repo-match-badge) .repo-grammar-card>strong{
+  padding-right:88px;
+}
+.repo-grammar-card>strong{
+  font-size:1.25rem!important;
+  line-height:1.55;
+}
+.repo-grammar-card>span{
+  font-size:.94rem;
+  line-height:1.5;
+}
+.repo-match-detail{
+  display:grid;
+  gap:3px;
+  margin-top:5px!important;
+  padding-top:9px!important;
+  border-top:1px solid color-mix(in srgb,var(--line) 75%,transparent)!important;
+  color:var(--muted)!important;
+  font-size:.78rem!important;
+  line-height:1.55!important;
+}
+.repo-match-kicker{
+  display:block;
+  color:var(--accent);
+  font-size:.64rem;
+  font-weight:800;
+  letter-spacing:.07em;
+  text-transform:uppercase;
+}
+.repo-grammar-card-wrap.is-pending .repo-grammar-card>small{
+  margin-top:2px;
+  padding-top:5px;
+  border-top:0;
+}
+
+/* Bring individual grammar guides back into the shared Learning Hub shell. */
+.repo-grammar-page{
+  max-width:960px!important;
+  padding-top:0!important;
+}
+.repo-grammar-header.app-page-header{
+  margin:0 0 14px!important;
+  padding:18px 20px!important;
+  border:1px solid color-mix(in srgb,var(--line) 88%,transparent)!important;
+  border-radius:16px!important;
+  background:linear-gradient(
+    135deg,
+    color-mix(in srgb,var(--card) 94%,var(--soft)),
+    color-mix(in srgb,var(--soft) 80%,var(--card))
+  )!important;
+  box-shadow:0 3px 14px rgba(25,39,55,.04)!important;
+}
+.repo-grammar-header .app-page-breadcrumb{
+  margin-bottom:6px;
+}
+.repo-grammar-page .repo-grammar-header h1{
+  margin:4px 0 5px!important;
+  font-size:clamp(2rem,4.4vw,3rem)!important;
+  line-height:1.35!important;
+  letter-spacing:-.025em;
+}
+.repo-grammar-meaning{
+  margin:0!important;
+  max-width:760px;
+  font-size:1rem!important;
+  line-height:1.5!important;
+  color:var(--muted)!important;
+}
+.repo-grammar-meta{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin-top:10px;
+}
+.repo-grammar-meta span{
+  border:1px solid color-mix(in srgb,var(--accent) 20%,var(--line));
+  border-radius:999px;
+  background:var(--card);
+  padding:4px 8px;
+  color:var(--muted);
+  font-size:.7rem;
+  font-weight:800;
+}
+.repo-grammar-content{
+  width:min(100%,880px);
+  margin:0 auto;
+  gap:12px!important;
+}
+.repo-guide-article{
+  overflow:hidden;
+  border:1px solid color-mix(in srgb,var(--line) 88%,transparent);
+  border-radius:16px;
+  background:var(--card);
+}
+.repo-guide-article .repo-guide-section{
+  margin:0;
+  padding:18px 20px;
+  border-top:1px solid color-mix(in srgb,var(--line) 78%,transparent);
+}
+.repo-guide-article .repo-guide-section:first-child{
+  border-top:0;
+}
+.repo-grammar-content>.repo-guide-section,
+.repo-grammar-content>.panel{
+  margin:0;
+}
+.repo-grammar-content>.repo-guide-section{
+  padding:18px 2px;
+  border-top:1px solid color-mix(in srgb,var(--line) 78%,transparent);
+}
+.repo-grammar-content .panel{
+  border-radius:14px;
+  padding:16px 18px;
+  box-shadow:none;
+}
+.repo-grammar-content h2{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  margin:0 0 11px!important;
+  font-size:1.08rem!important;
+  line-height:1.3;
+}
+.repo-guide-heading-icon{
+  width:27px;
+  height:27px;
+  flex:0 0 27px;
+  display:grid;
+  place-items:center;
+  border-radius:8px;
+  background:var(--soft);
+  color:var(--accent);
+  font-size:12px;
+}
+.repo-guide-heading-icon svg,
+.repo-guide-heading-icon i{
+  width:12px;
+  height:12px;
+  font-size:12px;
+}
+.repo-grammar-content p,
+.repo-grammar-content li{
+  line-height:1.7!important;
+}
+.repo-grammar-content p{
+  margin-top:7px;
+  margin-bottom:10px;
+}
+.repo-grammar-content ul{
+  margin-top:4px!important;
+}
+.repo-grammar-example,
+.repo-variant{
+  padding:10px 0!important;
+}
+.repo-further-study{
+  margin-top:2px!important;
+}
+
+html[data-theme='dark'] .repo-match-badge{
+  background:color-mix(in srgb,var(--card) 72%,var(--soft));
+}
+html[data-theme='dark'] .repo-grammar-header.app-page-header,
+html[data-theme='dark'] .repo-guide-article{
+  box-shadow:none!important;
+}
+
+@media(max-width:600px){
+  .repo-match-badge{
+    top:11px;
+    right:11px;
+    min-height:23px;
+    padding:4px 7px;
+    font-size:.64rem;
+  }
+  .repo-grammar-card-wrap:has(.repo-match-badge) .repo-grammar-card>strong{
+    padding-right:76px;
+  }
+  .repo-grammar-header.app-page-header{
+    padding:15px!important;
+    border-radius:14px!important;
+  }
+  .repo-grammar-page .repo-grammar-header h1{
+    font-size:2rem!important;
+  }
+  .repo-guide-article .repo-guide-section{
+    padding:15px;
+  }
+  .repo-grammar-content .panel{
+    padding:14px;
+  }
+}
