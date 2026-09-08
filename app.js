@@ -274,6 +274,11 @@ const state = {
   week: 0,
   libraryItem: null,
   programmeId: localStorage.getItem('activeProgrammeId') || (window.PROGRAMME_SETTINGS?.activeId || 'tobira-beginning-ii-12w'),
+  programmeLifecycle: [],
+  programmeLifecycleLoaded: false,
+  programmeLifecycleLoading: false,
+  programmeLifecycleError: '',
+  browsingProgrammeId: null,
   lesson: 11,
   startDate: localStorage.getItem('studyStartDate') || '2026-08-31',
   taskState: JSON.parse(localStorage.getItem('taskState') || '{}'),
@@ -330,12 +335,88 @@ const fmtMinutes = m => `${Math.floor(m/60)}h${m%60?` ${m%60}m`:''}`;
 const dateKey = d => { const x = new Date(d); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; };
 const lessonForWeek = w => w < 10 ? CURRICULUM.lessons[w] : null;
 const consolidationLessons = w => w === 10 ? CURRICULUM.lessons.slice(0,5) : CURRICULUM.lessons.slice(5,10);
-const activeProgramme = () => (window.PROGRAMMES||[]).find(p=>p.id===state.programmeId) || (window.PROGRAMMES||[])[0];
-const activeBook = () => { const p=activeProgramme(); return (window.BOOKS||[]).find(b=>b.id===(p?.bookId || CURRICULUM.bookId || '')) || {title:CURRICULUM.book||'Active curriculum',level:'',series:''}; };
+const programmeRecord = id => state.programmeLifecycle.find(row=>row.programme_id===id) || null;
+const programmeStatus = programme => programmeRecord(programme?.id)?.status || (!state.programmeLifecycleLoaded?programme?.status:'planned');
+const activeProgramme = () => {
+  const id=state.programmeLifecycleLoaded
+    ? state.programmeLifecycle.find(row=>row.status==='active')?.programme_id
+    : state.programmeId;
+  return (window.PROGRAMMES||[]).find(programme=>programme.id===id) || null;
+};
+const activeBook = () => { const p=activeProgramme(); return (window.BOOKS||[]).find(b=>b.id===p?.bookId) || {title:'No active programme',level:'',series:''}; };
 const programmeCurriculum = p => p?.curriculumKey==='CURRICULUM' ? window.CURRICULUM : null;
 function updateBackToTop(){ const button=$('#backToTop'); if(button) button.hidden=window.scrollY<500||!state.user; }
-function selectProgramme(id){ const p=(window.PROGRAMMES||[]).find(x=>x.id===id); if(!p||p.status!=='active') return; state.programmeId=id; localStorage.setItem('activeProgrammeId',id); toast('Programme selected'); render(); }
-function programmeSummary(p){ const b=(window.BOOKS||[]).find(x=>x.id===p.bookId); return {book:b, ready:p.status==='active' && !!programmeCurriculum(p)}; }
+function programmeSummary(p){ const b=(window.BOOKS||[]).find(x=>x.id===p.bookId); return {book:b, ready:p?.activationReady!==false && !!programmeCurriculum(p) && !!p.scheduleKey}; }
+
+function programmeProgress(programme){
+  if(!programmeCurriculum(programme))return {done:0,total:0,pct:0};
+  const value=overallProgress();return {...value,pct:value.total?Math.round(value.done/value.total*100):0};
+}
+function programmeDate(value){return value?new Date(value).toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'}):'';}
+function programmeLifecycleCard(programme){
+  const row=programmeRecord(programme.id),status=programmeStatus(programme),summary=programmeSummary(programme),progress=programmeProgress(programme);
+  const started=status==='planned'&&row?.started_at?'<span class="programme-history-note">Started previously</span>':'';
+  const actions=status==='active'
+    ? '<button class="smallbtn" type="button" data-complete-programme>Complete programme</button>'
+    : status==='completed'
+      ? `<button class="smallbtn" type="button" data-view-programme="${esc(programme.id)}">View lessons</button>`
+      : summary.ready
+        ? `<button class="smallbtn primary" type="button" data-activate-programme="${esc(programme.id)}">Activate programme</button>`
+        : '<span class="programme-history-note">Programme mapping not ready</span>';
+  return `<article class="programme-card programme-${status} ${status==='active'?'active-programme':''}"><div class="book-card-top"><span class="book-status ${status}">${status[0].toUpperCase()+status.slice(1)}</span><span class="book-level">${programme.weeks?`${programme.weeks} weeks`:'Mapped book'}</span></div><div class="eyebrow">${esc(summary.book?.series||'Study programme')}</div><h3>${esc(programme.title)}</h3><p>${esc(programme.description)}</p>${progress.total?`<div class="programme-progress"><span>${progress.done} of ${progress.total} complete</span><strong>${progress.pct}%</strong></div><div class="progress"><i style="width:${progress.pct}%"></i></div>`:''}${status==='completed'?`<p class="programme-history-note">Completed ${esc(programmeDate(row?.completed_at))}</p>`:started}<div class="programme-card-actions">${actions}</div></article>`;
+}
+function programmeEmptyState(title,copy){
+  $('#hero').hidden=true;$('#bottomArea').hidden=true;$('#weekView').hidden=true;$('#mainContent').hidden=false;
+  $('#mainContent').innerHTML=`<section class="panel programme-empty"><div class="eyebrow">Study programme</div><h1>${esc(title)}</h1><p>${esc(copy)}</p><button class="smallbtn primary" id="openProgrammeHub" type="button">Open Hub</button></section>`;
+  $('#openProgrammeHub').onclick=()=>{state.view='library';state.libraryItem=null;render();};
+}
+function openProgrammeConfirmation(targetId=null){
+  const dialog=$('#programmeDialog'),title=$('#programmeDialogTitle'),copy=$('#programmeDialogCopy'),actions=$('#programmeDialogActions');if(!dialog||!title||!copy||!actions)return;
+  const current=activeProgramme(),target=(window.PROGRAMMES||[]).find(programme=>programme.id===targetId);
+  if(target){
+    title.textContent=`Activate ${target.title}?`;
+    if(current){
+      copy.textContent=`${current.title} is currently active. Choose whether to complete it or keep it planned.`;
+      actions.innerHTML='<button class="smallbtn primary" type="button" data-programme-action="complete_and_activate">Complete current & activate</button><button class="smallbtn" type="button" data-programme-action="switch">Switch without completing</button><button class="smallbtn" type="button" data-programme-cancel>Cancel</button>';
+    }else{
+      copy.textContent='This will become your active study programme.';
+      actions.innerHTML='<button class="smallbtn primary" type="button" data-programme-action="activate">Activate</button><button class="smallbtn" type="button" data-programme-cancel>Cancel</button>';
+    }
+  }else{
+    title.textContent='Complete programme?';copy.textContent='This preserves your progress and moves the programme to Completed.';
+    actions.innerHTML='<button class="smallbtn primary" type="button" data-programme-action="complete">Complete programme</button><button class="smallbtn" type="button" data-programme-cancel>Cancel</button>';
+  }
+  actions.querySelector('[data-programme-cancel]').onclick=()=>dialog.close();
+  actions.querySelectorAll('[data-programme-action]').forEach(button=>button.onclick=()=>transitionProgramme(targetId,button.dataset.programmeAction));
+  dialog.showModal();
+}
+
+async function loadProgrammeLifecycle(){
+  if(!db||!state.user)return;
+  state.programmeLifecycleLoading=true;state.programmeLifecycleError='';
+  const ids=(window.PROGRAMMES||[]).map(programme=>programme.id);
+  const {data,error}=await db.rpc('ensure_user_programmes',{p_programme_ids:ids,p_default_active_programme_id:window.PROGRAMME_SETTINGS?.activeId||ids[0]||null});
+  state.programmeLifecycleLoading=false;
+  if(error){state.programmeLifecycleLoaded=true;state.programmeLifecycle=[];state.programmeId=null;state.programmeLifecycleError=error.message||'Programme lifecycle could not be loaded.';return;}
+  state.programmeLifecycle=Array.isArray(data)?data:[];state.programmeLifecycleLoaded=true;
+  state.programmeId=state.programmeLifecycle.find(row=>row.status==='active')?.programme_id||null;
+  if(state.programmeId)localStorage.setItem('activeProgrammeId',state.programmeId);else localStorage.removeItem('activeProgrammeId');
+}
+
+async function transitionProgramme(targetId,action){
+  if(!db||!state.user){toast('Sign in to change programmes.');return false;}
+  const dialog=$('#programmeDialog'),buttons=dialog?.querySelectorAll('button');buttons?.forEach(button=>button.disabled=true);
+  try{
+    const {data,error}=await db.rpc('transition_user_programme',{p_target_programme_id:targetId||null,p_action:action});
+    if(error)throw error;
+    state.programmeLifecycle=Array.isArray(data)?data:[];state.programmeLifecycleLoaded=true;
+    state.programmeId=state.programmeLifecycle.find(row=>row.status==='active')?.programme_id||null;
+    if(state.programmeId)localStorage.setItem('activeProgrammeId',state.programmeId);else localStorage.removeItem('activeProgrammeId');
+    dialog?.close();state.view='library';state.libraryItem=null;render();
+    toast(action==='complete'?'Programme completed':'Active programme updated');return true;
+  }catch(error){toast(error?.message||'Programme change failed.');return false;}
+  finally{buttons?.forEach(button=>button.disabled=false);}
+}
 
 function lessonByNumber(n){ return CURRICULUM.lessons.find(l => l.n === Number(n)); }
 function defFor(key){ return TASK_TYPES.find(x => x.key === key); }
@@ -708,7 +789,7 @@ function renderHeader(){
 }
 function renderNav(){
   $('#mainNav').innerHTML=`<button class="navbtn home-nav-btn ${state.view==='dashboard'?'active':''}" data-view="dashboard" title="Home"><i class="fa-solid fa-house" aria-hidden="true"></i><span>Home</span></button><button class="navbtn ${state.view==='plan'?'active':''}" data-view="plan" title="Plan"><i class="fa-solid fa-calendar-days" aria-hidden="true"></i><span>Plan</span></button><button class="navbtn ${state.view==='lesson'?'active':''}" data-view="lesson" title="Lessons"><i class="fa-solid fa-book-open" aria-hidden="true"></i><span>Lessons</span></button><button class="navbtn ${state.view==='library'?'active':''}" data-view="library" title="Hub"><i class="fa-solid fa-layer-group" aria-hidden="true"></i><span>Hub</span></button><button class="navbtn repo-nav-btn ${state.view==='repository'?'active':''}" data-view="repository" title="Japanese Repository"><i class="fa-solid fa-language" aria-hidden="true"></i><span class="nav-utility-label">Repository</span></button><button class="navbtn grammar-nav-btn" id="grammarNavBtn" type="button" title="Grammar Library"><i class="fa-solid fa-spell-check" aria-hidden="true"></i><span class="nav-utility-label">Grammar</span></button><button class="navbtn icon-nav-btn" id="searchNavBtn" type="button" title="Search" aria-label="Search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i></button><button class="navbtn wk-nav-btn ${state.view==='wanikani'?'active':''}" data-view="wanikani" title="WaniKani"><i class="fa-solid fa-paintbrush" aria-hidden="true"></i><span class="nav-utility-label">WaniKani</span></button><button class="navbtn pomo-nav-btn" id="pomoNavBtn" type="button" title="Pomodoro" aria-label="Open Pomodoro"><i class="fa-solid fa-clock" aria-hidden="true"></i><span class="nav-utility-label">Pomodoro</span></button>`;
-  const navigate=view=>{state.view=view;if(state.view==='lesson'&&!lessonByNumber(state.lesson))state.lesson=11;closeMobileMore();render();scrollTo({top:0,behavior:'smooth'});};
+  const navigate=view=>{state.view=view;if(state.view==='lesson'){state.browsingProgrammeId=null;if(!lessonByNumber(state.lesson))state.lesson=11;}closeMobileMore();render();scrollTo({top:0,behavior:'smooth'});};
   $('#mainNav').querySelectorAll('.navbtn[data-view]').forEach(b=>b.onclick=()=>navigate(b.dataset.view));
   const mobileNav=$('#mobileBottomNav');
   if(mobileNav){
@@ -823,16 +904,28 @@ function renderLibrary(){
   $('#hero').hidden=true; $('#bottomArea').hidden=true; $('#weekView').hidden=true; $('#mainContent').hidden=false;
   const books=window.BOOKS||[], resources=window.STUDY_RESOURCES||[], programmes=window.PROGRAMMES||[];
   const activeP=activeProgramme();
+  const byStatus=status=>programmes.filter(programme=>programmeStatus(programme)===status);
+  const active=byStatus('active'),planned=byStatus('planned'),completed=byStatus('completed');
+  const readyPlanned=planned.filter(programme=>programmeSummary(programme).ready);
+  const unavailablePlanned=planned.filter(programme=>!programmeSummary(programme).ready);
+  const activeProgress=activeP?programmeProgress(activeP):null;
+  const completeSuggestion=activeP&&activeProgress.total&&activeProgress.done===activeProgress.total?`<section class="programme-complete-banner"><div><div class="eyebrow">Programme complete</div><h2>All required activities are finished</h2><p>Complete ${esc(activeP.title)} when you are ready. Your progress and history will be preserved.</p></div><button class="smallbtn primary" type="button" data-complete-programme>Complete programme</button></section>`:'';
   $('#mainContent').innerHTML=`
     <section class="library-hero app-page-heading app-page-header">
       <div><div class="eyebrow">Book library · Hub</div><h1>Books and study programmes</h1><p>Your mapped books, active curriculum and supporting study tools.</p></div>
-      <div class="hub-current"><div><span class="eyebrow">Active programme</span><h2>${esc(activeP?activeBook().title:'No active programme')}</h2>${activeP?`<small class="hub-programme-meta">${esc(activeP.weeks?`${activeP.weeks}-week foundation`:activeP.shortTitle||'Current programme')}</small>`:''}</div>${activeP?'<span class="book-status active">Active</span>':''}</div>
+      <div class="hub-current"><div><span class="eyebrow">Active programme</span><h2>${esc(activeP?activeBook().title:'No active programme')}</h2>${activeP?`<small class="hub-programme-meta">${esc(activeP.weeks?`${activeP.weeks}-week foundation`:activeP.shortTitle||'Current programme')}</small>`:'<small class="hub-programme-meta">Choose a mapped programme below.</small>'}</div>${activeP?'<span class="book-status active">Active</span>':''}</div>
     </section>
-    <section class="library-section"><div class="panelhead"><div><h2>Study programmes</h2><p class="subtitle">Structured courses that control the current schedule.</p></div></div><div class="programme-grid">${programmes.map(p=>{const x=programmeSummary(p),active=p.id===state.programmeId,mappedBook=!!(window.BOOK_MAPS||{})[p.bookId];const stageLabel=p.weeks?`${p.weeks} weeks`:mappedBook?'Book mapped':'Not mapped';const placeholder=mappedBook?'Book content is mapped. Programme scheduling and workbook task structure have not been configured yet.':'Contents/pages not mapped yet. Add the book data first; the same programme engine will then handle it.';return `<article class="programme-card ${active?'active-programme':''}"><div class="book-card-top"><span class="book-status ${p.status}">${active?'Active':p.status==='planned'?'Planned':'Available'}</span><span class="book-level">${stageLabel}</span></div><div class="eyebrow">${esc(x.book?.series||'Programme')}</div><h3>${esc(p.title)}</h3><p>${esc(p.description)}</p>${x.ready ? `<div class="programme-meta"><span>${p.targetHours?.[0]||12}–${p.targetHours?.[1]||18} h/week</span><span>${esc(x.book?.level||'')}</span></div>${active?'<span class="current-badge">Current programme</span>':'<button class="smallbtn primary" data-select-programme="'+esc(p.id)+'">Use this programme</button>'}` : `<div class="book-placeholder">${placeholder}</div>`}</article>`}).join('')}</div></section>
+    ${state.programmeLifecycleError?`<div class="programme-warning"><strong>Programme setup required</strong><span>${esc(state.programmeLifecycleError)}</span></div>`:''}
+    ${completeSuggestion}
+    ${active.length?`<section class="library-section programme-lifecycle-section"><div class="panelhead"><div><div class="eyebrow">Active programme</div><h2>Current study path</h2></div></div><div class="programme-grid">${active.map(programmeLifecycleCard).join('')}</div></section>`:''}
+    <section class="library-section programme-lifecycle-section"><div class="panelhead"><div><div class="eyebrow">${activeP?'Planned programmes':'Choose your next programme'}</div><h2>${activeP?'Mapped programmes ready for later':'Select a mapped programme to make active'}</h2></div></div>${readyPlanned.length?`<div class="programme-grid">${readyPlanned.map(programmeLifecycleCard).join('')}</div>`:`<div class="empty programme-picker-empty"><strong>${activeP?'No other mapped programme is ready yet.':'You do not currently have another mapped programme ready to activate.'}</strong><span>Book maps remain available in the library below.</span></div>`}${unavailablePlanned.length?`<details class="programme-not-ready"><summary>Planned programme maps (${unavailablePlanned.length})</summary><div class="programme-grid">${unavailablePlanned.map(programmeLifecycleCard).join('')}</div></details>`:''}</section>
+    ${completed.length?`<section class="library-section programme-lifecycle-section"><div class="panelhead"><div><div class="eyebrow">Completed programmes</div><h2>Previous study paths</h2><p class="subtitle">Progress, notes and study history remain available.</p></div></div><div class="programme-grid">${completed.map(programmeLifecycleCard).join('')}</div></section>`:''}
     <section class="library-section"><div class="panelhead"><div><h2>Book library</h2><p class="subtitle">Mapped textbooks and reusable companion books.</p></div></div><div class="book-grid">${books.map(b=>{const p=programmes.find(x=>x.bookId===b.id);const mapped=!!(window.BOOK_MAPS||{})[b.id],cover=b.cover?String(b.cover).replace(/^\/+/, ''):'';return `<article class="book-card ${b.id===activeBook().id?'active-book':''} ${mapped?'mapped-book':''}" data-open-book="${esc(b.id)}" tabindex="0" role="button"><div class="book-card-top"><span class="book-status ${b.status}">${b.status==='active'?'In use':mapped?'Mapped':b.status==='planned'?'Planned':'Available'}</span><span class="book-level">${esc(b.level)}</span></div><div class="book-cover-visual"><div class="book-cover-fallback"><strong>${esc(b.title)}</strong><span>${esc(b.series)}</span></div>${cover?`<img src="${esc(cover)}" alt="${esc(b.title)} cover" loading="lazy">`:''}</div><div class="eyebrow">${esc(b.series)}</div><h3>${esc(b.title)}</h3><p>${esc(b.description)}</p><div class="book-meta">${p?`<span>Programme: ${esc(p.shortTitle||p.title)}</span>`:'<span>No programme mapped</span>'}${b.workbooks?.length?`<span>${b.workbooks.map(esc).join(' · ')}</span>`:''}${mapped?'<span>Open content map →</span>':''}</div></article>`}).join('')}</div></section>
     <section class="library-section"><div class="panelhead"><div><h2>Study tools & input</h2><p class="subtitle">Supporting resources stay independent from textbook programmes.</p></div></div><div class="resource-grid">${resources.map(r=>`<article class="resource-card"><div class="book-card-top"><span class="resource-type">${esc(r.type)}</span><span class="book-status ${r.status}">${r.status==='active'?'Active':'Available'}</span></div><h3>${esc(r.title)}</h3><p>${esc(r.description)}</p></article>`).join('')}</div></section>
     <section class="library-section architecture-note"><div class="eyebrow">How this scales</div><h2>Book → map → programme → schedule</h2><p>A future textbook can first become a mapped library resource. Only when you decide to study it should it become a programme with its own workload, tasks and progress.</p><div class="hub-flow"><span>Book</span><b>→</b><span>Map</span><b>→</b><span>Programme</span><b>→</b><span>Schedule</span><b>→</b><span>Progress</span></div></section>`;
-  $('#mainContent').querySelectorAll('[data-select-programme]').forEach(b=>b.onclick=()=>selectProgramme(b.dataset.selectProgramme));
+  $('#mainContent').querySelectorAll('[data-activate-programme]').forEach(button=>button.onclick=()=>openProgrammeConfirmation(button.dataset.activateProgramme));
+  $('#mainContent').querySelectorAll('[data-complete-programme]').forEach(button=>button.onclick=()=>openProgrammeConfirmation());
+  $('#mainContent').querySelectorAll('[data-view-programme]').forEach(button=>button.onclick=()=>{const programme=(window.PROGRAMMES||[]).find(item=>item.id===button.dataset.viewProgramme),curriculum=programmeCurriculum(programme);if(!curriculum?.lessons?.length)return;state.browsingProgrammeId=programme.id;state.lesson=curriculum.lessons[0].n;state.view='lesson';render();scrollTo({top:0,behavior:'smooth'});});
   $('#mainContent').querySelectorAll('.book-cover-visual img').forEach(img=>img.onerror=()=>{img.remove();});
   $('#mainContent').querySelectorAll('[data-open-book]').forEach(b=>{
     const open=()=>{state.libraryItem=b.dataset.openBook;state.view='library';render();scrollTo({top:0,behavior:'smooth'});};
@@ -1033,6 +1126,8 @@ function renderSearchResults(q){
 }
 
 function renderDashboard(){
+  if(!state.programmeLifecycleLoaded){programmeEmptyState('Loading your study programme','Your active programme is being restored from your account.');return;}
+  if(!activeProgramme()){programmeEmptyState('Choose your next programme','You do not currently have an active study programme.');return;}
   $('#hero').hidden=true; $('#bottomArea').hidden=true; $('#weekView').hidden=true; $('#mainContent').hidden=false;
   const overall=overallProgress(),w=currentWeekIndex(),wp=progress(w),next=nextIncomplete();
   const studyDay=studyContext(),today=todayTasks();
@@ -1046,6 +1141,7 @@ function renderDashboard(){
       <div><div class="eyebrow">${dayLabel}</div><h1>${studyDay.preStart?'Ready for Monday?':'What are you studying now?'}</h1><p>${esc(activeBook().title)} · Week ${w+1}. The dashboard is deliberately focused on the next useful action.</p></div>
       <div class="today-summary"><strong>${today.length?today.length:0}</strong><span>${today.length?'core tasks remaining today':'core tasks remaining'}</span></div>
     </section>
+    ${overall.total&&overall.done===overall.total?`<section class="programme-complete-banner"><div><div class="eyebrow">Programme complete</div><h2>All required activities are finished</h2><p>Complete ${esc(activeProgramme().title)} when you are ready. Nothing is deleted.</p></div><button class="smallbtn primary" id="completeProgrammeFromHome" type="button">Complete programme</button></section>`:''}
     <section class="today-layout single">
       <article class="panel today-card app-next-action"><div class="panelhead"><div><div class="eyebrow">Start here</div><h2>Continue your current study path</h2></div><span class="today-complete">${todayPct}%</span></div>
         ${today.length?`<div class="focuslist">${today.map((t,i)=>{const action=t.lesson?`data-guided-task="${esc(t.id)}" data-guided-lesson="${esc(t.lesson)}">Open path`:`data-today-task="${esc(t.id)}">Start`;return `<article class="focusitem"><span class="focus-number">${i+1}</span><div class="focusmain"><strong>${esc(t.title)}</strong><small>${esc(t.book)}${t.page?' · p.'+esc(t.page):''} · ${esc(t.duration)}</small><span>${esc(taskPurpose(t))}</span></div><button class="smallbtn primary" ${action}</button></article>`}).join('')}</div>`:'<div class="empty success-empty">Today’s scheduled core work is complete.</div>'}
@@ -1063,6 +1159,7 @@ function renderDashboard(){
   $('#openNext')?.addEventListener('click',()=>{next.task.lesson?openGuidedLesson(next.task.lesson,next.task.id):(state.week=next.week,state.view='plan',render(),setTimeout(()=>openTask(next.task.id),50));});
   $('#openNextTask')?.addEventListener('click',()=>{next.task.lesson?openGuidedLesson(next.task.lesson,next.task.id):(state.week=next.week,state.view='plan',render(),setTimeout(()=>openTask(next.task.id),50));});
   $('#openWeekToday')?.addEventListener('click',()=>{state.view='plan';state.week=w;render();});
+  $('#completeProgrammeFromHome')?.addEventListener('click',()=>openProgrammeConfirmation());
 }
 
 function card(t){
@@ -1070,6 +1167,8 @@ function card(t){
   return `<article class="task ${s.completed?'done':''}" data-task="${esc(t.id)}"><input type="checkbox" data-check="${esc(t.id)}" ${s.completed?'checked':''}><div class="taskmain"><div class="tasktitle">${esc(t.title)}</div><div class="taskmeta">${esc(t.book)}${t.page?` · p.${t.page}`:''} · ${esc(t.duration)}</div><div class="taskhint">Tap for instructions, notes and study time</div></div></article>`;
 }
 function renderWeek(){
+  if(!state.programmeLifecycleLoaded){programmeEmptyState('Loading your study programme','Your active programme is being restored from your account.');return;}
+  if(!activeProgramme()){programmeEmptyState('Choose your next programme','Study Plan needs an active mapped programme.');return;}
   $('#hero').hidden=false; $('#bottomArea').hidden=false; $('#weekView').hidden=false; $('#mainContent').hidden=true;
   const ds=weekDates(state.week);
   $('#weekView').innerHTML=`<div class="tabsrow"><button class="smallbtn" id="prevWeek">←</button><div class="weektabs" id="weekTabs"></div><button class="smallbtn" id="nextWeek">→</button></div><div class="week-overview"><div><div class="eyebrow">WEEK ${state.week+1}</div><h2>${esc(weekPlan(state.week).focus)}</h2><p class="subtitle">Core target: ${fmtMinutes(weekPlan(state.week).days.reduce((a,x)=>a+x.target,0))} this week, with optional input bringing the overall plan toward 15–20 hours.</p></div></div>${ds.map((date,d)=>{const core=weeklyTasks(state.week,d),hs=habits(state.week,d),plan=weekPlan(state.week).days[d]||{focus:'Core study',target:120,extra:'30 min Japanese input'},isToday=dateKey(date)===dateKey(new Date());return `<section class="day ${isToday?'today':''}"><div class="dayhead"><div><div class="eyebrow">${isToday?'TODAY · ':''}${date.toLocaleDateString(undefined,{weekday:'long'})}</div><h2>${fmt(date)}</h2><p class="dayfocus"><strong>${esc(plan.focus)}</strong> · target ${fmtMinutes(plan.target)} · ${esc(plan.extra)}</p></div><span class="daycount">${core.filter(t=>ts(t.id).completed).length}/${core.length}</span></div>${core.length?`<div class="tasklist">${core.map(card).join('')}</div>`:''}<details class="habits"><summary>Optional input <span>WaniKani · Migaku · shadowing · reading</span></summary><p class="habit-target">Recommended: ${esc(plan.extra)}</p><div class="habitlist">${hs.map(card).join('')}</div></details></section>`}).join('')}`;
@@ -1237,7 +1336,7 @@ async function signedLessonAudioUrl(track){
 
 const textbookPdfUrlCache=new Map();
 function textbookPdfConfig(lesson){
-  const book=window.TEXTBOOK_PDFS?.books?.[state.programmeId],pdf=book?.lessons?.[Number(lesson)];
+  const book=window.TEXTBOOK_PDFS?.books?.[state.browsingProgrammeId||state.programmeId],pdf=book?.lessons?.[Number(lesson)];
   return pdf?{...pdf,label:book.label}:null;
 }
 function parsePrintedPageRange(value){
@@ -1799,11 +1898,15 @@ function focusGuideTarget(){
 }
 
 function openGuidedLesson(lesson,taskId=null){
+  state.browsingProgrammeId=null;
   if(window.JLHRouter){window.JLHRouter.navigate(window.JLHRouter.lessonURL(lesson,taskId));return;}
   state.lesson=Number(lesson); state.view='lesson'; state.guideTarget=taskId; state.activeGuideTaskId=taskId; render();
 }
 
 function renderLesson(n){
+  const historicalProgramme=(window.PROGRAMMES||[]).find(programme=>programme.id===state.browsingProgrammeId&&programmeStatus(programme)==='completed'&&programmeCurriculum(programme)?.lessons?.some(lesson=>lesson.n===Number(n)));
+  if(!state.programmeLifecycleLoaded){programmeEmptyState('Loading your study programme','Your active programme is being restored from your account.');return;}
+  if(!activeProgramme()&&!historicalProgramme){programmeEmptyState('Choose your next programme','Lessons need an active mapped programme. Completed programmes remain available from Hub.');return;}
   const l=lessonByNumber(n); if(!l)return;
   $('#hero').hidden=true; $('#bottomArea').hidden=true; $('#weekView').hidden=true; $('#mainContent').hidden=false;
   const tasks=lessonTasks(l), w=n-11, p=lessonProgress(n), pct=p.total?p.done/p.total*100:0;
@@ -1822,7 +1925,8 @@ function renderLesson(n){
   const wb2Rows=(l.workbookMap?.workbook2||[]).map(x=>{const t=tasks.find(y=>y.key===x.taskKey), st=t?ts(t.id):{};return `<button class="book-section compact ${st.completed?'done':''}" data-task="${esc(t?.id||'')}"><div class="book-section-main"><span class="book-section-label">${esc(x.label)}</span><strong>p.${esc(x.page)}</strong></div><span class="book-section-status">${st.completed?'✓':'Open'}</span></button>`}).join('');
   const wb1Rows=(l.workbookMap?.workbook1||[]).map(x=>{const t=tasks.find(y=>y.key===x.taskKey), st=t?ts(t.id):{};return `<button class="book-section compact ${st.completed?'done':''}" data-task="${esc(t?.id||'')}"><div class="book-section-main"><span class="book-section-label">${esc(x.label)}</span><strong>p.${esc(x.page)}</strong></div><span class="book-section-status">${st.completed?'✓':'Open'}</span></button>`}).join('');
   $('#mainContent').innerHTML=`
-    <div class="lesson-toolbar"><button class="smallbtn" id="backDashboard">← Dashboard</button><button class="smallbtn" id="backPlan">Week ${w+1} plan</button><div class="lesson-select"><button class="smallbtn" id="prevLesson" ${n===11?'disabled':''}>← L${n-1}</button><button class="smallbtn" id="nextLesson" ${n===20?'disabled':''}>L${n+1} →</button></div></div>
+    <div class="lesson-toolbar"><button class="smallbtn" id="backDashboard">← ${historicalProgramme?'Hub':'Dashboard'}</button>${historicalProgramme?'':`<button class="smallbtn" id="backPlan">Week ${w+1} plan</button>`}<div class="lesson-select"><button class="smallbtn" id="prevLesson" ${n===11?'disabled':''}>← L${n-1}</button><button class="smallbtn" id="nextLesson" ${n===20?'disabled':''}>L${n+1} →</button></div></div>
+    ${historicalProgramme?`<div class="programme-history-banner"><strong>Completed programme</strong><span>You are viewing preserved lesson progress and notes from ${esc(historicalProgramme.title)}.</span></div>`:''}
     <section class="lessonhero app-page-header"><div class="lessonhero-copy"><div class="eyebrow">${esc(CURRICULUM.book)} · Lesson ${l.n}</div><h1>${esc(l.title)}</h1><p>${esc(l.english)}</p></div><div class="lessonhero-progress"><div class="lessonhero-grid app-compact-stats"><div><strong>${p.done}/${p.total}</strong><span>mapped tasks</span></div><div><strong>${Math.round(pct)}%</strong><span>lesson progress</span></div></div><div class="progress" aria-label="${Math.round(pct)}% lesson progress"><i style="width:${pct}%"></i></div></div></section>
     ${lessonGuideMarkup(l)}
     <details class="lesson-reference" id="lessonReference" ${reference.open?'open':''}>
@@ -1851,8 +1955,8 @@ function renderLesson(n){
     </details>
     <section class="panel lesson-notes-panel"><div class="panelhead"><div><h3>Lesson notes</h3><p class="subtitle">Overall observations; individual task notes stay attached to their task.</p></div></div><textarea id="lessonNotes" class="notes" placeholder="What was easy? What keeps tripping you up? Useful example sentences..."></textarea></section>
     `;
-  $('#backDashboard').onclick=()=>{state.view='dashboard';render();};
-  $('#backPlan').onclick=()=>{state.week=w;state.view='plan';render();};
+  $('#backDashboard').onclick=()=>{state.view=historicalProgramme?'library':'dashboard';render();};
+  if($('#backPlan'))$('#backPlan').onclick=()=>{state.week=w;state.view='plan';render();};
   $('#prevLesson').onclick=()=>{if(n>11){state.lesson=n-1;render();}};
   $('#nextLesson').onclick=()=>{if(n<20){state.lesson=n+1;render();}};
   $('#mainContent').querySelectorAll('[data-guide-check]').forEach(input=>input.onchange=()=>{
@@ -1955,6 +2059,7 @@ function openTask(id){
 }
 async function loadCloud(){
   if(!db||!state.user)return;
+  await loadProgrammeLifecycle();
   const {data:videos,error:videoError}=await db.from('lesson_videos').select('lesson,video_type,grammar_index,title,youtube_url,sort_order').order('lesson').order('video_type').order('sort_order');
   state.lessonVideos=videoError?[]:(videos||[]);
   state.lessonVideosLoaded=true;
@@ -2032,7 +2137,7 @@ $('#loginForm').onsubmit=async e=>{
     if(submit)submit.disabled=false;
   }
 };
-$('#logout').onclick=async()=>{if(db)await db.auth.signOut();clearPrivateSessionCaches();state.lessonVideos=[];state.lessonVideosLoaded=false;state.lessonVideosError=false;state.user=null;state.ready=true;render();};
+$('#logout').onclick=async()=>{if(db)await db.auth.signOut();clearPrivateSessionCaches();state.lessonVideos=[];state.lessonVideosLoaded=false;state.lessonVideosError=false;state.programmeLifecycle=[];state.programmeLifecycleLoaded=false;state.programmeId=null;state.browsingProgrammeId=null;state.user=null;state.ready=true;render();};
 const pomoToggle=$('#pomoToggle'); if(pomoToggle) pomoToggle.onclick=()=>{state.pomodoro.status==='running'?pausePomodoro():startPomodoro();};
 const pomoSkip=$('#pomoSkip'); if(pomoSkip) pomoSkip.onclick=()=>skipSession();
 const pomoReset=$('#pomoReset'); if(pomoReset) pomoReset.onclick=()=>resetSession();

@@ -130,6 +130,7 @@ window.PROGRAMMES = [
     title:"TOBIRA Beginning Japanese II · 12-week foundation",
     shortTitle:"Beginning Japanese II · 12 weeks",
     status:"active",
+    activationReady:true,
     curriculumKey:"CURRICULUM",
     weeks:12,
     targetHours:[15,20],
@@ -139,13 +140,13 @@ window.PROGRAMMES = [
   {
     id:"tobira-intermediate-future", bookId:"tobira-intermediate-i",
     title:"TOBIRA Intermediate Japanese I · future programme", shortTitle:"Intermediate Japanese I",
-    status:"planned", weeks:null, targetHours:[12,18],
+    status:"planned", activationReady:false, weeks:null, targetHours:[12,18],
     description:"The textbook content map is ready. Build the workbook tasks and schedule when you decide to make Intermediate Japanese I an active programme."
   },
   {
     id:"tobira-gateway-future", bookId:"tobira-gateway",
     title:"TOBIRA Gateway to Advanced Japanese · future programme", shortTitle:"Gateway to Advanced",
-    status:"planned", weeks:null, targetHours:[10,16],
+    status:"planned", activationReady:false, weeks:null, targetHours:[10,16],
     description:"Future advanced programme. It can use a different duration and task structure from Beginning II."
   }
 ];

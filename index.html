@@ -72,6 +72,14 @@
 <dialog id="searchDialog" class="search-dialog"><div class="search-shell"><div class="search-head"><div><div class="eyebrow">Learning Hub search</div><h2>Find anything</h2></div><button id="closeSearch" class="pomo-close" type="button" aria-label="Close search">×</button></div><input id="globalSearch" class="global-search" type="search" placeholder="Search lessons, tasks, books or notes…" autocomplete="off"><div id="searchResults" class="search-results"></div></div></dialog>
 <dialog id="modal" class="modal"><div class="modalbody"><h2 id="modalTitle"></h2><div id="modalSub" class="modalsub"></div><div id="modalDesc" class="modaldesc"></div><label class="fieldlabel">Task notes</label><textarea id="taskNotes" placeholder="Errors, examples, things to review, questions..."></textarea><div class="modalactions"><label class="checkline"><input id="modalDone" type="checkbox"> Completed</label><button id="closeTaskModal" class="smallbtn primary">Done</button></div></div></dialog>
 <dialog id="authDialog" class="modal"><form id="loginForm" class="authbox"><h2>Private study login</h2><p class="subtitle">Sign in with your single Supabase account.</p><p class="config-note">Your study data is only shown after authentication.</p><label>Email<input id="email" type="email" autocomplete="username" required></label><label>Password<input id="password" type="password" autocomplete="current-password" required></label><div class="modalactions"><button type="button" id="closeLogin" class="smallbtn">Cancel</button><button type="submit" class="smallbtn primary">Sign in</button></div></form></dialog>
+<dialog id="programmeDialog" class="modal programme-dialog">
+  <div class="programme-dialog-body">
+    <div class="eyebrow">Programme lifecycle</div>
+    <h2 id="programmeDialogTitle">Change active programme?</h2>
+    <p id="programmeDialogCopy"></p>
+    <div id="programmeDialogActions" class="programme-dialog-actions"></div>
+  </div>
+</dialog>
 <dialog id="textbookPdfDialog" class="textbook-pdf-dialog">
   <div class="textbook-pdf-shell">
     <header class="textbook-pdf-head"><div><span class="eyebrow">Private textbook</span><h2 id="textbookPdfTitle">Textbook pages</h2><p id="textbookPdfRange" class="subtitle"></p></div><button id="closeTextbookPdf" class="pomo-close" type="button" aria-label="Close textbook message">×</button></header>

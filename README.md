@@ -1,5 +1,20 @@
 # Japanese Learning Hub
 
+## Programme lifecycle
+
+The Hub is the source of truth for mapped study programmes. Each signed-in
+user can have programmes in **Planned**, **Active** or **Completed** state, with
+at most one active programme. Home, Plan and Lessons follow only that active
+programme; when none is active they direct the learner to the Hub instead of
+showing stale work.
+
+Apply `migrations/20260908_programme_lifecycle.sql` separately in Supabase SQL
+Editor. It preserves the current TOBIRA Beginning Japanese II programme as
+active for existing users and does not modify task completion, notes,
+Pomodoro sessions, Repository or Grammar data. Completing or switching a
+programme preserves its task history. Only programmes with a complete
+curriculum and schedule mapping can be activated.
+
 ## Japanese Repository (v1.1)
 
 The **文** navigation button opens the sentence-first personal repository. It

@@ -2,7 +2,10 @@
  * never dictionary bodies, drafts, credentials or signed media URLs. */
 window.JLHRouter=(()=>{
   const encode=value=>encodeURIComponent(String(value));
-  const bookId=()=>window.CURRICULUM?.bookId||'tobira-beginning-ii';
+  const bookId=()=>{
+    const programme=(window.PROGRAMMES||[]).find(item=>item.id===(state.browsingProgrammeId||state.programmeId));
+    return programme?.bookId||window.CURRICULUM?.bookId||'tobira-beginning-ii';
+  };
   const lessonURL=(n,task)=>`/books/${encode(bookId())}/lessons/${Number(n)}${task?'?step='+encode(task):''}`;
   const entryURL=id=>'/repository/entries/'+encode(id);
   const query=(path,values)=>{const p=new URLSearchParams();for(const [key,value] of Object.entries(values))if(value!==null&&value!==undefined&&value!==''&&value!=='all')p.set(key,value);return path+(p.size?'?'+p:'');};
@@ -247,7 +250,7 @@ window.JLHRouter=(()=>{
     if(id==='openRelatedLesson'){
       const task=findTaskById(modalTask);if(task?.lesson)return lessonURL(task.lesson,task.id);
     }
-    const map={backDashboard:'/',backPlan:'/plan/week/'+(state.week+1),backToLibrary:'/books',repoBack:'/repository',repoGrammarLibrary:'/grammar',repoGrammarLibraryBack:'/repository',repoAdd:'/repository/new',repoImport:'/repository/import',repoEdit:entry?entryURL(entry.id)+'/edit':null,repoCancel:entry?entryURL(entry.id):'/repository',repoCancelBottom:entry?entryURL(entry.id):'/repository',repoGrammarBack:entry&&!entry.routeStandalone?entryURL(entry.id):'/grammar',repoDictionaryOpen:dictionaryURL({id:null,setup:false}),dictionaryBack:entry?grammarURL(entry):'/grammar',dictionarySetup:dictionaryURL({setup:true}),dictionaryResults:dictionaryURL({id:null,setup:false}),dictionarySaved:dictionaryURL({id:window.JLHDictionary?.routeState?.().linkedId,setup:false}),prevLesson:state.lesson>11?lessonURL(state.lesson-1):null,nextLesson:state.lesson<20?lessonURL(state.lesson+1):null,prevWeek:state.week>0?'/plan/week/'+state.week:null,nextWeek:state.week<11?'/plan/week/'+(state.week+2):null,openWkDashboard:'/wanikani'};
+    const map={backDashboard:state.browsingProgrammeId?'/books':'/',backPlan:'/plan/week/'+(state.week+1),backToLibrary:'/books',repoBack:'/repository',repoGrammarLibrary:'/grammar',repoGrammarLibraryBack:'/repository',repoAdd:'/repository/new',repoImport:'/repository/import',repoEdit:entry?entryURL(entry.id)+'/edit':null,repoCancel:entry?entryURL(entry.id):'/repository',repoCancelBottom:entry?entryURL(entry.id):'/repository',repoGrammarBack:entry&&!entry.routeStandalone?entryURL(entry.id):'/grammar',repoDictionaryOpen:dictionaryURL({id:null,setup:false}),dictionaryBack:entry?grammarURL(entry):'/grammar',dictionarySetup:dictionaryURL({setup:true}),dictionaryResults:dictionaryURL({id:null,setup:false}),dictionarySaved:dictionaryURL({id:window.JLHDictionary?.routeState?.().linkedId,setup:false}),prevLesson:state.lesson>11?lessonURL(state.lesson-1):null,nextLesson:state.lesson<20?lessonURL(state.lesson+1):null,prevWeek:state.week>0?'/plan/week/'+state.week:null,nextWeek:state.week<11?'/plan/week/'+(state.week+2):null,openWkDashboard:'/wanikani'};
     return map[id]||null;
   }
   function decorate(){
