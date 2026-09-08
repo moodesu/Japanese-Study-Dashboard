@@ -178,13 +178,13 @@ function renderWaniKaniDashboard(){
   if(state.view!=='wanikani') return;
   $('#hero').hidden=true; $('#bottomArea').hidden=true; $('#weekView').hidden=true; $('#mainContent').hidden=false;
   if(waniKaniDetailState.status==='unconfigured'){
-    $('#mainContent').innerHTML=`<section class="wk-page"><div class="wk-page-head"><div><div class="eyebrow">Supporting resource</div><h1>WaniKani</h1><p class="subtitle">The private WaniKani service has not been configured.</p></div></div></section>`; return;
+    $('#mainContent').innerHTML=`<section class="wk-page"><div class="wk-page-head app-page-header"><div><div class="eyebrow">Supporting resource</div><h1>WaniKani</h1><p class="subtitle">The private WaniKani service has not been configured.</p></div></div></section>`; return;
   }
   if(waniKaniDetailState.status==='loading'){
-    $('#mainContent').innerHTML=`<section class="wk-page"><div class="wk-page-head"><div><div class="eyebrow">Supporting resource</div><h1>WaniKani dashboard</h1><p class="subtitle">Loading your SRS data…</p></div></div><div class="panel wk-loading">Loading detailed assignments. This is cached for one hour.</div></section>`; return;
+    $('#mainContent').innerHTML=`<section class="wk-page"><div class="wk-page-head app-page-header"><div><div class="eyebrow">Supporting resource</div><h1>WaniKani dashboard</h1><p class="subtitle">Loading your SRS data…</p></div></div><div class="panel wk-loading">Loading detailed assignments. This is cached for one hour.</div></section>`; return;
   }
   if(waniKaniDetailState.status==='error'){
-    $('#mainContent').innerHTML=`<section class="wk-page"><div class="wk-page-head"><div><div class="eyebrow">Supporting resource</div><h1>WaniKani dashboard</h1><p class="subtitle">${esc(waniKaniDetailState.error)}</p></div><button class="smallbtn" id="wkDetailRetry">Retry</button></div></section>`;
+    $('#mainContent').innerHTML=`<section class="wk-page"><div class="wk-page-head app-page-header"><div><div class="eyebrow">Supporting resource</div><h1>WaniKani dashboard</h1><p class="subtitle">${esc(waniKaniDetailState.error)}</p></div><button class="smallbtn" id="wkDetailRetry">Retry</button></div></section>`;
     $('#wkDetailRetry').onclick=()=>loadWaniKaniDetail(true); return;
   }
   const d=waniKaniDetailState.data||{}, u=d.user||{}, s=d.summary||{}, x=d.detail||{};
@@ -203,7 +203,7 @@ function renderWaniKaniDashboard(){
   const kanjiPct=x.currentLevelTotal?.kanji?Math.round(x.currentLevelPassed.kanji/x.currentLevelTotal.kanji*100):0;
   $('#mainContent').innerHTML=`
     <section class="wk-page">
-      <div class="wk-page-head"><div><div class="eyebrow">Supporting resource</div><h1>WaniKani dashboard</h1><p class="subtitle">Level ${esc(u.level??'—')} · ${esc(u.username||'')} · detailed SRS view</p></div><div class="wk-page-actions"><button class="smallbtn" id="wkDetailRefresh">↻ Refresh</button><a class="smallbtn" href="https://www.wanikani.com" target="_blank" rel="noopener">Open WaniKani ↗</a></div></div>
+      <div class="wk-page-head app-page-header"><div><div class="eyebrow">Supporting resource</div><h1>WaniKani dashboard</h1><p class="subtitle">Level ${esc(u.level??'—')} · ${esc(u.username||'')} · detailed SRS view</p></div><div class="wk-page-actions app-page-toolbar"><button class="smallbtn" id="wkDetailRefresh">↻ Refresh</button><a class="smallbtn" href="https://www.wanikani.com" target="_blank" rel="noopener">Open WaniKani ↗</a></div></div>
       <section class="wk-overview-grid"><article class="wk-stat-card wk-level-card"><span class="eyebrow">Current level</span><strong>${esc(u.level??'—')}</strong><span>${esc(u.subscription?.max_level_granted??'')} max level access</span></article><article class="wk-stat-card"><strong>${reviews}</strong><span>Reviews due now</span></article><article class="wk-stat-card"><strong>${lessons}</strong><span>Lessons available</span></article><article class="wk-stat-card"><strong>${esc(formatWkNextReview(next))}</strong><span>Next review</span></article></section>
       <section class="wk-grid"><article class="panel"><div class="panelhead"><div><h2>Upcoming reviews</h2><p class="subtitle">The next review buckets returned by WaniKani.</p></div></div><div class="wk-forecast">${forecast.length?forecast.map(b=>`<div class="wk-forecast-col"><div class="wk-forecast-count">${b.count}</div><div class="wk-forecast-bar"><i style="height:${Math.max(5,b.count/maxForecast*100)}%"></i></div><small>${wkTimeLabel(b.available_at)}</small></div>`).join(''):'<div class="empty">No upcoming review buckets returned.</div>'}</div></article><article class="panel"><div class="panelhead"><div><h2>SRS distribution</h2><p class="subtitle">Current assignment counts by major WaniKani SRS group.</p></div></div><div class="wk-srs-list">${stages.map((name,i)=>`<div class="wk-srs-row"><span>${name}</span><div class="wk-srs-track"><i style="width:${stageCounts[i]/maxStage*100}%"></i></div><strong>${stageCounts[i]}</strong></div>`).join('')}</div></article></section>
       <section class="wk-grid"><article class="panel"><div class="panelhead"><div><h2>Current level progress</h2><p class="subtitle">Radicals and kanji assigned to your current level.</p></div></div><div class="wk-progress-block"><div class="wk-progress-head"><span>Radicals</span><strong>${radicalPct}%</strong></div><div class="progress"><i style="width:${radicalPct}%"></i></div><small>${x.currentLevelPassed?.radical||0} of ${x.currentLevelTotal?.radical||0} passed</small></div><div class="wk-progress-block"><div class="wk-progress-head"><span>Kanji</span><strong>${kanjiPct}%</strong></div><div class="progress"><i style="width:${kanjiPct}%"></i></div><small>${x.currentLevelPassed?.kanji||0} of ${x.currentLevelTotal?.kanji||0} passed</small></div></article><article class="panel"><div class="panelhead"><div><h2>Review tools</h2><p class="subtitle">Shortcuts into WaniKani for focused review work.</p></div></div><div class="wk-tool-list"><a class="wk-tool" href="https://www.wanikani.com/review" target="_blank" rel="noopener"><strong>Reviews</strong><span>${reviews} currently due</span></a><a class="wk-tool" href="https://www.wanikani.com/lesson" target="_blank" rel="noopener"><strong>Lessons</strong><span>${lessons} available</span></a><a class="wk-tool" href="https://www.wanikani.com/dashboard" target="_blank" rel="noopener"><strong>WaniKani dashboard</strong><span>Open the full native dashboard</span></a></div></article></section>
@@ -787,7 +787,7 @@ function renderBookMap(bookId){
       <button class="smallbtn" id="backToLibrary">← Learning hub</button>
       <span class="book-status mapped">Mapped · not scheduled</span>
     </div>
-    <section class="library-hero book-detail-hero">
+    <section class="library-hero book-detail-hero app-page-header">
       <div class="eyebrow">${esc(book.series)} · ${esc(book.level)}</div>
       <h1>${esc(book.title)}</h1>
       <p>${esc(book.description)}</p>
@@ -824,7 +824,7 @@ function renderLibrary(){
   const books=window.BOOKS||[], resources=window.STUDY_RESOURCES||[], programmes=window.PROGRAMMES||[];
   const activeP=activeProgramme();
   $('#mainContent').innerHTML=`
-    <section class="library-hero app-page-heading">
+    <section class="library-hero app-page-heading app-page-header">
       <div><div class="eyebrow">Book library · Hub</div><h1>Books and study programmes</h1><p>Your mapped books, active curriculum and supporting study tools.</p></div>
       <div class="hub-current"><div><span class="eyebrow">Active programme</span><h2>${esc(activeP?.title||'No active programme')}</h2></div><span class="book-status active">${esc(activeBook().title)}</span></div>
     </section>
@@ -1042,12 +1042,12 @@ function renderDashboard(){
   const weekTime=weekSeconds(7), recentTime=weekSeconds(30);
   const todayPct=today.length?0:100;
   $('#mainContent').innerHTML=`
-    <section class="today-hero">
+    <section class="today-hero app-page-header">
       <div><div class="eyebrow">${dayLabel}</div><h1>${studyDay.preStart?'Ready for Monday?':'What are you studying now?'}</h1><p>${esc(activeBook().title)} · Week ${w+1}. The dashboard is deliberately focused on the next useful action.</p></div>
       <div class="today-summary"><strong>${today.length?today.length:0}</strong><span>${today.length?'core tasks remaining today':'core tasks remaining'}</span></div>
     </section>
     <section class="today-layout single">
-      <article class="panel today-card"><div class="panelhead"><div><h2>Start here</h2><p class="subtitle">Open the guided lesson path and continue from the matching numbered step.</p></div><span class="today-complete">${todayPct}%</span></div>
+      <article class="panel today-card app-next-action"><div class="panelhead"><div><div class="eyebrow">Start here</div><h2>Continue your current study path</h2></div><span class="today-complete">${todayPct}%</span></div>
         ${today.length?`<div class="focuslist">${today.map((t,i)=>{const action=t.lesson?`data-guided-task="${esc(t.id)}" data-guided-lesson="${esc(t.lesson)}">Open path`:`data-today-task="${esc(t.id)}">Start`;return `<article class="focusitem"><span class="focus-number">${i+1}</span><div class="focusmain"><strong>${esc(t.title)}</strong><small>${esc(t.book)}${t.page?' · p.'+esc(t.page):''} · ${esc(t.duration)}</small><span>${esc(taskPurpose(t))}</span></div><button class="smallbtn primary" ${action}</button></article>`}).join('')}</div>`:'<div class="empty success-empty">Today’s scheduled core work is complete.</div>'}
         <div class="today-actions"><button class="smallbtn" id="openWeekToday">Open today in Study Plan</button>${next?'<button class="smallbtn" id="openNextTask">Next incomplete</button>':''}</div>
       </article>
@@ -1823,7 +1823,7 @@ function renderLesson(n){
   const wb1Rows=(l.workbookMap?.workbook1||[]).map(x=>{const t=tasks.find(y=>y.key===x.taskKey), st=t?ts(t.id):{};return `<button class="book-section compact ${st.completed?'done':''}" data-task="${esc(t?.id||'')}"><div class="book-section-main"><span class="book-section-label">${esc(x.label)}</span><strong>p.${esc(x.page)}</strong></div><span class="book-section-status">${st.completed?'✓':'Open'}</span></button>`}).join('');
   $('#mainContent').innerHTML=`
     <div class="lesson-toolbar"><button class="smallbtn" id="backDashboard">← Dashboard</button><button class="smallbtn" id="backPlan">Week ${w+1} plan</button><div class="lesson-select"><button class="smallbtn" id="prevLesson" ${n===11?'disabled':''}>← L${n-1}</button><button class="smallbtn" id="nextLesson" ${n===20?'disabled':''}>L${n+1} →</button></div></div>
-    <section class="lessonhero"><div class="lessonhero-copy"><div class="eyebrow">${esc(CURRICULUM.book)} · Lesson ${l.n}</div><h1>${esc(l.title)}</h1><p>${esc(l.english)}</p></div><div class="lessonhero-progress"><div class="lessonhero-grid"><div><strong>${p.done}/${p.total}</strong><span>mapped tasks</span></div><div><strong>${Math.round(pct)}%</strong><span>lesson progress</span></div></div><div class="progress" aria-label="${Math.round(pct)}% lesson progress"><i style="width:${pct}%"></i></div></div></section>
+    <section class="lessonhero app-page-header"><div class="lessonhero-copy"><div class="eyebrow">${esc(CURRICULUM.book)} · Lesson ${l.n}</div><h1>${esc(l.title)}</h1><p>${esc(l.english)}</p></div><div class="lessonhero-progress"><div class="lessonhero-grid app-compact-stats"><div><strong>${p.done}/${p.total}</strong><span>mapped tasks</span></div><div><strong>${Math.round(pct)}%</strong><span>lesson progress</span></div></div><div class="progress" aria-label="${Math.round(pct)}% lesson progress"><i style="width:${pct}%"></i></div></div></section>
     ${lessonGuideMarkup(l)}
     <details class="lesson-reference" id="lessonReference" ${reference.open?'open':''}>
       <summary><span><strong>Lesson reference</strong><small>Can-do goals · all videos · textbook map · audio player · workbook maps</small></span><b>Open reference</b></summary>

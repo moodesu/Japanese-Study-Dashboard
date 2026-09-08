@@ -16,7 +16,7 @@ assert.match(app,/wk-nav-btn[\s\S]*?fa-paintbrush/,'desktop WaniKani uses the ag
 assert.match(app,/mobileNav\.innerHTML=[\s\S]*?fa-solid \$\{icon\}/,'generated bottom-nav icons use Font Awesome');
 assert.match(css,/\.no-auto-furigana ruby,\.no-auto-furigana rt \{ display:none!important; \}/,'navigation icon ruby has a defensive presentation rule');
 
-const header=repository.indexOf('class="repo-grammar-header"');
+const header=repository.indexOf('class="repo-grammar-header app-page-header"');
 const context=repository.indexOf('class="panel repo-sentence-context"');
 const body=repository.indexOf('${body}',context);
 const further=repository.indexOf('${furtherStudy}',body);

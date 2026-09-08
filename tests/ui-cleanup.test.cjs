@@ -12,7 +12,7 @@ assert.match(css,/\.app-header \.navbtn svg \{[^}]*width:20px;[^}]*height:20px/,
 assert.match(css,/@media\(min-width:761px\) and \(max-width:1080px\)[\s\S]*?\.nav-utility-label \{ display:none; \}/,'secondary labels hide before intermediate desktop widths collide');
 assert.match(css,/\.account-state #userLabel \{ display:none; \}/,'the full signed-in email does not crowd the navbar');
 
-assert.match(repository,/<h1>Japanese Repository<\/h1><p>Sentences, corrections and grammar you actually encounter\.<\/p>/,'Repository uses a compact workspace heading');
+assert.match(repository,/<h1>Capture and reuse Japanese<\/h1><p>Sentences, corrections and grammar you actually encounter\.<\/p>/,'Repository uses a compact workspace heading');
 assert.match(repository,/class="repo-export-menu"[\s\S]*?<summary class="smallbtn">Export/,'bulk exports are grouped into one compact menu');
 assert.equal((repository.match(/id="repoAnkiBulk"/g)||[]).length,1,'Anki export identity remains unique');
 assert.equal((repository.match(/id="repoMigakuBulk"/g)||[]).length,1,'TSV export identity remains unique');
