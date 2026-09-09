@@ -1,0 +1,5 @@
+Delete this obsolete application stylesheet after applying the changed files:
+
+site-furigana.css
+
+Its core furigana display rules now live in styles.css.

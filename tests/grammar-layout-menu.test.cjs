@@ -27,9 +27,9 @@ assert.match(repository,/class="repo-guide-section"><h2>Overview/,'Overview is t
 assert.match(repository,/References &amp; further study/,'external integrations share a final supplementary section');
 assert.doesNotMatch(repository,/\$\{window\.JLHDictionary\?\.referenceMarkup\(\)\|\|''\}\s*\$\{window\.JLHNinjal\?\.panelMarkup\(label\)\|\|''\}\s*\$\{body\}/,'external references no longer precede the guide body');
 
-assert.match(dictionary,/class="grammar-source-row"/,'Dictionary integration uses a compact reference row');
+assert.match(dictionary,/class="resource-row grammar-source-row"/,'Dictionary integration uses a compact shared resource row');
 assert.match(dictionary,/id="repoDictionaryOpen"/,'Dictionary action identity is preserved');
-assert.match(ninjal,/ninjal-panel grammar-source-row/,'NINJAL integration uses the same compact reference treatment');
+assert.match(ninjal,/ninjal-panel resource-row grammar-source-row/,'NINJAL integration uses the same compact reference treatment');
 assert.match(ninjal,/data-ninjal-label/,'NINJAL loading identity is preserved');
 assert.match(css,/\.repo-guide-section \{[^}]*border-bottom:1px solid var\(--line\)/,'core article sections use dividers instead of cards');
 

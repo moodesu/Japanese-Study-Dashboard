@@ -33,9 +33,6 @@
 /site-furigana.js
   Cache-Control: public, max-age=0, must-revalidate
 
-/site-furigana.css
-  Cache-Control: public, max-age=0, must-revalidate
-
 /vendor/kuromoji.js
   Cache-Control: public, max-age=604800
 

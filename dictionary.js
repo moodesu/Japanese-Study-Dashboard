@@ -27,7 +27,7 @@ window.JLHDictionary=(()=>{
     return [...new Set(results)].filter(Boolean);
   }
   function referenceMarkup(){
-    return '<div class="grammar-source-row"><div><strong>A Dictionary of Japanese Grammar</strong><span>Open the matching private reference entry.</span></div><button type="button" class="smallbtn" id="repoDictionaryOpen">Open reference ↗</button></div>';
+    return '<div class="resource-row grammar-source-row"><div class="resource-row-copy"><strong>A Dictionary of Japanese Grammar</strong><span>Open the matching private reference entry.</span></div><button type="button" class="resource-action resource-action-secondary" id="repoDictionaryOpen">Open ↗</button></div>';
   }
   async function open(entry,route={}){
     if((!entry&&!route.fromRoute)||!state.user||!db)return;

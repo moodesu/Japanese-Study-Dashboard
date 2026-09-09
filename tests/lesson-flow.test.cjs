@@ -211,7 +211,7 @@ assert.match(styleSource,/\.lesson-reference\[open\] \{ overflow:visible; \}/,'A
 assert.match(styleSource,/\.lesson-reference-tabs \{ display:flex;[^}]*overflow-x:auto;/,'Reference navigation stays compact and locally scrollable');
 assert.match(styleSource,/\.lesson-reference-panel\[hidden\] \{ display:none; \}/,'Only the selected reference resource is foregrounded');
 assert.match(styleSource,/\.audio-player-card\{position:sticky;top:14px/,'Desktop reference audio keeps its player available beside long track lists');
-assert.match(styleSource,/@media\(max-width:900px\)\{\.lesson-audio-layout\{grid-template-columns:1fr\}\.audio-player-card\{position:static;grid-row:1\}\}/,'Mobile and narrow layouts put the full-width player before the track list');
+assert.match(styleSource,/@media\(max-width:900px\)\{\.lesson-audio-layout\{grid-template-columns:1fr\}\s*\.audio-player-card\{position:static;grid-row:1\}\s*\}/,'Mobile and narrow layouts put the full-width player before the track list');
 assert.match(styleSource,/\.lesson-reference-panel \.audio-speed select \{ font-size:16px; \}/,'Reference audio controls retain the iPhone no-focus-zoom safeguard');
 assert.match(source,/upsert\(\{user_id:state\.user\.id,task_id:id,completed:t\.completed,completed_at:t\.completed_at,notes:t\.notes\}/,'Cloud task writes contain only active workflow fields');
 assert.match(source,/state\.taskState\[r\.task_id\]=\{completed:r\.completed,notes:r\.notes,completed_at:r\.completed_at\}/,'Cloud hydration ignores historical rating columns');
