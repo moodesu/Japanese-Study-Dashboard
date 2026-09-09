@@ -4813,3 +4813,73 @@ html[data-theme="dark"] :is(
 @media(max-width:430px){
   .book-grid{grid-template-columns:1fr}
 }
+
+/* =========================================================
+   Consolidated UI corrections — dark badges + Hub actions
+   ========================================================= */
+
+/* Hub metadata/status pills: same geometry, proper dark contrast */
+.book-status,
+.resource-type,
+.book-level,
+.current-badge {
+  min-height:24px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:4px 8px;
+  border-radius:999px;
+  font-size:10px;
+  font-weight:800;
+  line-height:1;
+  letter-spacing:.05em;
+  text-transform:uppercase;
+}
+
+/* Browse exercises must use the canonical control geometry */
+.supplementary-resource-card .secondary-action {
+  width:max-content;
+  min-height:36px;
+  height:36px;
+  margin-top:auto;
+  padding:0 11px;
+  gap:7px;
+  line-height:1;
+  align-self:flex-start;
+}
+
+/* Dark-theme badge contrast */
+html[data-theme="dark"] .resource-type,
+html[data-theme="dark"] .book-level {
+  background:#263642;
+  color:#dbe7eb;
+}
+
+html[data-theme="dark"] .book-status.active,
+html[data-theme="dark"] .current-badge {
+  background:#23483b;
+  color:#bce8d2;
+}
+
+html[data-theme="dark"] .book-status.available {
+  background:#243f4d;
+  color:#c2e0eb;
+}
+
+html[data-theme="dark"] .book-status.planned {
+  background:#353a3d;
+  color:#d5d8da;
+}
+
+/* Browse exercises / secondary Hub actions */
+html[data-theme="dark"] .supplementary-resource-card .secondary-action {
+  background:var(--surface-alt);
+  border-color:var(--line);
+  color:var(--ink);
+}
+
+html[data-theme="dark"] .supplementary-resource-card .secondary-action:hover {
+  background:color-mix(in srgb,var(--accent) 10%,var(--surface-alt));
+  border-color:color-mix(in srgb,var(--accent) 45%,var(--line));
+  color:var(--accent-hover);
+}
