@@ -1,0 +1,456 @@
+/* Japanese Learning Hub — authoritative visual shell
+ *
+ * Final-cascade design primitives shared across Dashboard, Plan, Lessons,
+ * Hub, Repository, Grammar, WaniKani and supporting-resource surfaces.
+ *
+ * This file intentionally does not change data, routing or application logic.
+ */
+
+:root{
+  --jlh-surface:var(--card);
+  --jlh-surface-soft:color-mix(in srgb,var(--card) 82%,var(--soft));
+  --jlh-surface-muted:color-mix(in srgb,var(--card) 92%,var(--bg));
+  --jlh-border:color-mix(in srgb,var(--line) 88%,transparent);
+  --jlh-border-strong:color-mix(in srgb,var(--accent) 28%,var(--line));
+  --jlh-radius-lg:16px;
+  --jlh-radius-md:12px;
+  --jlh-radius-sm:9px;
+  --jlh-shadow:0 3px 14px rgba(25,39,55,.04);
+  --jlh-control-h:36px;
+}
+
+/* --------------------------------------------------------------------- */
+/* Shared page / surface shell                                            */
+/* --------------------------------------------------------------------- */
+
+.app-page,
+#mainContent,
+#weekView{
+  min-width:0;
+}
+
+.app-page-header{
+  border-color:var(--jlh-border)!important;
+  border-radius:var(--jlh-radius-lg)!important;
+  box-shadow:var(--jlh-shadow)!important;
+}
+
+.panel,
+.day,
+.dashcard,
+.programme-card,
+.book-card,
+.lesson-column,
+.component,
+.wk-stat-card,
+.repo-entry-card,
+.repo-grammar-card,
+.repo-grammar-card-wrap,
+.repo-correction-flow article,
+.repo-contrast-card,
+.repo-my-example,
+.supplementary-resource-card,
+.supplementary-unit-card{
+  border-color:var(--jlh-border)!important;
+  border-radius:var(--jlh-radius-md)!important;
+  box-shadow:none!important;
+}
+
+.panel,
+.day,
+.dashcard,
+.programme-card,
+.book-card,
+.lesson-column,
+.repo-correction-flow article,
+.repo-contrast-card,
+.repo-my-example,
+.supplementary-resource-card,
+.supplementary-unit-card{
+  background:var(--jlh-surface);
+}
+
+/* Route-specific pages must not leak the Dashboard's global notes/settings. */
+body:has(#mainContent .repo-page) #bottomArea,
+body:has(#mainContent .dictionary-page) #bottomArea,
+body:has(#mainContent .wk-page) #bottomArea{
+  display:none!important;
+}
+
+/* --------------------------------------------------------------------- */
+/* Shared controls                                                        */
+/* --------------------------------------------------------------------- */
+
+.smallbtn,
+.secondary-action,
+.ghost,
+.weektab{
+  min-height:var(--jlh-control-h);
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  border:1px solid var(--jlh-border-strong);
+  border-radius:var(--jlh-radius-sm);
+  background:var(--jlh-surface);
+  color:var(--ink);
+  padding:7px 11px;
+  font-size:.78rem;
+  line-height:1;
+  font-weight:750;
+  box-shadow:none!important;
+  text-decoration:none;
+}
+
+.smallbtn:hover,
+.secondary-action:hover,
+.ghost:hover,
+.weektab:hover{
+  border-color:color-mix(in srgb,var(--accent) 52%,var(--line));
+  background:var(--jlh-surface-soft);
+  transform:none;
+}
+
+.smallbtn.primary{
+  border-color:var(--ink);
+  background:var(--ink);
+  color:#fff;
+}
+
+.smallbtn.primary:hover{
+  background:color-mix(in srgb,var(--ink) 88%,var(--accent));
+  border-color:color-mix(in srgb,var(--ink) 88%,var(--accent));
+}
+
+.smallbtn:focus-visible,
+.secondary-action:focus-visible,
+.ghost:focus-visible,
+.weektab:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:2px;
+}
+
+/* --------------------------------------------------------------------- */
+/* Grammar reference source rows                                          */
+/* --------------------------------------------------------------------- */
+
+.grammar-source-list{
+  display:grid;
+  gap:8px!important;
+}
+
+.grammar-source-row,
+.ninjal-panel.grammar-source-row{
+  margin:0!important;
+  border:1px solid var(--jlh-border)!important;
+  border-radius:var(--jlh-radius-md)!important;
+  background:var(--jlh-surface-muted)!important;
+  box-shadow:none!important;
+  overflow:hidden;
+}
+
+a.grammar-source-row,
+div.grammar-source-row{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:14px!important;
+  padding:10px 11px!important;
+  color:var(--ink)!important;
+  text-decoration:none!important;
+}
+
+.grammar-source-row>div{
+  min-width:0;
+}
+
+.grammar-source-row>div strong,
+.ninjal-panel>summary strong{
+  display:block;
+  color:var(--ink);
+  font-size:.9rem;
+  line-height:1.3;
+}
+
+.grammar-source-row>div span,
+.ninjal-panel>summary small{
+  display:block;
+  margin-top:2px;
+  color:var(--muted);
+  font-size:.74rem;
+  line-height:1.35;
+}
+
+/* One visual action treatment for Open reference / Open examples / Open. */
+.grammar-source-row>button.smallbtn,
+.grammar-source-row>b,
+.grammar-source-row>div+b,
+.ninjal-panel>summary>b{
+  flex:0 0 auto;
+  min-height:32px!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:5px;
+  margin:0!important;
+  padding:6px 9px!important;
+  border:1px solid var(--jlh-border-strong)!important;
+  border-radius:8px!important;
+  background:var(--jlh-surface)!important;
+  color:var(--ink)!important;
+  font-size:.72rem!important;
+  line-height:1!important;
+  font-weight:800!important;
+  text-decoration:none!important;
+  white-space:nowrap;
+  box-shadow:none!important;
+}
+
+.grammar-source-row>button.smallbtn:hover,
+a.grammar-source-row:hover>b,
+.ninjal-panel>summary:hover>b{
+  border-color:color-mix(in srgb,var(--accent) 55%,var(--line))!important;
+  background:var(--soft)!important;
+  color:var(--accent)!important;
+}
+
+/* NINJAL is a details element, but its closed row should look identical. */
+.ninjal-panel>summary{
+  min-height:52px;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:14px!important;
+  padding:10px 11px!important;
+  list-style:none;
+}
+.ninjal-panel>summary::-webkit-details-marker{display:none}
+.ninjal-panel[open]>summary{
+  border-bottom:1px solid var(--jlh-border);
+}
+.ninjal-body{
+  padding:12px!important;
+}
+
+/* --------------------------------------------------------------------- */
+/* Grammar guide content                                                  */
+/* --------------------------------------------------------------------- */
+
+.repo-grammar-content{
+  gap:12px!important;
+}
+
+/* Forms/variants become the same card language as examples and references. */
+.repo-variant-list{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:9px!important;
+}
+
+.repo-variant{
+  min-width:0;
+  display:grid!important;
+  grid-template-columns:1fr!important;
+  gap:5px!important;
+  margin:0!important;
+  padding:13px 14px!important;
+  border:1px solid var(--jlh-border)!important;
+  border-radius:var(--jlh-radius-md)!important;
+  background:var(--jlh-surface-muted)!important;
+}
+
+.repo-variant>strong{
+  font-size:1rem!important;
+  line-height:1.5;
+}
+
+.repo-variant>span{
+  width:max-content;
+  max-width:100%;
+  padding:3px 7px;
+  border-radius:999px;
+  background:var(--soft);
+  color:var(--muted)!important;
+  font-size:.66rem!important;
+  font-weight:750;
+  text-transform:capitalize;
+}
+
+.repo-variant>p,
+.repo-variant-related{
+  grid-column:auto!important;
+  margin:2px 0 0!important;
+  color:var(--muted);
+  font-size:.85rem;
+  line-height:1.55;
+}
+
+/* Reference examples receive the same restrained card treatment. */
+.repo-grammar-example{
+  margin:8px 0 0!important;
+  padding:13px 14px!important;
+  border:1px solid var(--jlh-border)!important;
+  border-radius:var(--jlh-radius-md)!important;
+  background:var(--jlh-surface-muted)!important;
+}
+
+.repo-grammar-example:first-of-type{
+  margin-top:0!important;
+}
+
+.repo-grammar-example p{
+  margin:4px 0!important;
+}
+
+.repo-grammar-example small{
+  display:block;
+  margin-top:7px;
+  color:var(--muted)!important;
+  font-size:.72rem!important;
+}
+
+/* Clarifications and comparisons use the same surface hierarchy. */
+.repo-clarifications details{
+  border-color:var(--jlh-border)!important;
+  border-radius:var(--jlh-radius-md)!important;
+  background:var(--jlh-surface-muted);
+}
+
+.repo-contrast-card{
+  background:var(--jlh-surface-muted)!important;
+}
+
+/* Related grammar remains pill navigation but matches shared controls. */
+.repo-grammar-nav{
+  min-height:34px;
+  border-color:var(--jlh-border-strong)!important;
+  background:var(--jlh-surface)!important;
+  box-shadow:none!important;
+}
+
+.repo-grammar-nav:hover{
+  background:var(--soft)!important;
+}
+
+/* Course context / practice rows should read like related resource cards. */
+.repo-used-in-books .repo-link,
+.repo-supplementary-practice .repo-link,
+.repo-grammar-content .repo-link{
+  border-color:var(--jlh-border)!important;
+  background:var(--jlh-surface-muted)!important;
+  border-radius:var(--jlh-radius-md)!important;
+  box-shadow:none!important;
+}
+
+/* --------------------------------------------------------------------- */
+/* Repository + library card rhythm                                       */
+/* --------------------------------------------------------------------- */
+
+.repo-grammar-search,
+.repo-pending-actions{
+  box-shadow:none!important;
+}
+
+.repo-grammar-card,
+.repo-entry-card{
+  transition:border-color .15s ease,background .15s ease,transform .15s ease;
+}
+
+.repo-grammar-card:hover,
+.repo-entry-card:hover{
+  border-color:color-mix(in srgb,var(--accent) 48%,var(--line))!important;
+  background:var(--jlh-surface-soft)!important;
+  transform:translateY(-1px);
+}
+
+/* --------------------------------------------------------------------- */
+/* WaniKani / resource consistency                                        */
+/* --------------------------------------------------------------------- */
+
+.wk-stat-card{
+  background:var(--jlh-surface)!important;
+}
+
+.wk-grid>.panel,
+.wk-page>.panel{
+  box-shadow:none!important;
+}
+
+/* --------------------------------------------------------------------- */
+/* Forms                                                                  */
+/* --------------------------------------------------------------------- */
+
+input,
+textarea,
+select{
+  border-color:var(--jlh-border)!important;
+  border-radius:var(--jlh-radius-sm)!important;
+}
+
+input:focus,
+textarea:focus,
+select:focus{
+  border-color:color-mix(in srgb,var(--accent) 54%,var(--line))!important;
+  outline:2px solid color-mix(in srgb,var(--accent) 18%,transparent);
+  outline-offset:1px;
+}
+
+/* --------------------------------------------------------------------- */
+/* Dark mode                                                              */
+/* --------------------------------------------------------------------- */
+
+html[data-theme='dark']{
+  --jlh-shadow:none;
+}
+
+html[data-theme='dark'] .grammar-source-row,
+html[data-theme='dark'] .repo-variant,
+html[data-theme='dark'] .repo-grammar-example,
+html[data-theme='dark'] .repo-clarifications details,
+html[data-theme='dark'] .repo-used-in-books .repo-link,
+html[data-theme='dark'] .repo-grammar-content .repo-link{
+  background:color-mix(in srgb,var(--card) 92%,var(--soft))!important;
+}
+
+/* --------------------------------------------------------------------- */
+/* Responsive                                                             */
+/* --------------------------------------------------------------------- */
+
+@media(max-width:760px){
+  :root{--jlh-control-h:40px}
+
+  .grammar-source-row,
+  .ninjal-panel>summary{
+    gap:9px!important;
+  }
+
+  a.grammar-source-row,
+  div.grammar-source-row,
+  .ninjal-panel>summary{
+    padding:10px!important;
+  }
+
+  .grammar-source-row>button.smallbtn,
+  .grammar-source-row>b,
+  .ninjal-panel>summary>b{
+    min-height:36px!important;
+  }
+}
+
+@media(max-width:600px){
+  .repo-variant-list{
+    grid-template-columns:1fr!important;
+  }
+
+  a.grammar-source-row,
+  div.grammar-source-row,
+  .ninjal-panel>summary{
+    align-items:flex-start!important;
+  }
+
+  .grammar-source-row>button.smallbtn,
+  .grammar-source-row>b,
+  .ninjal-panel>summary>b{
+    margin-top:1px!important;
+  }
+}
