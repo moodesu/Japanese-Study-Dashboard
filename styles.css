@@ -4883,3 +4883,35 @@ html[data-theme="dark"] .supplementary-resource-card .secondary-action:hover {
   border-color:color-mix(in srgb,var(--accent) 45%,var(--line));
   color:var(--accent-hover);
 }
+
+/* Hub card metadata + supplementary action correction */
+
+html[data-theme="dark"] .programme-meta span,
+html[data-theme="dark"] .program-meta span,
+html[data-theme="dark"] .book-meta span,
+html[data-theme="dark"] .supplementary-resource-card .programme-meta span,
+html[data-theme="dark"] .supplementary-resource-card .program-meta span {
+  background:#263642;
+  color:#dbe7eb;
+}
+
+/* Keep supplementary Browse exercises aligned to normal compact buttons */
+.supplementary-resource-card .secondary-action {
+  width:auto;
+  min-height:36px;
+  height:36px;
+  padding:0 10px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  line-height:1;
+  align-self:flex-start;
+}
+
+.supplementary-resource-card .secondary-action svg,
+.supplementary-resource-card .secondary-action i {
+  width:13px;
+  height:13px;
+  flex:none;
+}
