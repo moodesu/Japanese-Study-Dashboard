@@ -4915,3 +4915,26 @@ html[data-theme="dark"] .supplementary-resource-card .program-meta span {
   height:13px;
   flex:none;
 }
+
+/* Supplementary workbook card spacing */
+
+.supplementary-resource-card .book-meta,
+.supplementary-resource-card .programme-meta,
+.supplementary-resource-card .program-meta {
+  gap:6px;
+  margin-bottom:10px;
+}
+
+.supplementary-resource-card .secondary-action {
+  width:max-content;
+  min-height:36px;
+  height:36px;
+  margin-top:0;
+  padding:0 12px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  line-height:1;
+  align-self:flex-start;
+}
