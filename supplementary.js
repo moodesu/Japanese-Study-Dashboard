@@ -44,8 +44,8 @@
     const practices=practicesForGrammar(grammarId);
     if(!practices.length)return '';
     const exact=practices.filter(item=>item.link.relationship!=='related'),related=practices.filter(item=>item.link.relationship==='related');
-    const group=(title,items)=>items.length?`<div class="supplementary-practice-group"><h3>${html(title)}</h3>${items.map(({link,unit})=>`<article class="supplementary-practice-row"><div><strong>${html(unit.resource?.english_title||unit.resource?.title)}</strong><span>Unit ${unit.unit_number} · ${html(unit.source_heading)} · p.${unit.printed_page}</span>${link.note?`<small>${html(link.note)}</small>`:''}</div><button type="button" class="resource-action" data-supplementary-unit="${html(unit.id)}"><i class="fa-solid fa-book-open" aria-hidden="true"></i> Open practice</button></article>`).join('')}</div>`:'';
-    return `<section class="panel supplementary-grammar-practice"><div class="eyebrow">Optional practice</div><h2>Practice</h2>${group('Multimedia Basic Grammar Workbook',exact)}${group('Related basic practice',related)}</section>`;
+    const group=(title,items)=>items.length?`<div class="supplementary-practice-group"><h3>${html(title)}</h3>${items.map(({link,unit})=>`<article class="supplementary-practice-row compact-card"><div><strong>${html(unit.resource?.english_title||unit.resource?.title)}</strong><span>Unit ${unit.unit_number} · ${html(unit.source_heading)} · p.${unit.printed_page}</span>${link.note?`<small>${html(link.note)}</small>`:''}</div><button type="button" class="resource-action" data-supplementary-unit="${html(unit.id)}"><i class="fa-solid fa-book-open" aria-hidden="true"></i> Open practice</button></article>`).join('')}</div>`:'';
+    return `<section class="panel supplementary-grammar-practice"><div class="eyebrow">Optional practice</div><h2><span class="repo-guide-heading-icon" aria-hidden="true"><i class="fa-solid fa-book-open-reader"></i></span>Practice</h2>${group('Multimedia Basic Grammar Workbook',exact)}${group('Related basic practice',related)}</section>`;
   }
 
   function lessonMarkup(canonical,guides){

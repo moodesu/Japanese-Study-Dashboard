@@ -134,7 +134,7 @@
   }
 
   function panelMarkup(label){
-    return `<details class="ninjal-panel resource-row grammar-source-row" data-ninjal-label="${escape(label)}"><summary><span class="resource-row-copy"><strong>NINJAL 文型バンク</strong><small>Browse additional Japanese examples.</small></span><span class="resource-action resource-action-secondary">Open ↗</span></summary><div class="ninjal-body"><p>Open to load Japanese explanations and examples with source furigana.</p></div></details>`;
+    return `<details class="ninjal-panel grammar-source-row" data-ninjal-label="${escape(label)}"><summary class="resource-row"><span class="resource-row-copy"><strong>NINJAL 文型バンク</strong><small>Browse additional Japanese examples.</small></span><span class="resource-action resource-action-secondary">Open ↗</span></summary><div class="ninjal-body"><p>Open to load Japanese explanations and examples with source furigana.</p></div></details>`;
   }
 
   function paint(panel,query,manual=false){

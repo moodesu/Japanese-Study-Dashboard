@@ -18,7 +18,8 @@ assert.match(css,/\.app-page \{[\s\S]*?max-width:var\(--app-max\)/);
 assert.match(css,/\.repo-grammar-page \{ max-width:var\(--app-max\)/);
 assert.match(css,/\.repo-grammar-content\{[^}]*max-width:var\(--readable-max\)/,'Grammar keeps a readable column inside the shared shell');
 assert.match(css,/\.app-content-card,\.panel,[^{]+\{[^}]*padding:var\(--card-padding\)/,'Normal cards share authoritative padding');
-assert.match(css,/\.repo-variant\{[^}]*background:var\(--surface-alt\)[^}]*padding:var\(--card-padding-compact\)/,'Grammar variants use the compact-card system');
+assert.match(css,/\.compact-card \{[\s\S]*?background:var\(--surface-alt\);[\s\S]*?padding:var\(--card-padding-compact\)/,'The shared compact-card system owns inset geometry');
+assert.match(repository,/repo-variant compact-card/,'Grammar variants opt into the shared compact-card system');
 assert.match(css,/\.resource-row \{/);
 assert.match(css,/\.resource-action-secondary \{/);
 assert.match(dictionary,/class="resource-action resource-action-secondary" id="repoDictionaryOpen"/);
@@ -28,6 +29,6 @@ assert.match(repository,/repo-detail-hero app-page-header/,'Repository entry det
 assert.match(app,/function renderLibrary\(\)\{\s*\$\('#hero'\)\.hidden=true; \$\('#bottomArea'\)\.hidden=true/);
 assert.match(repository,/function renderRepository\(\)\{\s*\$\('#hero'\)\.hidden=true; \$\('#bottomArea'\)\.hidden=true/);
 assert.ok(fs.existsSync('ninjal.css'),'NINJAL source rendering remains deliberately scoped');
-assert.ok(!fs.existsSync('site-furigana.css'),'Core furigana geometry is consolidated into styles.css');
+assert.match(css,/html\[data-furigana="off"\] rt,html\[data-furigana="off"\] rp\{display:none\}/,'Core furigana geometry is consolidated into styles.css');
 
 console.log('PASS: one core visual system, shared shell/cards/actions, readable Grammar layout and scoped NINJAL source styling.');

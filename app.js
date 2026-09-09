@@ -834,7 +834,9 @@ function renderHeader(){
   $('#progressBar').style.width=(p.total?p.done/p.total*100:0)+'%';
 }
 function renderNav(){
-  $('#mainNav').innerHTML=`<button class="navbtn home-nav-btn ${state.view==='dashboard'?'active':''}" data-view="dashboard" title="Home"><i class="fa-solid fa-house" aria-hidden="true"></i><span>Home</span></button><button class="navbtn ${state.view==='plan'?'active':''}" data-view="plan" title="Plan"><i class="fa-solid fa-calendar-days" aria-hidden="true"></i><span>Plan</span></button><button class="navbtn ${state.view==='lesson'?'active':''}" data-view="lesson" title="Lessons"><i class="fa-solid fa-book-open" aria-hidden="true"></i><span>Lessons</span></button><button class="navbtn ${state.view==='library'?'active':''}" data-view="library" title="Hub"><i class="fa-solid fa-layer-group" aria-hidden="true"></i><span>Hub</span></button><button class="navbtn repo-nav-btn ${state.view==='repository'?'active':''}" data-view="repository" title="Japanese Repository"><i class="fa-solid fa-language" aria-hidden="true"></i><span class="nav-utility-label">Repository</span></button><button class="navbtn grammar-nav-btn" id="grammarNavBtn" type="button" title="Grammar Library"><i class="fa-solid fa-spell-check" aria-hidden="true"></i><span class="nav-utility-label">Grammar</span></button><button class="navbtn icon-nav-btn" id="searchNavBtn" type="button" title="Search" aria-label="Search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i></button><button class="navbtn wk-nav-btn ${state.view==='wanikani'?'active':''}" data-view="wanikani" title="WaniKani"><i class="fa-solid fa-paintbrush" aria-hidden="true"></i><span class="nav-utility-label">WaniKani</span></button><button class="navbtn pomo-nav-btn" id="pomoNavBtn" type="button" title="Pomodoro" aria-label="Open Pomodoro"><i class="fa-solid fa-clock" aria-hidden="true"></i><span class="nav-utility-label">Pomodoro</span></button>`;
+  const grammarActive=state.view==='repository'&&['grammar-library','grammar'].includes(repositoryState.mode);
+  const repositoryActive=state.view==='repository'&&!grammarActive;
+  $('#mainNav').innerHTML=`<button class="navbtn home-nav-btn ${state.view==='dashboard'?'active':''}" data-view="dashboard" title="Home"><i class="fa-solid fa-house" aria-hidden="true"></i><span>Home</span></button><button class="navbtn ${state.view==='plan'?'active':''}" data-view="plan" title="Plan"><i class="fa-solid fa-calendar-days" aria-hidden="true"></i><span>Plan</span></button><button class="navbtn ${state.view==='lesson'?'active':''}" data-view="lesson" title="Lessons"><i class="fa-solid fa-book-open" aria-hidden="true"></i><span>Lessons</span></button><button class="navbtn ${state.view==='library'?'active':''}" data-view="library" title="Hub"><i class="fa-solid fa-layer-group" aria-hidden="true"></i><span>Hub</span></button><button class="navbtn repo-nav-btn ${repositoryActive?'active':''}" data-view="repository" title="Japanese Repository" ${repositoryActive?'aria-current="page"':''}><i class="fa-solid fa-language" aria-hidden="true"></i><span class="nav-utility-label">Repository</span></button><button class="navbtn grammar-nav-btn ${grammarActive?'active':''}" id="grammarNavBtn" type="button" title="Grammar Library" ${grammarActive?'aria-current="page"':''}><i class="fa-solid fa-spell-check" aria-hidden="true"></i><span class="nav-utility-label">Grammar</span></button><button class="navbtn icon-nav-btn" id="searchNavBtn" type="button" title="Search" aria-label="Search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i></button><button class="navbtn wk-nav-btn ${state.view==='wanikani'?'active':''}" data-view="wanikani" title="WaniKani"><i class="fa-solid fa-paintbrush" aria-hidden="true"></i><span class="nav-utility-label">WaniKani</span></button><button class="navbtn pomo-nav-btn" id="pomoNavBtn" type="button" title="Pomodoro" aria-label="Open Pomodoro"><i class="fa-solid fa-clock" aria-hidden="true"></i><span class="nav-utility-label">Pomodoro</span></button>`;
   const navigate=view=>{state.view=view;if(state.view==='library')state.libraryItem=null;if(state.view==='lesson'){state.browsingProgrammeId=null;if(!lessonByNumber(state.lesson))state.lesson=currentCurriculum().lessons[0]?.n;}closeMobileMore();render();scrollTo({top:0,behavior:'smooth'});};
   $('#mainNav').querySelectorAll('.navbtn[data-view]').forEach(b=>b.onclick=()=>navigate(b.dataset.view));
   const mobileNav=$('#mobileBottomNav');
@@ -951,6 +953,13 @@ function renderBookMap(bookId){
 }
 
 const HUB_SECTION_STORAGE_PREFIX='learningHub.section.';
+const HUB_SECTION_ICONS={
+  'active-programme':'fa-compass',
+  'planned-programmes':'fa-calendar-plus',
+  'completed-programmes':'fa-circle-check',
+  books:'fa-book',
+  'study-tools':'fa-toolbox'
+};
 function hubSectionStorageKey(sectionId){return `${HUB_SECTION_STORAGE_PREFIX}${sectionId}.collapsed`;}
 function hubSectionCollapsed(sectionId){
   try{return localStorage.getItem(hubSectionStorageKey(sectionId))==='true';}
@@ -961,8 +970,8 @@ function setHubSectionCollapsed(sectionId,collapsed){
   catch(error){}
 }
 function hubSectionMarkup({id,title,subtitle='',eyebrow='',content,className=''}){
-  const collapsed=hubSectionCollapsed(id),contentId=`hub-section-${id}-content`;
-  return `<section class="library-section hub-collapsible-section ${className} ${collapsed?'is-collapsed':''}" data-hub-section="${esc(id)}"><header class="hub-section-header"><button type="button" class="hub-section-toggle" data-hub-section-toggle="${esc(id)}" aria-expanded="${collapsed?'false':'true'}" aria-controls="${esc(contentId)}"><span class="hub-section-heading">${eyebrow?`<span class="eyebrow">${esc(eyebrow)}</span>`:''}<span class="hub-section-title">${esc(title)}</span>${subtitle?`<span class="subtitle">${esc(subtitle)}</span>`:''}</span><i class="fa-solid fa-chevron-down hub-section-chevron" aria-hidden="true"></i></button></header><div class="hub-section-content" id="${esc(contentId)}"${collapsed?' hidden':''}>${content}</div></section>`;
+  const collapsed=hubSectionCollapsed(id),contentId=`hub-section-${id}-content`,icon=HUB_SECTION_ICONS[id]||'fa-layer-group';
+  return `<section class="library-section hub-collapsible-section ${className} ${collapsed?'is-collapsed':''}" data-hub-section="${esc(id)}"><header class="hub-section-header"><button type="button" class="hub-section-toggle" data-hub-section-toggle="${esc(id)}" aria-expanded="${collapsed?'false':'true'}" aria-controls="${esc(contentId)}"><i class="fa-solid fa-chevron-down hub-section-chevron" aria-hidden="true"></i><span class="hub-section-icon" aria-hidden="true"><i class="fa-solid ${icon}"></i></span><span class="hub-section-heading">${eyebrow?`<span class="eyebrow">${esc(eyebrow)}</span>`:''}<span class="hub-section-title">${esc(title)}</span>${subtitle?`<span class="subtitle">${esc(subtitle)}</span>`:''}</span></button></header><div class="hub-section-content" id="${esc(contentId)}"${collapsed?' hidden':''}>${content}</div></section>`;
 }
 function bindHubSectionToggles(root){
   root.querySelectorAll('[data-hub-section-toggle]').forEach(button=>button.onclick=()=>{

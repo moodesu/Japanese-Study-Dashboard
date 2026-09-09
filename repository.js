@@ -305,6 +305,31 @@ function repositoryGrammarNavLink(guide,prefix=''){
   return `<button type="button" class="repo-grammar-nav" data-repo-guide="${esc(guide.id)}">${prefix?`<span>${esc(prefix)}</span>`:''}<strong lang="ja">${label}</strong><span class="repo-grammar-nav-arrow" aria-hidden="true">→</span></button>`;
 }
 
+const REPOSITORY_GUIDE_ICONS={
+  Overview:'fa-circle-info',
+  Formation:'fa-layer-group',
+  'Usage and nuance':'fa-compass',
+  'Forms / variants':'fa-shapes',
+  'Combined forms':'fa-link',
+  Clarifications:'fa-circle-question',
+  'My examples':'fa-pen-to-square',
+  'Reference examples':'fa-book-open',
+  'Related grammar':'fa-diagram-project',
+  'Used in your books':'fa-book'
+};
+function repositoryGuideHeading(title){
+  const icon=REPOSITORY_GUIDE_ICONS[title]||'fa-bookmark';
+  return `<h2><span class="repo-guide-heading-icon" aria-hidden="true"><i class="fa-solid ${icon}"></i></span>${esc(title)}</h2>`;
+}
+function repositoryGrammarMatchMarkup(variant,relatedSource){
+  if(!variant) return {badge:'',detail:''};
+  const related=!!relatedSource,label=related?'Related':'Matched',kicker=related?'Related match':'Matched form';
+  const badgeClass=related?'repo-match-badge related':'repo-match-badge matched';
+  const badge=`<span class="${badgeClass}"><i class="fa-solid ${related?'fa-code-branch':'fa-check'}" aria-hidden="true"></i><span>${label}</span></span>`;
+  const detail=`<span class="repo-match-detail"><span class="repo-match-kicker">${kicker}</span><strong class="repo-match-form" lang="ja">${esc(variant.form)}</strong>${related?`<span>Via ${esc(relatedSource.pattern)}</span>`:''}${variant.explanation?`<span>${esc(variant.explanation)}</span>`:''}</span>`;
+  return {badge,detail};
+}
+
 function repositoryGrammarMarkup(entry){
   const label=repositoryState.grammarLabel, guide=repositoryGrammarGuide(label,entry);
   const lessons=repositoryGrammarCatalogue().filter(row=>repositoryGrammarKey(row.canonical)===repositoryGrammarKey(guide?.pattern||label));
@@ -312,18 +337,18 @@ function repositoryGrammarMarkup(entry){
   const text=value=>renderRepositoryFurigana(value,repositoryPlainFromFurigana(value));
   const pending=guide&&(guide.guide_status==='pending'||guide.is_placeholder),linkedCount=guide?new Set(repositoryState.grammarLinks.filter(link=>link.grammar_id===guide.id).map(link=>link.repository_id)).size:0;
   const practice=guide?window.JLHSupplementary?.grammarMarkup(guide.id)||'':'';
-  const usedInBooks=lessons.length?`<section class="panel repo-used-in-books"><div class="eyebrow">Course context</div><h2>Used in your books</h2>${lessons.map(row=>{const programme=(window.PROGRAMMES||[]).find(item=>item.id===row.programmeId);return `<button type="button" class="repo-link" data-repo-grammar-lesson="${row.lesson}" data-repo-grammar-index="${row.index}" data-repo-grammar-programme="${esc(row.programmeId||'tobira-beginning-ii-12w')}"><strong>${esc(programme?.title||programme?.shortTitle||'Mapped textbook')}</strong><span>Lesson ${row.lesson} · Grammar ${row.index}</span></button>`;}).join('')}</section>`:'';
+  const usedInBooks=lessons.length?`<section class="panel repo-used-in-books"><div class="eyebrow">Course context</div>${repositoryGuideHeading('Used in your books')}<div class="repo-used-in-books-list">${lessons.map(row=>{const programme=(window.PROGRAMMES||[]).find(item=>item.id===row.programmeId);return `<button type="button" class="repo-link compact-card" data-repo-grammar-lesson="${row.lesson}" data-repo-grammar-index="${row.index}" data-repo-grammar-programme="${esc(row.programmeId||'tobira-beginning-ii-12w')}"><strong>${esc(programme?.title||programme?.shortTitle||'Mapped textbook')}</strong><span>Lesson ${row.lesson} · Grammar ${row.index}</span></button>`;}).join('')}</div></section>`:'';
   const body=guide?`
     <article class="repo-guide-article">
-      <section class="repo-guide-section"><h2>Overview</h2>${guide.summary?`<p>${text(guide.summary)}</p>`:''}${guide.is_placeholder?'<p class="subtitle">This canonical guide is waiting for a full grammar-guide import.</p>':''}</section>
-      <section class="repo-guide-section"><h2>Formation</h2>${guide.formation.length?`<ul>${guide.formation.map(item=>`<li>${text(item)}</li>`).join('')}</ul>`:'<p class="subtitle">No formation notes yet.</p>'}</section>
-      <section class="repo-guide-section"><h2>Usage and nuance</h2>${guide.usage.map(item=>`<p>${text(item)}</p>`).join('')}${guide.nuance.map(item=>`<p>${text(item)}</p>`).join('')}</section>
+      <section class="repo-guide-section">${repositoryGuideHeading('Overview')}${guide.summary?`<p>${text(guide.summary)}</p>`:''}${guide.is_placeholder?'<p class="subtitle">This canonical guide is waiting for a full grammar-guide import.</p>':''}</section>
+      <section class="repo-guide-section">${repositoryGuideHeading('Formation')}${guide.formation.length?`<ul>${guide.formation.map(item=>`<li>${text(item)}</li>`).join('')}</ul>`:'<p class="subtitle">No formation notes yet.</p>'}</section>
+      <section class="repo-guide-section">${repositoryGuideHeading('Usage and nuance')}${guide.usage.map(item=>`<p>${text(item)}</p>`).join('')}${guide.nuance.map(item=>`<p>${text(item)}</p>`).join('')}</section>
+      ${repositoryVariantsMarkup(guide)}
     </article>
-    ${repositoryVariantsMarkup(guide)}
     ${repositoryClarificationsMarkup(guide,text)}
     ${repositoryMyExamplesMarkup(guide)}
     ${repositoryReferenceExamplesMarkup(guide,text)}
-    ${guide.related.length?`<section class="repo-guide-section repo-related-grammar"><h2>Related grammar</h2><nav class="repo-grammar-nav-list" aria-label="Related grammar">${guide.related.map(item=>repositoryGrammarNavLink(item)).join('')}</nav></section>`:''}
+    ${guide.related.length?`<section class="repo-guide-section repo-related-grammar">${repositoryGuideHeading('Related grammar')}<nav class="repo-grammar-nav-list" aria-label="Related grammar">${guide.related.map(item=>repositoryGrammarNavLink(item)).join('')}</nav></section>`:''}
   `:`<section class="panel"><h2>Explanation not yet in the guide library</h2><p>This label does not yet have a standalone Learning Hub explanation. The saved sentence context below is not a substitute for a grammar reference.</p><a class="repo-link" href="https://www.google.com/search?q=${encodeURIComponent(label+' Japanese grammar explanation')}" target="_blank" rel="noopener noreferrer">Search grammar references ↗</a></section>`;
   const furtherStudy=`<section class="panel repo-further-study"><div class="eyebrow">References &amp; further study</div><div class="grammar-source-list">${window.JLHDictionary?.referenceMarkup()||''}${window.JLHNinjal?.panelMarkup(label)||''}${guide?.references?.map(source=>`<div class="resource-row grammar-source-row"><div class="resource-row-copy"><strong>${esc(source.title)}</strong><span>External grammar reference.</span></div><a class="resource-action resource-action-secondary" href="${esc(source.url)}" target="_blank" rel="noopener noreferrer">Open ↗</a></div>`).join('')||''}</div></section>`;
   return `<section class="repo-page repo-grammar-page">
@@ -344,21 +369,21 @@ function repositoryVariantsMarkup(guide){
   const normal=guide.variants.filter(item=>item.variant_type!=='combined_form');
   const combined=guide.variants.filter(item=>item.variant_type==='combined_form');
   const text=value=>renderRepositoryFurigana(value,repositoryPlainFromFurigana(value));
-  const rows=items=>items.map(item=>{const related=repositoryState.grammarGuides.find(row=>row.id===item.related_grammar_id);return `<article class="repo-variant"><strong lang="ja">${text(item.form)}</strong><span>${esc(item.variant_type.replaceAll('_',' '))}</span><p>${esc(item.explanation)}</p>${related?`<div class="repo-variant-related">${repositoryGrammarNavLink(related,'Related')}</div>`:''}</article>`;}).join('');
-  return `${normal.length?`<section class="repo-guide-section"><h2>Forms / variants</h2><div class="repo-variant-list">${rows(normal)}</div></section>`:''}${combined.length?`<section class="repo-guide-section"><h2>Combined forms</h2><div class="repo-variant-list">${rows(combined)}</div></section>`:''}`;
+  const rows=items=>items.map(item=>{const related=repositoryState.grammarGuides.find(row=>row.id===item.related_grammar_id);return `<article class="repo-variant compact-card"><strong lang="ja">${text(item.form)}</strong><span>${esc(item.variant_type.replaceAll('_',' '))}</span><p>${esc(item.explanation)}</p>${related?`<div class="repo-variant-related">${repositoryGrammarNavLink(related,'Related')}</div>`:''}</article>`;}).join('');
+  return `${normal.length?`<section class="repo-guide-section">${repositoryGuideHeading('Forms / variants')}<div class="repo-variant-list">${rows(normal)}</div></section>`:''}${combined.length?`<section class="repo-guide-section">${repositoryGuideHeading('Combined forms')}<div class="repo-variant-list">${rows(combined)}</div></section>`:''}`;
 }
 
 function repositoryClarificationsMarkup(guide,text){
   if(!guide.clarifications.length) return '';
-  return `<section class="panel repo-clarifications"><h2>Clarifications</h2>${guide.clarifications.map((item,index)=>`<details ${index===0?'open':''}><summary>${esc(item.title)}</summary>${item.question?`<p><strong>${esc(item.question)}</strong></p>`:''}<p>${text(item.explanation)}</p>${item.contrasts?.length?`<div class="repo-contrast-grid">${item.contrasts.map(contrast=>`<article class="repo-contrast-card"><p lang="ja"><strong>${text(contrast.japanese_furigana||contrast.japanese)}</strong></p><p>${esc(contrast.english)}</p><small>${text(contrast.note)}</small></article>`).join('')}</div>`:''}</details>`).join('')}</section>`;
+  return `<section class="panel repo-clarifications">${repositoryGuideHeading('Clarifications')}${guide.clarifications.map((item,index)=>`<details ${index===0?'open':''}><summary>${esc(item.title)}</summary>${item.question?`<p><strong>${esc(item.question)}</strong></p>`:''}<p>${text(item.explanation)}</p>${item.contrasts?.length?`<div class="repo-contrast-grid">${item.contrasts.map(contrast=>`<article class="repo-contrast-card compact-card"><p lang="ja"><strong>${text(contrast.japanese_furigana||contrast.japanese)}</strong></p><p>${esc(contrast.english)}</p><small>${text(contrast.note)}</small></article>`).join('')}</div>`:''}</details>`).join('')}</section>`;
 }
 
 function repositoryMyExamplesMarkup(guide){
-  return `<section class="panel"><h2>My examples</h2>${guide.myExamples.length?guide.myExamples.map(({entry,link})=>`<button type="button" class="repo-my-example" data-repo-entry="${esc(entry.id)}"><strong lang="ja">${repositoryJapaneseWithSurfaces(entry,[link.surface])}</strong>${link.surface?`<span class="repo-example-mapping" lang="ja">${esc(link.surface)} → ${esc(guide.pattern)}</span>`:''}${link.note?`<small>${esc(link.note)}</small>`:''}${entry.english?`<span>${esc(entry.english)}</span>`:''}</button>`).join(''):'<p class="subtitle">No saved sentences are linked to this grammar yet.</p>'}</section>`;
+  return `<section class="panel repo-my-examples">${repositoryGuideHeading('My examples')}${guide.myExamples.length?guide.myExamples.map(({entry,link})=>`<button type="button" class="repo-my-example" data-repo-entry="${esc(entry.id)}"><strong lang="ja">${repositoryJapaneseWithSurfaces(entry,[link.surface])}</strong>${link.surface?`<span class="repo-example-mapping" lang="ja">${esc(link.surface)} → ${esc(guide.pattern)}</span>`:''}${link.note?`<small>${esc(link.note)}</small>`:''}${entry.english?`<span>${esc(entry.english)}</span>`:''}</button>`).join(''):'<p class="subtitle">No saved sentences are linked to this grammar yet.</p>'}</section>`;
 }
 
 function repositoryReferenceExamplesMarkup(guide,text){
-  return `<section class="repo-guide-section"><h2>Reference examples</h2>${guide.reference_examples?.length?guide.reference_examples.map(example=>`<article class="repo-grammar-example"><p lang="ja"><strong>${text(example.japanese_furigana||example.japanese)}</strong></p><p>${esc(example.english)}</p>${example.source?`<small>${esc(example.source)}</small>`:''}</article>`).join(''):'<p class="subtitle">No reference examples yet.</p>'}</section>`;
+  return `<section class="repo-guide-section repo-reference-examples">${repositoryGuideHeading('Reference examples')}${guide.reference_examples?.length?`<div class="repo-reference-example-list">${guide.reference_examples.map(example=>`<article class="repo-grammar-example compact-card"><p lang="ja"><strong>${text(example.japanese_furigana||example.japanese)}</strong></p><p>${esc(example.english)}</p>${example.source?`<small>${esc(example.source)}</small>`:''}</article>`).join('')}</div>`:'<p class="subtitle">No reference examples yet.</p>'}</section>`;
 }
 
 function repositoryGrammarLibraryMarkup(){
@@ -387,7 +412,7 @@ function repositoryGrammarLibraryMarkup(){
   const pendingCount=repositoryState.grammarGuides.filter(isPending).length,completeCount=repositoryState.grammarGuides.length-pendingCount,directCount=repositoryState.grammarGuides.filter(encountered).length;
   const visiblePending=matches.map(row=>row.guide).filter(isPending),selectedVisible=visiblePending.filter(guide=>repositoryState.pendingGuideIds.has(guide.id));
   const filters=[['all',`All ${repositoryState.grammarGuides.length}`],['complete',`Complete ${completeCount}`],['pending',`Pending ${pendingCount}`],['encountered',`Encountered in my sentences ${directCount}`]];
-  const card=({guide,variant,relatedSource})=>{const pending=isPending(guide),count=linkCount(guide);return `<article class="repo-grammar-card-wrap ${pending?'is-pending':''}">${filter==='pending'&&pending?`<label class="repo-pending-select"><input type="checkbox" data-pending-guide="${esc(guide.id)}" ${repositoryState.pendingGuideIds.has(guide.id)?'checked':''}><span>Select</span></label>`:''}<button type="button" class="repo-grammar-card" data-repo-guide="${esc(guide.id)}"><strong lang="ja">${renderRepositoryFurigana(guide.pattern,repositoryPlainFromFurigana(guide.pattern))}</strong><span>${esc(guide.meaning)}</span>${variant?`<small>${relatedSource?`Related match via ${esc(relatedSource.pattern)}: `:'Matched: '}${esc(variant.form)}${variant.explanation?' · '+esc(variant.explanation):''}</small>`:''}${pending?`<small>Pending · ${count} linked sentence${count===1?'':'s'}${encountered(guide)?' · encountered directly':''}</small><small>First ${repositoryDate(guide.first_encountered_at||guide.created_at)} · Last ${repositoryDate(guide.last_encountered_at||guide.updated_at)}</small>`:''}</button></article>`;};
+  const card=({guide,variant,relatedSource})=>{const pending=isPending(guide),count=linkCount(guide),match=pending?{badge:'',detail:''}:repositoryGrammarMatchMarkup(variant,relatedSource);return `<article class="repo-grammar-card-wrap ${pending?'is-pending':''}">${filter==='pending'&&pending?`<label class="repo-pending-select"><input type="checkbox" data-pending-guide="${esc(guide.id)}" ${repositoryState.pendingGuideIds.has(guide.id)?'checked':''}><span>Select</span></label>`:''}<button type="button" class="repo-grammar-card" data-repo-guide="${esc(guide.id)}"><span class="repo-grammar-card-head"><strong lang="ja">${renderRepositoryFurigana(guide.pattern,repositoryPlainFromFurigana(guide.pattern))}</strong>${match.badge}</span><span class="repo-grammar-card-meaning">${esc(guide.meaning)}</span>${match.detail}${pending?`<small>Pending · ${count} linked sentence${count===1?'':'s'}${encountered(guide)?' · encountered directly':''}</small><small>First ${repositoryDate(guide.first_encountered_at||guide.created_at)} · Last ${repositoryDate(guide.last_encountered_at||guide.updated_at)}</small>`:''}</button></article>`;};
   return `<section class="repo-page"><div class="repo-page-head app-page-header"><div><button class="app-page-breadcrumb" id="repoGrammarLibraryBack">← Repository</button><div class="eyebrow">Canonical grammar</div><h1>Grammar Library</h1><p>Reusable grammar concepts from your saved Japanese.</p></div><div class="app-page-toolbar"><button class="smallbtn" id="repoImport">Import JSON</button></div></div><div class="repo-grammar-filters app-compact-stats" role="group" aria-label="Grammar guide filters">${filters.map(([value,label])=>`<button type="button" class="smallbtn ${filter===value?'primary':''}" data-grammar-filter="${value}">${label}</button>`).join('')}</div><section class="panel repo-grammar-search"><label><span>Search patterns, meanings or forms</span><input id="repoGrammarSearch" type="search" value="${esc(repositoryState.grammarQuery)}" placeholder="Try てたら, ちゃった or ている"></label></section>${filter==='pending'?`<section class="panel repo-pending-actions"><div><strong>Pending Guides</strong><span>${visiblePending.length} visible · ${selectedVisible.length} selected</span></div><div><button type="button" class="smallbtn" id="repoPendingSelectAll" ${visiblePending.length?'':'disabled'}>Select all visible</button><button type="button" class="smallbtn primary" id="repoCopyPendingPrompt" ${selectedVisible.length?'':'disabled'}>Copy guide-generation prompt</button></div></section>`:''}<div class="repo-grammar-library-grid">${matches.length?matches.map(card).join(''):'<div class="empty panel">No canonical grammar guides match this search.</div>'}</div></section>`;
 }
 
@@ -491,6 +516,7 @@ function repositoryImportMarkup(){
 
 function renderRepository(){
   $('#hero').hidden=true; $('#bottomArea').hidden=true; $('#weekView').hidden=true; $('#mainContent').hidden=false;
+  if(typeof renderNav==='function') renderNav();
   if(repositoryState.loading&&!repositoryState.loaded){ $('#mainContent').innerHTML='<section class="repo-page"><div class="panel repo-loading">Loading your Japanese Repository…</div></section>'; return; }
   if(repositoryState.error&&!repositoryState.loaded){ $('#mainContent').innerHTML=`<section class="repo-page"><div class="panel repo-setup"><h1>Repository setup needed</h1><p>${esc(repositoryState.error)}</p><p>Run <code>migrations/20260830_japanese_repository.sql</code> in the Supabase SQL Editor, then reload.</p><button class="smallbtn" id="repoRetry">Retry</button></div></section>`; $('#repoRetry').onclick=()=>loadRepositoryData(true); return; }
   const selected=repositoryState.entries.find(x=>x.id===repositoryState.selectedId)||repositoryState.routeEntry;

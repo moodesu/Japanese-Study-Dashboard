@@ -23,13 +23,13 @@ const further=repository.indexOf('${furtherStudy}',body);
 assert.ok(header>=0&&context>header&&body>context&&further>body,'grammar page orders heading, optional sentence context, guide body, then further study');
 assert.match(repository,/repo-grammar-meaning/,'meaning appears directly in the grammar header');
 assert.match(repository,/class="repo-guide-article"/,'core explanation sections share one article surface');
-assert.match(repository,/class="repo-guide-section"><h2>Overview/,'Overview is the first canonical guide section');
+assert.match(repository,/class="repo-guide-section">\$\{repositoryGuideHeading\('Overview'\)\}/,'Overview is the first canonical guide section');
 assert.match(repository,/References &amp; further study/,'external integrations share a final supplementary section');
 assert.doesNotMatch(repository,/\$\{window\.JLHDictionary\?\.referenceMarkup\(\)\|\|''\}\s*\$\{window\.JLHNinjal\?\.panelMarkup\(label\)\|\|''\}\s*\$\{body\}/,'external references no longer precede the guide body');
 
 assert.match(dictionary,/class="resource-row grammar-source-row"/,'Dictionary integration uses a compact shared resource row');
 assert.match(dictionary,/id="repoDictionaryOpen"/,'Dictionary action identity is preserved');
-assert.match(ninjal,/ninjal-panel resource-row grammar-source-row/,'NINJAL integration uses the same compact reference treatment');
+assert.match(ninjal,/ninjal-panel grammar-source-row[^`]+summary class="resource-row"/,'NINJAL integration uses the same compact reference treatment');
 assert.match(ninjal,/data-ninjal-label/,'NINJAL loading identity is preserved');
 assert.match(css,/\.repo-guide-section \{[^}]*border-bottom:1px solid var\(--line\)/,'core article sections use dividers instead of cards');
 
