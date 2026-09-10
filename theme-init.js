@@ -255,3 +255,125 @@ try {
     }
   };
 })();
+
+
+/* --------------------------------------------------------------------------
+   Phase 1 grammar integration cleanup
+   --------------------------------------------------------------------------
+   1. Lesson workspaces show direct/strong GID support only. Broader "related"
+      GID references remain available on the canonical Grammar Guide.
+   2. Grammar Library exact-canonical searches suppress variant-only cards when
+      an exact canonical guide exists (e.g. 〜てくる no longer also presents 来る
+      as an equal "Matched" result).
+   -------------------------------------------------------------------------- */
+(function installPhase1GrammarCleanup(){
+  if(window.__phase1GrammarCleanupInstalled)return;
+  window.__phase1GrammarCleanupInstalled=true;
+
+  const grammarKey=value=>String(value||'')
+    .normalize('NFKC')
+    .trim()
+    .replace(/^[~〜～]+/u,'')
+    .replace(/\s+/gu,'')
+    .toLowerCase();
+
+  const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,char=>({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[char]));
+
+  function installSupplementaryLessonFilter(){
+    const supplementary=window.JLHSupplementary;
+    if(!supplementary||supplementary.__phase1LessonFilterInstalled)return false;
+
+    supplementary.lessonMarkup=function(canonical,guides){
+      const canonicals=Array.isArray(canonical)?canonical:[canonical];
+      const matchedGuides=canonicals
+        .map(label=>(guides||[]).find(item=>grammarKey(item.pattern)===grammarKey(label)))
+        .filter(Boolean);
+
+      const seen=new Set();
+      const items=matchedGuides
+        .flatMap(guide=>supplementary.practicesForGrammar(guide.id))
+        .filter(({link,unit})=>{
+          const isReference=unit?.resource?.resource_type==='grammar_reference';
+
+          // Lesson workspaces should show the resource sections that directly
+          // teach/support this occurrence. Broad conceptual GID references
+          // belong on the canonical guide, not beside the lesson task.
+          if(isReference&&link.relationship==='related')return false;
+
+          const key=`${unit.id}:${link.relationship}`;
+          if(seen.has(key))return false;
+          seen.add(key);
+          return true;
+        });
+
+      if(!items.length)return '';
+
+      return `<div class="guide-workspace-section guide-supplementary-practice"><strong>Grammar support</strong><div class="guide-actions">${items.map(({link,unit})=>{
+        const isReference=unit?.resource?.resource_type==='grammar_reference';
+        if(isReference){
+          return `<button type="button" class="secondary-action" data-supplementary-unit="${escapeHtml(unit.id)}"><i class="fa-solid fa-book-open" aria-hidden="true"></i> Grammar in Depth · p.${unit.printed_page}</button>`;
+        }
+        return `<button type="button" class="${link.relationship==='related'?'secondary-action':'resource-action'}" data-supplementary-unit="${escapeHtml(unit.id)}"><i class="fa-solid fa-book-open" aria-hidden="true"></i> ${link.relationship==='related'?'Related basic practice':'Practice'} · Unit ${unit.unit_number}</button>`;
+      }).join('')}</div></div>`;
+    };
+
+    supplementary.__phase1LessonFilterInstalled=true;
+    return true;
+  }
+
+  function normalizeGrammarLibraryExactSearch(){
+    if(typeof repositoryState==='undefined')return;
+
+    const query=String(repositoryState.grammarQuery||'').trim();
+    const grid=document.querySelector('.repo-grammar-library-grid');
+    if(!query||!grid)return;
+
+    const key=grammarKey(query);
+    const exact=(repositoryState.grammarGuides||[]).find(
+      guide=>grammarKey(guide.pattern)===key
+    );
+    if(!exact)return;
+
+    grid.querySelectorAll('.repo-grammar-card').forEach(card=>{
+      const wrapper=card.closest('.repo-grammar-card-wrap')||card;
+      const guide=(repositoryState.grammarGuides||[]).find(
+        item=>String(item.id)===String(card.dataset.repoGuide)
+      );
+      if(!guide)return;
+
+      if(String(guide.id)===String(exact.id)){
+        wrapper.hidden=false;
+        return;
+      }
+
+      // Keep another card only if the query matches its canonical label or
+      // descriptive text directly. Variant-only matches are subordinate to
+      // the exact canonical result and should not look like equal matches.
+      const directText=[guide.pattern,guide.meaning,guide.summary]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      wrapper.hidden=!directText.includes(query.toLowerCase());
+    });
+  }
+
+  function install(){
+    installSupplementaryLessonFilter();
+    normalizeGrammarLibraryExactSearch();
+
+    const observer=new MutationObserver(()=>{
+      installSupplementaryLessonFilter();
+      normalizeGrammarLibraryExactSearch();
+    });
+    observer.observe(document.body,{subtree:true,childList:true});
+  }
+
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',install,{once:true});
+  }else{
+    install();
+  }
+})();
