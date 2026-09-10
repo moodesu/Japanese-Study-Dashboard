@@ -1,7 +1,7 @@
 /* Direct DOJG references on canonical Grammar Guide pages.
- * Uses the reviewed grammar_dictionary_references bridge created in Phase 2.
- * Dictionary content remains private in Supabase; this module loads only the
- * small reference metadata required for the currently open grammar guide. */
+ * Robust renderer: locates the existing generic Dictionary resource row
+ * directly instead of depending on page-specific wrapper class names.
+ */
 window.JLHDOJGReferences=(()=>{
   const cache=new Map();
   const pending=new Map();
@@ -11,45 +11,54 @@ window.JLHDOJGReferences=(()=>{
     Intermediate:'A Dictionary of Intermediate Japanese Grammar',
     Advanced:'A Dictionary of Advanced Japanese Grammar'
   };
-  let renderQueued=false;
+  let scheduled=false;
 
-  const html=value=>String(value??'').replace(/[&<>"']/g,char=>({
+  const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
   }[char]));
 
   function currentGuide(){
     if(typeof repositoryState==='undefined')return null;
     if(repositoryState.grammarGuideId){
-      const exact=repositoryState.grammarGuides.find(row=>row.id===repositoryState.grammarGuideId);
-      if(exact)return exact;
+      const row=repositoryState.grammarGuides.find(x=>x.id===repositoryState.grammarGuideId);
+      if(row)return row;
     }
     if(typeof repositoryGrammarKey!=='function')return null;
     const key=repositoryGrammarKey(repositoryState.grammarLabel);
-    return repositoryState.grammarGuides.find(row=>repositoryGrammarKey(row.pattern)===key)||null;
+    return repositoryState.grammarGuides.find(x=>repositoryGrammarKey(x.pattern)===key)||null;
   }
 
   function currentContext(){
-    return repositoryState.entries.find(row=>row.id===repositoryState.selectedId)
+    return repositoryState.entries.find(x=>x.id===repositoryState.selectedId)
       ||repositoryState.routeEntry
       ||null;
   }
 
-  async function referencesForGuide(guideId){
+  function findGenericRow(){
+    return Array.from(document.querySelectorAll('.grammar-source-row,.resource-row')).find(row=>{
+      const strong=row.querySelector('strong');
+      return strong?.textContent?.trim()==='A Dictionary of Japanese Grammar'
+        && row.querySelector('#repoDictionaryOpen,[id="repoDictionaryOpen"]');
+    })||null;
+  }
+
+  async function rowsFor(guideId){
     if(cache.has(guideId))return cache.get(guideId);
     if(pending.has(guideId))return pending.get(guideId);
 
-    const request=(async()=>{
+    const promise=(async()=>{
       if(typeof db==='undefined'||typeof state==='undefined'||!db||!state.user)return [];
       const userId=state.user.id;
-      const {data:links,error:linkError}=await db
+
+      const {data:refs,error:refError}=await db
         .from('grammar_dictionary_references')
         .select('dictionary_entry_id,relationship,source_volume')
         .eq('user_id',userId)
         .eq('grammar_id',guideId);
-      if(linkError)throw linkError;
-      if(!links?.length)return [];
+      if(refError)throw refError;
+      if(!refs?.length)return [];
 
-      const ids=[...new Set(links.map(row=>row.dictionary_entry_id).filter(Boolean))];
+      const ids=[...new Set(refs.map(x=>x.dictionary_entry_id).filter(Boolean))];
       const {data:entries,error:entryError}=await db
         .from('japanese_dictionary_entries')
         .select('id,headword,volume,summary')
@@ -57,19 +66,19 @@ window.JLHDOJGReferences=(()=>{
         .in('id',ids);
       if(entryError)throw entryError;
 
-      const entryById=new Map((entries||[]).map(row=>[row.id,row]));
-      return links
-        .map(link=>({link,entry:entryById.get(link.dictionary_entry_id)}))
-        .filter(row=>row.entry)
+      const byId=new Map((entries||[]).map(x=>[x.id,x]));
+      return refs
+        .map(ref=>({ref,entry:byId.get(ref.dictionary_entry_id)}))
+        .filter(x=>x.entry)
         .sort((a,b)=>
-          (volumeOrder[a.link.source_volume]??9)-(volumeOrder[b.link.source_volume]??9)
+          (volumeOrder[a.ref.source_volume]??9)-(volumeOrder[b.ref.source_volume]??9)
           ||String(a.entry.headword).localeCompare(String(b.entry.headword),'ja')
         );
     })();
 
-    pending.set(guideId,request);
+    pending.set(guideId,promise);
     try{
-      const rows=await request;
+      const rows=await promise;
       cache.set(guideId,rows);
       return rows;
     }finally{
@@ -77,72 +86,67 @@ window.JLHDOJGReferences=(()=>{
     }
   }
 
-  function genericDictionaryRow(container){
-    return Array.from(container.querySelectorAll('.grammar-source-row')).find(row=>
-      row.querySelector('strong')?.textContent?.trim()==='A Dictionary of Japanese Grammar'
-    )||null;
-  }
-
   function relationshipLabel(value){
-    return value==='expanded'?'Expanded reference':value==='related'?'Related reference':'Primary reference';
+    if(value==='expanded')return 'Expanded reference';
+    if(value==='related')return 'Related reference';
+    return 'Primary reference';
   }
 
-  function rowMarkup({link,entry}){
-    const volume=link.source_volume||entry.volume||'';
+  function markup({ref,entry}){
+    const volume=ref.source_volume||entry.volume||'';
     const title=volumeTitle[volume]||'A Dictionary of Japanese Grammar';
-    const detail=[volume,entry.headword,relationshipLabel(link.relationship)].filter(Boolean).join(' · ');
-    return `<div class="resource-row grammar-source-row dojg-direct-reference" data-dojg-reference-row data-dojg-entry="${html(entry.id)}"><div class="resource-row-copy"><strong>${html(title)}</strong><span>${html(detail)}</span></div><button type="button" class="resource-action resource-action-secondary" data-dojg-open="${html(entry.id)}">Open reference ↗</button></div>`;
+    const detail=[volume,entry.headword,relationshipLabel(ref.relationship)].filter(Boolean).join(' · ');
+    return `<div class="resource-row grammar-source-row dojg-direct-reference" data-dojg-reference-row data-dojg-entry="${esc(entry.id)}"><div class="resource-row-copy"><strong>${esc(title)}</strong><span>${esc(detail)}</span></div><button type="button" class="resource-action resource-action-secondary" data-dojg-open="${esc(entry.id)}">Open reference ↗</button></div>`;
   }
 
   async function render(){
-    renderQueued=false;
-    if(typeof state==='undefined'||state.view!=='repository'||typeof repositoryState==='undefined'||repositoryState.mode!=='grammar')return;
+    scheduled=false;
+    if(typeof state==='undefined'||state.view!=='repository')return;
+    if(typeof repositoryState==='undefined'||repositoryState.mode!=='grammar')return;
+
     const guide=currentGuide();
-    if(!guide)return;
-    const container=document.querySelector('.repo-further-study .grammar-source-list');
-    if(!container)return;
+    const generic=findGenericRow();
+    if(!guide||!generic)return;
 
     const guideId=guide.id;
     let rows;
     try{
-      rows=await referencesForGuide(guideId);
+      rows=await rowsFor(guideId);
     }catch(error){
       console.warn('DOJG reference metadata unavailable',error);
+      generic.hidden=false;
       return;
     }
 
     if(repositoryState.mode!=='grammar'||currentGuide()?.id!==guideId)return;
-    const liveContainer=document.querySelector('.repo-further-study .grammar-source-list');
-    if(!liveContainer)return;
+    const liveGeneric=findGenericRow();
+    if(!liveGeneric)return;
 
-    liveContainer.querySelectorAll('[data-dojg-reference-row]').forEach(node=>node.remove());
-    const generic=genericDictionaryRow(liveContainer);
+    document.querySelectorAll('[data-dojg-reference-row]').forEach(node=>node.remove());
 
     if(!rows.length){
-      if(generic)generic.hidden=false;
+      liveGeneric.hidden=false;
       return;
     }
 
-    if(generic)generic.hidden=true;
-    const anchor=generic||liveContainer.firstElementChild;
-    const markup=rows.map(rowMarkup).join('');
-    if(anchor)anchor.insertAdjacentHTML('beforebegin',markup);
-    else liveContainer.insertAdjacentHTML('afterbegin',markup);
+    liveGeneric.hidden=true;
+    liveGeneric.insertAdjacentHTML('beforebegin',rows.map(markup).join(''));
   }
 
-  function scheduleRender(){
-    if(renderQueued)return;
-    renderQueued=true;
-    requestAnimationFrame(render);
+  function schedule(){
+    if(scheduled)return;
+    scheduled=true;
+    requestAnimationFrame(()=>render());
   }
 
-  async function openExact(entryId){
-    if(!entryId||typeof repositoryState==='undefined')return;
-    const guide=currentGuide(),context=currentContext();
+  async function openExact(id){
+    if(!id||typeof repositoryState==='undefined')return;
+    const guide=currentGuide();
+    const context=currentContext();
     if(!guide||!context||!window.JLHDictionary?.open)return;
     repositoryState.grammarLabel=guide.pattern;
     repositoryState.grammarGuideId=guide.id;
-    await window.JLHDictionary.open(context,{id:entryId});
+    await window.JLHDictionary.open(context,{id});
   }
 
   document.addEventListener('click',event=>{
@@ -152,13 +156,13 @@ window.JLHDOJGReferences=(()=>{
     openExact(button.dataset.dojgOpen);
   });
 
-  const observer=new MutationObserver(scheduleRender);
+  const observer=new MutationObserver(schedule);
   function start(){
     observer.observe(document.body,{subtree:true,childList:true});
-    scheduleRender();
+    schedule();
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});
   else start();
 
-  return {referencesForGuide,render,clear:()=>cache.clear()};
+  return {rowsFor,render,clear:()=>cache.clear()};
 })();
