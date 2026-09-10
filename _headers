@@ -24,6 +24,12 @@
 /repository.js
   Cache-Control: public, max-age=0, must-revalidate
 
+/repository-search-input.js
+  Cache-Control: public, max-age=0, must-revalidate
+
+/dojg-references.js
+  Cache-Control: public, max-age=0, must-revalidate
+
 /router.js
   Cache-Control: public, max-age=0, must-revalidate
 
