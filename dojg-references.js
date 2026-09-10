@@ -129,8 +129,8 @@ window.JLHDOJGReferences=(()=>{
       return;
     }
 
-    liveGeneric.hidden=true;
     liveGeneric.insertAdjacentHTML('beforebegin',rows.map(markup).join(''));
+    liveGeneric.remove();
   }
 
   function schedule(){
