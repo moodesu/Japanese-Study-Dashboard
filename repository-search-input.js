@@ -62,3 +62,77 @@
     });
   },true);
 })();
+
+
+/*
+ * Phase 5: canonical sentence imports attach only to guides that already
+ * exist in the canonical Grammar Library.
+ *
+ * The catalogue is now authoritative. Sentence JSON may annotate a surface
+ * form, but importing that sentence must never manufacture a new grammar
+ * identity or a pending placeholder. A missing canonical is therefore an
+ * annotation/catalogue mismatch that must be corrected explicitly.
+ */
+(()=>{
+  if(typeof window.previewRepositoryImport!=='function')return;
+
+  const originalPreviewRepositoryImport=window.previewRepositoryImport;
+
+  window.previewRepositoryImport=function(...args){
+    const result=originalPreviewRepositoryImport.apply(this,args);
+
+    try{
+      if(typeof pendingRepositoryImport==='undefined'
+        ||pendingRepositoryImport?.kind!=='sentences'
+        ||typeof repositoryState==='undefined'){
+        return result;
+      }
+
+      const guides=repositoryState.grammarGuides||[];
+      const unresolved=[...new Set(
+        pendingRepositoryImport.payload
+          .flatMap(item=>item.grammar_points||[])
+          .map(point=>point?.canonical)
+          .filter(Boolean)
+          .filter(canonical=>!guides.some(
+            guide=>repositoryGrammarKey(guide.pattern)===repositoryGrammarKey(canonical)
+          ))
+      )];
+
+      if(!unresolved.length)return result;
+
+      const preview=document.querySelector('#repoImportPreview');
+      const run=document.querySelector('#repoRunImport');
+
+      if(preview){
+        preview.innerHTML=
+          `<span class="repo-import-error"><strong>Canonical grammar mismatch.</strong> `
+          +`The sentence import references ${unresolved.length} canonical guide${unresolved.length===1?'':'s'} `
+          +`that ${unresolved.length===1?'is':'are'} not in the Grammar Library: `
+          +`${unresolved.map(esc).join(', ')}. `
+          +`Sentence imports no longer create placeholder grammar guides. `
+          +`Correct the canonical annotation or add/reconcile the guide explicitly, then preview again.</span>`;
+      }
+
+      if(run){
+        run.disabled=true;
+        run.textContent='Import sentences';
+      }
+
+      // Prevent programmatic/stale execution after a failed canonical preflight.
+      pendingRepositoryImport=null;
+      repositoryImportSnapshot='';
+    }catch(error){
+      const preview=document.querySelector('#repoImportPreview');
+      const run=document.querySelector('#repoRunImport');
+      if(preview){
+        preview.innerHTML=`<span class="repo-import-error">${esc(error?.message||'Canonical grammar preflight failed.')}</span>`;
+      }
+      if(run)run.disabled=true;
+      pendingRepositoryImport=null;
+      repositoryImportSnapshot='';
+    }
+
+    return result;
+  };
+})();
