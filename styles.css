@@ -3316,6 +3316,9 @@ html[data-theme="dark"] {
   --card:#17232f;
   --surface:#17232f;
   --surface-alt:#111c27;
+  --surface-hover:#1d2d3a;
+  --soft:#20313d;
+  --line-strong:#526779;
   --panel:var(--card);
   --text:var(--ink);
   --line:#33434e;
@@ -3360,9 +3363,9 @@ html[data-theme="dark"] .guide-pomodoro-button { background:#30231f;color:#f2b69
   padding:8px 10px;
   border:1px solid color-mix(in srgb,var(--line) 82%,transparent);
   border-radius:13px;
-  background:color-mix(in srgb,var(--surface) 94%,transparent);
+  background:var(--surface);
   box-shadow:0 4px 18px rgba(24,40,59,.07);
-  backdrop-filter:blur(14px);
+  backdrop-filter:none;
 }
 .app-identity {
   min-width:0;
@@ -3491,7 +3494,7 @@ html[data-theme="dark"] .guide-pomodoro-button { background:#30231f;color:#f2b69
 .guide-next strong { font-size:13px; }
 .guide-list { margin-top:12px; }
 html[data-theme="dark"] .app-header {
-  background:color-mix(in srgb,var(--surface) 94%,transparent);
+  background:var(--surface);
   border-color:var(--line);
   box-shadow:0 5px 20px rgba(0,0,0,.24);
 }
@@ -3790,11 +3793,19 @@ html[data-theme="dark"] .book-cover-fallback { background:linear-gradient(145deg
 .repo-grammar-meta { display:flex;flex-wrap:wrap;gap:6px;margin-top:8px; }
 .repo-grammar-meta span { padding:4px 7px;border-radius:999px;background:var(--surface-alt);color:var(--muted);font-size:.72rem;font-weight:750;text-transform:capitalize; }
 .repo-grammar-content>.repo-guide-pending,.repo-grammar-content>.repo-sentence-context { margin-top:13px;margin-bottom:2px; }
-.repo-guide-article { display:grid; }
-.repo-guide-section { min-width:0;padding:18px 2px;border-bottom:1px solid var(--line); }
+.repo-guide-article {
+  display:grid;
+  margin-top:14px;
+  padding:0 var(--card-padding);
+  border:1px solid var(--line);
+  border-radius:var(--radius-card);
+  background:var(--surface);
+}
+.repo-guide-section { min-width:0;padding:16px 0;border-bottom:1px solid var(--line); }
+.repo-guide-section:last-child { border-bottom:0; }
 .repo-grammar-content h2{display:flex;align-items:center;gap:9px}
 .repo-guide-section h2 { margin:0 0 9px; }
-.repo-guide-heading-icon{width:27px;height:27px;flex:0 0 27px;display:grid;place-items:center;border-radius:8px;background:var(--soft);color:var(--accent);font-size:12px}
+.repo-guide-heading-icon{width:27px;height:27px;flex:0 0 27px;display:grid;place-items:center;border-radius:8px;background:color-mix(in srgb,var(--accent) 10%,var(--surface-alt));color:var(--accent);font-size:12px}
 .repo-guide-heading-icon svg,.repo-guide-heading-icon i{width:12px;height:12px;font-size:12px}
 .repo-guide-section p:last-child { margin-bottom:0; }
 .repo-guide-section .repo-grammar-nav-list { margin-top:4px; }
@@ -3816,6 +3827,10 @@ html[data-theme="dark"] .book-cover-fallback { background:linear-gradient(145deg
 .repo-textbook-connections>strong { font-size:.82rem; }
 .repo-textbook-connections .repo-link { margin-top:0;padding:9px 10px;background:var(--surface-alt); }
 html[data-theme="dark"] .grammar-source-row { background:var(--surface-alt);border-color:var(--line); }
+html[data-theme="dark"] .repo-context-link {
+  background:color-mix(in srgb,var(--accent) 10%,var(--surface-alt));
+  color:var(--ink);
+}
 @media(max-width:600px) {
   .mobile-more-menu button { min-height:48px; }
 .repo-grammar-page .repo-detail-toolbar { margin:7px 0 5px; }
