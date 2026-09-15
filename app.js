@@ -2040,11 +2040,13 @@ function lessonGuideMarkup(l){
   const steps=lessonGuideSteps(l), activities=flattenGuideSteps(steps), done=activities.filter(step=>ts(step.id).completed).length;
   const next=activities.find(step=>!ts(step.id).completed);
   const currentId=activities.some(step=>step.id===state.manualGuideTaskId)?state.manualGuideTaskId:activities.some(step=>step.id===state.activeGuideTaskId&&!ts(step.id).completed)?state.activeGuideTaskId:next?.id;
-  const nextIndex=steps.findIndex(step=>flattenGuideSteps([step]).some(item=>item.id===next?.id));
+  const resume=activities.find(step=>step.id===currentId&&!ts(step.id).completed)||next;
+  const resumeIndex=steps.findIndex(step=>flattenGuideSteps([step]).some(item=>item.id===resume?.id));
+  const resumingDifferentActivity=Boolean(resume&&next&&resume.id!==next.id);
   return `<section class="panel lesson-guide" id="lessonGuide">
     <div class="lesson-guide-head"><div><div class="eyebrow">Guided lesson path</div><h2>Follow the textbook</h2><p class="subtitle">Work in textbook order; each section keeps its matching video, audio and workbook practice together.</p></div><div class="guide-progress"><strong>${done}/${activities.length}</strong><span>activities complete</span></div></div>
     <div class="progress"><i style="width:${activities.length?done/activities.length*100:0}%"></i></div>
-    ${next?`<button type="button" class="guide-next" data-guide-scroll="${esc(next.id)}"><span>Continue with step ${nextIndex+1}</span><strong>${esc(next.title)}</strong><b>Go to next step ↓</b></button>`:`<div class="guide-complete">Lesson path complete. Review your notes for anything that needs another pass.</div>`}
+    ${resume?`<button type="button" class="guide-next" data-guide-scroll="${esc(resume.id)}"><span>${resumingDifferentActivity?'Resume':'Continue with'} step ${resumeIndex+1}</span><strong>${esc(resume.title)}</strong><b>${resumingDifferentActivity?'Return to current task':'Go to next step'} ↓</b></button>`:`<div class="guide-complete">Lesson path complete. Review your notes for anything that needs another pass.</div>`}
     <div class="guide-list">${steps.map((step,index)=>guideStepMarkup(l,step,index,steps,currentId)).join('')}</div>
   </section>`;
 }
