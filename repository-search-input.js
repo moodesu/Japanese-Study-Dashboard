@@ -17,9 +17,7 @@
 
   document.addEventListener('compositionstart',event=>{
     const input=event.target;
-    if(input instanceof HTMLInputElement&&SEARCH_IDS.has(input.id)){
-      composing.add(input.id);
-    }
+    if(input instanceof HTMLInputElement&&SEARCH_IDS.has(input.id))composing.add(input.id);
   },true);
 
   document.addEventListener('compositionend',event=>{
@@ -27,8 +25,6 @@
     if(input instanceof HTMLInputElement&&SEARCH_IDS.has(input.id)){
       composing.delete(input.id);
       stateFor(input.id,input.value);
-      // The browser normally emits the committed input event immediately
-      // after compositionend; that event performs the normal rerender.
     }
   },true);
 
@@ -41,17 +37,12 @@
     const end=input.selectionEnd;
     const direction=input.selectionDirection;
 
-    // Replacing the input node during an active IME composition destroys the
-    // composition buffer. Keep state current but let the existing input stay
-    // mounted until the committed input event arrives.
     if(event.isComposing||composing.has(id)){
       stateFor(id,input.value);
       event.stopImmediatePropagation();
       return;
     }
 
-    // repository.js now handles this ordinary input and rerenders. Restore
-    // focus/caret onto the replacement input after the event dispatch ends.
     queueMicrotask(()=>{
       const replacement=document.getElementById(id);
       if(!(replacement instanceof HTMLInputElement))return;
@@ -63,15 +54,10 @@
   },true);
 })();
 
-
 /*
- * Phase 5: canonical sentence imports attach only to guides that already
- * exist in the canonical Grammar Library.
- *
- * The catalogue is now authoritative. Sentence JSON may annotate a surface
- * form, but importing that sentence must never manufacture a new grammar
- * identity or a pending placeholder. A missing canonical is therefore an
- * annotation/catalogue mismatch that must be corrected explicitly.
+ * Phase 5/6A: sentence imports attach only to existing canonical guides.
+ * If an incoming "canonical" is actually a saved variant/combined form,
+ * Preview blocks the import and suggests the authoritative canonical label.
  */
 (()=>{
   if(typeof window.previewRepositoryImport!=='function')return;
@@ -89,9 +75,10 @@
       }
 
       const guides=repositoryState.grammarGuides||[];
+      const variants=repositoryState.grammarVariants||[];
+      const points=pendingRepositoryImport.payload.flatMap(item=>item.grammar_points||[]);
       const unresolved=[...new Set(
-        pendingRepositoryImport.payload
-          .flatMap(item=>item.grammar_points||[])
+        points
           .map(point=>point?.canonical)
           .filter(Boolean)
           .filter(canonical=>!guides.some(
@@ -101,17 +88,33 @@
 
       if(!unresolved.length)return result;
 
+      const suggestions=unresolved.map(label=>{
+        const key=repositoryGrammarKey(label);
+        const matches=variants
+          .filter(variant=>repositoryGrammarKey(variant.form)===key)
+          .map(variant=>guides.find(guide=>guide.id===variant.grammar_id))
+          .filter(Boolean);
+        const unique=[...new Map(matches.map(guide=>[guide.id,guide])).values()];
+        return {label,matches:unique};
+      });
+
       const preview=document.querySelector('#repoImportPreview');
       const run=document.querySelector('#repoRunImport');
 
       if(preview){
+        const suggestionMarkup=suggestions.map(({label,matches})=>{
+          if(!matches.length)return `<span>${esc(label)} → no saved canonical match</span>`;
+          if(matches.length===1)return `<span>${esc(label)} → use canonical <strong>${esc(matches[0].pattern)}</strong></span>`;
+          return `<span>${esc(label)} → ambiguous saved forms: ${matches.map(g=>`<strong>${esc(g.pattern)}</strong>`).join(', ')}</span>`;
+        }).join('');
+
         preview.innerHTML=
           `<span class="repo-import-error"><strong>Canonical grammar mismatch.</strong> `
-          +`The sentence import references ${unresolved.length} canonical guide${unresolved.length===1?'':'s'} `
-          +`that ${unresolved.length===1?'is':'are'} not in the Grammar Library: `
-          +`${unresolved.map(esc).join(', ')}. `
-          +`Sentence imports no longer create placeholder grammar guides. `
-          +`Correct the canonical annotation or add/reconcile the guide explicitly, then preview again.</span>`;
+          +`The sentence import references ${unresolved.length} label${unresolved.length===1?'':'s'} `
+          +`that ${unresolved.length===1?'is':'are'} not canonical Grammar Library identities. `
+          +`Sentence imports do not create placeholder guides.</span>`
+          +suggestionMarkup
+          +`<span>Correct the JSON canonical field and preview again. Keep the original wording in surface.</span>`;
       }
 
       if(run){
@@ -119,15 +122,12 @@
         run.textContent='Import sentences';
       }
 
-      // Prevent programmatic/stale execution after a failed canonical preflight.
       pendingRepositoryImport=null;
       repositoryImportSnapshot='';
     }catch(error){
       const preview=document.querySelector('#repoImportPreview');
       const run=document.querySelector('#repoRunImport');
-      if(preview){
-        preview.innerHTML=`<span class="repo-import-error">${esc(error?.message||'Canonical grammar preflight failed.')}</span>`;
-      }
+      if(preview)preview.innerHTML=`<span class="repo-import-error">${esc(error?.message||'Canonical grammar preflight failed.')}</span>`;
       if(run)run.disabled=true;
       pendingRepositoryImport=null;
       repositoryImportSnapshot='';
