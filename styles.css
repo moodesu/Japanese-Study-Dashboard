@@ -4482,3 +4482,62 @@ html[data-theme="dark"] .guide-progress {
     order:3;
   }
 }
+
+/* Guided lesson supplementary practice clarity -------------------------
+   Show what the optional practice actually covers before opening the PDF. */
+.guide-supplementary-list {
+  display:grid;
+  gap:7px;
+  margin-top:7px;
+}
+.guide-supplementary-row {
+  min-width:0;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;
+  gap:10px 14px;
+  padding:10px 0;
+  border-top:1px solid var(--line);
+}
+.guide-supplementary-row:first-child {
+  border-top:0;
+  padding-top:3px;
+}
+.guide-supplementary-row > div {
+  min-width:0;
+  display:grid;
+  gap:2px;
+}
+.guide-supplementary-canonical {
+  color:var(--accent);
+  font-size:10px;
+  font-weight:800;
+  line-height:1.3;
+}
+.guide-supplementary-row strong {
+  min-width:0;
+  font-size:12px;
+  line-height:1.4;
+}
+.guide-supplementary-row small {
+  color:var(--muted);
+  font-size:10px;
+  line-height:1.35;
+}
+.guide-supplementary-row > :is(.resource-action,.secondary-action) {
+  margin:0;
+  white-space:nowrap;
+}
+@media(max-width:760px) {
+  .guide-supplementary-row {
+    grid-template-columns:1fr;
+    align-items:stretch;
+    gap:8px;
+    padding:10px 0;
+  }
+  .guide-supplementary-row > :is(.resource-action,.secondary-action) {
+    width:100%;
+    min-height:44px;
+    justify-content:center;
+  }
+}

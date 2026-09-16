@@ -62,8 +62,9 @@ supplementary.data.parts=[{id:'part-4',resource_id:'resource',storage_path:'supp
 supplementary.data.units=[{id:'unit-124',resource_id:'resource',resource_part_id:'part-4',unit_number:124,source_heading:'ようになる',printed_page:290,local_pdf_page:63}];
 supplementary.data.links=[{grammar_id:'guide',supplementary_unit_id:'unit-124',relationship:'exact',note:'Direct practice match.'}];
 assert.match(supplementary.grammarMarkup('guide'),/Unit 124/);
-assert.match(supplementary.lessonMarkup('〜ようになる',[{id:'guide',pattern:'〜ようになる'}]),/Practice · Unit 124/);
-assert.equal((supplementary.lessonMarkup(['〜ようになる','〜ようになる'],[{id:'guide',pattern:'〜ようになる'}]).match(/Practice · Unit 124/g)||[]).length,1,'One lesson occurrence does not duplicate the same practice unit');
+assert.match(supplementary.lessonMarkup('〜ようになる',[{id:'guide',pattern:'〜ようになる'}]),/Unit 124 · ようになる/);
+assert.match(supplementary.lessonMarkup('〜ようになる',[{id:'guide',pattern:'〜ようになる'}]),/〜ようになる/);
+assert.equal((supplementary.lessonMarkup(['〜ようになる','〜ようになる'],[{id:'guide',pattern:'〜ようになる'}]).match(/Unit 124 · ようになる/g)||[]).length,1,'One lesson occurrence does not duplicate the same practice unit');
 assert.match(supplementary.browserMarkup(),/independent of programme progress/);
 const db={};
 

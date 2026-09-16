@@ -51,14 +51,19 @@
   function lessonMarkup(canonical,guides){
     const canonicals=Array.isArray(canonical)?canonical:[canonical];
     const matchedGuides=canonicals.map(label=>(guides||[]).find(item=>grammarKey(item.pattern)===grammarKey(label))).filter(Boolean);
-    const seen=new Set();
-    const practices=matchedGuides.flatMap(guide=>practicesForGrammar(guide.id)).filter(({link,unit})=>{
+    const grouped=new Map();
+    matchedGuides.forEach(guide=>practicesForGrammar(guide.id).forEach(({link,unit})=>{
       const key=`${unit.id}:${link.relationship}`;
-      if(seen.has(key))return false;
-      seen.add(key);return true;
-    });
+      const existing=grouped.get(key);
+      if(existing){
+        if(!existing.canonicals.includes(guide.pattern))existing.canonicals.push(guide.pattern);
+        return;
+      }
+      grouped.set(key,{link,unit,canonicals:[guide.pattern]});
+    }));
+    const practices=[...grouped.values()];
     if(!practices.length)return '';
-    return `<div class="guide-workspace-section guide-supplementary-practice"><strong>Optional grammar practice</strong><div class="guide-actions">${practices.map(({link,unit})=>`<button type="button" class="${link.relationship==='related'?'secondary-action':'resource-action'}" data-supplementary-unit="${html(unit.id)}"><i class="fa-solid fa-book-open" aria-hidden="true"></i> ${link.relationship==='related'?'Related basic practice':'Practice'} · Unit ${unit.unit_number}</button>`).join('')}</div></div>`;
+    return `<div class="guide-workspace-section guide-supplementary-practice"><strong>Optional grammar practice</strong><div class="guide-supplementary-list">${practices.map(({link,unit,canonicals})=>`<div class="guide-supplementary-row"><div><span class="guide-supplementary-canonical">${canonicals.map(html).join(' · ')}</span><strong>Unit ${unit.unit_number} · ${html(unit.source_heading)}</strong><small>p.${unit.printed_page}${link.relationship==='related'?' · Related practice':' · Direct practice'}</small></div><button type="button" class="${link.relationship==='related'?'secondary-action':'resource-action'}" data-supplementary-unit="${html(unit.id)}"><i class="fa-solid fa-book-open" aria-hidden="true"></i> Open practice</button></div>`).join('')}</div></div>`;
   }
 
   function browserMarkup(){
