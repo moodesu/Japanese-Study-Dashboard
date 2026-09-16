@@ -4631,3 +4631,77 @@ html[data-theme="dark"] .guide-progress {
     justify-content:center;
   }
 }
+
+/* Book → lesson navigation clarity --------------------------------------
+   Put the primary lesson entry point beside the lesson identity instead of
+   after all reference metadata. Reference detail remains available below. */
+.mapped-lesson-actionable {
+  transition:border-color .15s ease, box-shadow .15s ease;
+}
+.mapped-lesson-actionable:hover {
+  border-color:var(--line-strong);
+  box-shadow:0 5px 16px rgba(25,39,55,.045);
+}
+.mapped-lesson-title {
+  min-width:0;
+}
+.mapped-lesson-title h3 {
+  margin:3px 0 2px;
+}
+.mapped-lesson-pages {
+  display:block;
+  color:var(--muted);
+  font-size:11px;
+  font-weight:750;
+}
+.mapped-lesson-pages-standalone {
+  justify-self:end;
+  white-space:nowrap;
+}
+.mapped-lesson-entry {
+  min-width:128px;
+  display:grid;
+  justify-items:end;
+  gap:5px;
+}
+.mapped-lesson-entry > span {
+  color:var(--muted);
+  font-size:10px;
+  font-weight:750;
+}
+.mapped-lesson-entry .smallbtn {
+  min-width:118px;
+  justify-content:center;
+}
+.mapped-lesson-actionable .mapped-meta {
+  margin-top:12px;
+}
+
+@media(max-width:760px) {
+  .mapped-lesson-top {
+    grid-template-columns:auto minmax(0,1fr);
+    align-items:start;
+  }
+  .mapped-lesson-entry {
+    grid-column:1/-1;
+    width:100%;
+    min-width:0;
+    justify-items:stretch;
+    margin-top:4px;
+    padding-top:10px;
+    border-top:1px solid var(--line);
+  }
+  .mapped-lesson-entry > span {
+    display:none;
+  }
+  .mapped-lesson-entry .smallbtn {
+    width:100%;
+    min-width:0;
+    min-height:44px;
+    justify-content:center;
+  }
+  .mapped-lesson-pages-standalone {
+    grid-column:2;
+    justify-self:start;
+  }
+}

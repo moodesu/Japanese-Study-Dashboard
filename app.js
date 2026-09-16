@@ -904,14 +904,17 @@ function renderBookMap(bookId){
     const canDo=l.canDo||[];
     const components=l.components||[];
     return `
-      <article class="mapped-lesson">
-        <div class="mapped-lesson-top"><span class="lessonnum">${l.n}</span><div>${l.unit?`<div class="eyebrow">${esc(l.unit)}</div>`:''}<h3>${esc(l.title)}</h3></div><strong>pp. ${esc(l.pages||'—')}</strong></div>
+      <article class="mapped-lesson ${programme&&mappedStatus!=='planned'?'mapped-lesson-actionable':''}">
+        <div class="mapped-lesson-top">
+          <span class="lessonnum">${l.n}</span>
+          <div class="mapped-lesson-title">${l.unit?`<div class="eyebrow">${esc(l.unit)}</div>`:''}<h3>${esc(l.title)}</h3><span class="mapped-lesson-pages">pp. ${esc(l.pages||'—')}</span></div>
+          ${programme&&mappedStatus!=='planned'?`<div class="mapped-lesson-entry"><span>${mappedStatus==='completed'?'Completed programme':'Guided lesson'}</span><button type="button" class="smallbtn primary" data-open-mapped-lesson="${l.n}">${mappedStatus==='completed'?'Review lesson':'Open lesson'}</button></div>`:`<span class="mapped-lesson-pages mapped-lesson-pages-standalone">pp. ${esc(l.pages||'—')}</span>`}
+        </div>
         ${meta.length?`<div class="mapped-meta">${meta.map(x=>`<div><span>${esc(x.label)}</span><strong>${esc(x.value)}</strong></div>`).join('')}</div>`:''}
         ${readings.length?`<div class="mapped-readings"><span>Readings</span>${readings.map(r=>`<span class="chip">${esc(r)}</span>`).join('')}</div>`:''}
         ${canDo.length?`<details class="mapped-cando"><summary>Can-Do goals (${canDo.length})</summary><ul>${canDo.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></details>`:''}
         ${components.length?`<div class="mapped-components">${components.map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</div>`:''}
         ${l.project?`<div class="mapped-project"><span>Project</span><strong>${esc(l.project)}</strong></div>`:''}
-        ${programme&&mappedStatus!=='planned'?`<button type="button" class="smallbtn" data-open-mapped-lesson="${l.n}">Open guided lesson</button>`:''}
       </article>`;
   };
   $('#mainContent').innerHTML=`
