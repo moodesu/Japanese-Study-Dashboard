@@ -978,8 +978,19 @@ function hubSectionMarkup({id,title,subtitle='',eyebrow='',content,className=''}
 }
 function bindHubSectionToggles(root){
   root.querySelectorAll('[data-hub-section-toggle]').forEach(button=>button.onclick=()=>{
-    setHubSectionCollapsed(button.dataset.hubSectionToggle,button.getAttribute('aria-expanded')==='true');
-    renderLibrary();
+    const sectionId=button.dataset.hubSectionToggle;
+    const collapsed=button.getAttribute('aria-expanded')==='true';
+    const section=button.closest('[data-hub-section]');
+    const controls=button.getAttribute('aria-controls');
+    const content=controls?document.getElementById(controls):null;
+
+    setHubSectionCollapsed(sectionId,collapsed);
+
+    button.setAttribute('aria-expanded',collapsed?'false':'true');
+    section?.classList.toggle('is-collapsed',collapsed);
+    if(content)content.hidden=collapsed;
+
+    window.JLHDomState?.capture?.();
   });
 }
 
