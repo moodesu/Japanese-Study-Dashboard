@@ -4541,3 +4541,22 @@ html[data-theme="dark"] .guide-progress {
     justify-content:center;
   }
 }
+
+/* Dashboard actionability cleanup ---------------------------------------
+   The primary Start Here panel already owns the next-task decision.
+   Secondary dashboard cards provide context, not a second next-action path. */
+.secondary-dashboard {
+  grid-template-columns:minmax(0,1.6fr) minmax(250px,.8fr);
+}
+.secondary-dashboard .primarycard {
+  grid-column:auto;
+}
+
+@media(max-width:900px) {
+  .secondary-dashboard {
+    grid-template-columns:1fr;
+  }
+  .secondary-dashboard .primarycard {
+    grid-column:auto;
+  }
+}
