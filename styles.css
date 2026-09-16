@@ -4309,3 +4309,176 @@ html[data-theme="dark"] .guide-progress {
     margin-left:6px;
   }
 }
+
+/* Guided lesson mobile interaction pass --------------------------------
+   Keep the desktop information architecture, but make the mobile study
+   workspace easier to operate with one thumb and fewer tiny controls. */
+@media(max-width:760px) {
+  .lesson-guide {
+    padding:14px;
+  }
+
+  .guide-list {
+    gap:9px;
+  }
+
+  .guide-step {
+    padding:11px;
+  }
+
+  .guide-step h3 {
+    font-size:16px;
+    line-height:1.35;
+  }
+
+  .guide-step > .guide-step-main > p {
+    font-size:12px;
+    line-height:1.5;
+  }
+
+  .guide-task-workspace {
+    margin-top:10px;
+  }
+
+  .guide-task-workspace > summary {
+    min-height:44px;
+    padding:10px 11px;
+    display:grid;
+    grid-template-columns:auto minmax(0,1fr) auto;
+    gap:6px 9px;
+    align-items:center;
+  }
+
+  .guide-task-workspace > summary span {
+    white-space:nowrap;
+  }
+
+  .guide-task-workspace > summary strong {
+    min-width:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+
+  .guide-task-workspace > summary b {
+    margin-left:0;
+  }
+
+  .guide-workspace-body {
+    gap:11px;
+    padding:11px;
+  }
+
+  .guide-actions {
+    display:grid;
+    grid-template-columns:1fr;
+    gap:7px;
+  }
+
+  .lesson-guide .guide-action,
+  .lesson-guide .secondary-action,
+  .lesson-guide .resource-action {
+    width:100%;
+    min-height:44px;
+    justify-content:center;
+    text-align:center;
+  }
+
+  .guide-textbook-reference {
+    display:grid;
+    grid-template-columns:1fr;
+    align-items:stretch;
+  }
+
+  .guide-textbook-reference > strong {
+    margin-bottom:0;
+  }
+
+  .guide-task-actions {
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    align-items:stretch;
+  }
+
+  .guide-study-time {
+    grid-column:1/-1;
+    order:3;
+    padding-top:2px;
+  }
+
+  .guide-pomodoro-button {
+    grid-column:1;
+    grid-row:1;
+    min-height:44px;
+    width:100%;
+    justify-content:center;
+  }
+
+  .guide-task-actions .guide-check {
+    grid-column:2;
+    grid-row:1;
+    min-height:44px;
+    width:100%;
+    justify-content:center;
+  }
+
+  .guide-task-notes {
+    min-height:92px;
+  }
+
+  .guide-step-nav {
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+  }
+
+  .guide-step-nav button {
+    width:100%;
+    min-height:44px;
+  }
+
+  .guide-next {
+    min-height:48px;
+    padding:10px 12px;
+  }
+
+  .guide-inline-controls {
+    grid-template-columns:1fr 1fr;
+    gap:7px;
+  }
+
+  .guide-inline-controls button,
+  .guide-inline-controls select {
+    min-height:44px;
+  }
+
+  .guide-inline-controls label {
+    grid-column:1/-1;
+    justify-content:flex-start;
+  }
+}
+
+@media(max-width:420px) {
+  .guide-task-actions {
+    grid-template-columns:1fr;
+  }
+
+  .guide-pomodoro-button,
+  .guide-task-actions .guide-check {
+    grid-column:1;
+    grid-row:auto;
+  }
+
+  .guide-pomodoro-button {
+    order:1;
+  }
+
+  .guide-task-actions .guide-check {
+    order:2;
+  }
+
+  .guide-study-time {
+    order:3;
+  }
+}
