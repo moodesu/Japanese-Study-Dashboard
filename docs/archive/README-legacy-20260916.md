@@ -1,0 +1,317 @@
+# Japanese Learning Hub
+
+## Programme lifecycle
+
+The Hub is the source of truth for mapped study programmes. Each signed-in
+user can have programmes in **Planned**, **Active** or **Completed** state, with
+at most one active programme. Home, Plan and Lessons follow only that active
+programme; when none is active they direct the learner to the Hub instead of
+showing stale work.
+
+Apply `migrations/20260908_programme_lifecycle.sql` separately in Supabase SQL
+Editor. It preserves the current TOBIRA Beginning Japanese II programme as
+active for existing users and does not modify task completion, notes,
+Pomodoro sessions, Repository or Grammar data. Completing or switching a
+programme preserves its task history. Only programmes with a complete
+curriculum and schedule mapping can be activated.
+
+TOBIRA Intermediate Japanese I is included as a fully mapped, planned 12-week
+programme covering Lessons 1–8, all three unit projects, official media and the
+private split-PDF map. It becomes active only through the Hub. See
+`docs/intermediate-i-programme.md` for the programme and storage conventions.
+
+## Japanese Repository (v1.1)
+
+The **文** navigation button opens the sentence-first personal repository. It
+stores useful or encountered sentences, personal Japanese corrections, context,
+grammar links, lesson/resource links, learning status and correction labels.
+
+Before using it, run `migrations/20260830_japanese_repository.sql` separately in
+the Supabase SQL Editor. The migration adds two user-owned tables with Row Level
+Security and does not change the existing v1.0 curriculum or progress tables.
+
+Use **Capture** for manual entries. Use **Import JSON** to paste one object or an
+array of sentence/correction objects from a ChatGPT conversation. Editing an
+entry saves its previous wording in correction history. The correction-pattern
+panel counts recurring error labels; it becomes useful as corrected sentences
+accumulate.
+
+Repository furigana uses safe bracket notation rather than stored HTML:
+`[日本語|にほんご]を[勉強|べんきょう]しています。`. Keep the plain sentence in
+`japanese` and put the annotated version in `japanese_furigana`. Corrections may
+also include `original_japanese_furigana`. The app validates that removing the
+readings exactly reproduces the corresponding plain Japanese, preventing
+duplicated or mismatched text. Use **振 Furigana on/off** to control display;
+the setting is remembered on the device.
+
+### Canonical grammar library (2026-09-06)
+
+Repository sentences now link to reusable canonical concepts such as `〜たら`,
+`〜ている` and `〜てしまう`. A sentence annotation records the canonical guide,
+the exact surface form found in that sentence and a short note. Contractions or
+combined forms such as `見てたら` and `食べちゃった` remain searchable variants;
+they do not create separate grammar cards.
+
+Use **Grammar Library** to search canonical patterns, meanings, variants,
+contractions and combined forms. Guide pages contain overview, formation,
+usage/nuance, forms and variants, clarifications, personal sentence examples,
+reference examples and related grammar. Sentence imports, standalone
+`grammar_guide` imports and `grammar_clarification` imports use the current JSON
+contracts documented in `deliverables/Learning-Hub-Project-Instructions.md`.
+
+Apply `migrations/20260906_canonical_grammar_redesign.sql` once after the earlier
+Repository migrations. It deliberately replaces the old grammar-guide and link
+data while preserving Repository sentences, corrections and revision history.
+Do not rerun it after rebuilding the new grammar library.
+
+Then apply `migrations/20260906_duplicate_safe_sentence_import.sql`. Exact
+Japanese matches now update an existing ordinary sentence and rebuild its
+canonical grammar links instead of creating another row. The partial database
+uniqueness rule does not apply to corrections. If existing test duplicates make
+the migration stop, manually delete the unwanted rows and run it again.
+
+Implementation notes, changelog and the complete smoke-test checklist are in
+`docs/canonical-grammar-redesign.md`.
+
+### Migaku handoff
+
+The Repository remains the source record; Migaku remains the SRS. Open an entry
+and choose **Migaku handoff** to expose a clean, plain-Japanese sentence for the
+Migaku browser extension. The same panel can copy the Japanese, copy all card
+fields, or download a UTF-8 tab-separated row containing Japanese, furigana
+notation, English, explanation, grammar, tags, source and Repository ID.
+
+Use **Mark added to Migaku** only after the card exists in Migaku. This stores a
+timestamp in `migaku_exported_at`; it does not schedule reviews or claim that
+Migaku accepted a card. The Repository list can filter entries by **Not added**
+or **Added**, and **Export filtered TSV** downloads the current filtered result
+without automatically marking those rows as added.
+
+### Anki deck export for Migaku
+
+Use **Download Anki deck** on one Repository entry, or apply Repository filters
+and use **Export filtered Anki** to create `japanese-learning-hub.apkg`. Import
+that package as an Anki deck in Migaku. The export creates one recognition card
+per Repository entry; it does not add a second SRS or change the entry's Migaku
+marker.
+
+The package creates its own **Japanese Learning Hub** note type instead of
+trying to match a Migaku-selected Anki note type. Its fields are **Target
+Word**, **Sentence**, **Sentence Translation**, **Definition**, **Notes**,
+**Sentence Audio**, **Image** and **Source**. Target Word, Sentence Audio and
+Image are currently left empty because the Repository does not store those
+values yet.
+
+The card front shows the furigana-rendered Sentence when bracket notation is
+available, otherwise it shows plain Japanese. Sentence Translation receives
+the English meaning, Definition receives the explanation, Notes collects the
+personal notes, original Japanese, correction labels and grammar, and Source
+includes the source details and Repository ID. Repository tags and grammar
+tags are also included. Each note uses a stable ID derived from its Repository
+UUID so repeat-import behaviour can be tested without creating a new identity
+for the same sentence.
+
+Deck generation happens entirely in the browser using locally hosted MIT
+licensed Anki-package and SQLite WebAssembly components under `vendor/`; no
+sentence data is sent to another service during export. The TSV export remains
+available as a fallback.
+
+## Security setup
+
+1. Revoke the WaniKani token that was previously stored in
+   `wanikani-config.js`. Treat it as compromised even if the repository is
+   private, because deployed JavaScript is readable in the browser.
+2. In Supabase Authentication settings, turn off **Allow new users to sign up**.
+3. Run the complete updated `supabase-schema.sql` in the Supabase SQL Editor.
+   It adds RLS for Pomodoro sessions and limits lesson-audio reads to the sole
+   existing Supabase Auth user. If the project has more than one Auth user,
+   remove unwanted accounts first and rerun the script.
+4. In Netlify, open **Project configuration → Environment variables** and add
+   the following values with the Functions scope:
+   - `WANIKANI_API_TOKEN`: a newly generated WaniKani v2 token
+   - `SUPABASE_URL`: the same project URL used in `supabase-config.js`
+   - `SUPABASE_PUBLISHABLE_KEY`: the same publishable key used in
+     `supabase-config.js`
+   - `ALLOWED_USER_ID`: your Supabase Auth user UUID
+5. Redeploy the site. The WaniKani token now remains server-side; the function
+   validates the signed-in Supabase session and exact user ID before proxying
+   an allowlisted WaniKani request.
+
+Do not place secret tokens in frontend JavaScript, `netlify.toml`, `_headers`,
+or any file committed to the repository. The Supabase URL and publishable key
+are intentionally public and remain safe only while RLS is enabled and tested.
+
+## Private lesson audio
+
+TOBIRA Beginning Japanese II Lessons 11–20 are mapped to the publisher's
+original MP3 filenames. The files are not committed to GitHub.
+
+1. Run the updated `supabase-schema.sql` in the Supabase SQL Editor. This creates
+   the private `lesson-audio` bucket and single-owner read policy.
+2. Upload `L11-13.zip`, `L14-16.zip`, `L17-20.zip`, and
+   `reading_L11-20.zip` as extracted folders inside the `lesson-audio` bucket.
+3. Keep the four folder names and all 259 original MP3 filenames unchanged.
+4. Open a lesson while signed in and select a track. The app requests a
+   temporary one-hour signed playback URL; no permanent public audio URL or
+   publisher password is stored in the project.
+
+Expected object paths include `L11-13/L11-01.mp3`,
+`L14-16/L14-01.mp3`, `L17-20/L17-01.mp3`, and
+`reading_L11-20/L11.mp3`.
+
+## Private lesson-video links
+
+The publisher's vocabulary, grammar and dialogue videos remain hosted on
+YouTube. Their protected or unlisted URLs are stored in Supabase rather than in
+the public frontend source.
+
+1. Run the complete updated `supabase-schema.sql` in the Supabase SQL Editor.
+2. Fill `lesson-videos-import-template.csv`, adding one row for each video.
+3. In Supabase, open **Table Editor → lesson_videos → Insert → Import data from
+   CSV** and upload the completed CSV once.
+4. Do not add the generated `id` or `created_at` columns to the CSV. Supabase
+   creates those values automatically.
+5. Reload the signed-in app. Imported links appear at the correct point in the
+   lesson's numbered Guided lesson path. The complete grouped video library is
+   also retained inside **Lesson reference**. Select **Play here** to use the
+   responsive privacy-enhanced YouTube embed without leaving the lesson. The
+   original **Open on YouTube ↗** link remains available as a fallback.
+
+For grammar videos, `grammar_index` is the one-based position of the grammar
+item in the lesson's Target grammar list. Leave `grammar_index` empty for
+vocabulary and dialogue videos. `sort_order` must be unique within each lesson
+and video type. Only HTTPS URLs on `youtube.com` or `youtu.be` are accepted.
+
+Example rows (replace the titles and URLs with the publisher's actual values):
+
+```csv
+lesson,video_type,grammar_index,title,youtube_url,sort_order
+11,vocabulary,,Lesson 11 vocabulary,https://www.youtube.com/watch?v=VIDEO_ID,1
+11,grammar,1,First grammar item,https://www.youtube.com/watch?v=VIDEO_ID,1
+11,dialogue,,Lesson 11 dialogue,https://www.youtube.com/watch?v=VIDEO_ID,1
+```
+
+## Private textbook PDF
+
+The textbook viewer uses lesson-specific private Supabase Storage objects and
+one-hour signed URLs. The copyrighted PDFs must not be committed to this
+repository.
+
+1. For an existing database, run
+   `migrations/20260908_private_textbook_pdf.sql` in the Supabase SQL Editor.
+   A fresh setup can run the complete `supabase-schema.sql` instead.
+2. Upload `lesson-11.pdf` through `lesson-20.pdf` directly inside the private
+   `textbook-pdfs` bucket. Keep those exact filenames.
+3. The central map in `textbook-pdf.js` records each split file's printed start
+   and end pages. The viewer converts a printed page to its local lesson-PDF
+   page with `printed page − lesson start page + 1`; task and reference labels
+   continue showing the printed textbook pages.
+4. Open a textbook task or **Lesson reference → Textbook**, then choose
+   **View pages**. The correct lesson PDF opens in a new browser tab at the
+   first page of the mapped printed range. The Learning Hub tab stays on the
+   same lesson, task, reference state and scroll position.
+
+Signed PDF URLs are kept only in the current in-memory cache. Lesson filenames
+and printed page boundaries are public configuration, but the PDFs and their
+usable signed URLs remain private. If the browser blocks the initially reserved
+tab, the Hub displays a safe explicit new-tab link instead of navigating away.
+
+The browser has read-only access to this table, protected by the same sole-owner
+check used for private audio. Add and update video mappings only through the
+Supabase dashboard.
+
+### Recommended daily flow
+
+**Dashboard → Open path → complete the next numbered lesson step → mark it
+complete → continue downward**. Each step presents its book/page, publisher
+video and private audio shortcut at the point where it is needed. The full
+Can-do list, video library, textbook map, audio browser and workbook maps remain
+available in **Lesson reference** through compact Overview, Videos, Audio,
+Textbook and Workbooks tabs. Its open state and selected tab persist during the
+browser session. The reference audio view keeps its player beside the track list
+on desktop and above it on narrow screens, using the same saved track position
+and playback speed as inline lesson audio.
+
+The lesson path now starts with **できるCheck → Conversation (first pass) →
+Vocabulary with pictures → Vocabulary list**. It then follows the existing
+mapped textbook sections: kanji, grammar, speaking/application, reading and
+listening, with a final lesson wrap-up. The weekly Plan uses the same shared
+ordering. Day allocations are study suggestions, not instructions to skip
+unfinished textbook sections.
+
+Publisher videos and workbook practice are inside their matching textbook
+section, with independent completion, notes and accumulated study time. Grammar points remain
+individually tracked inside the grammar section. The Continue button includes
+unfinished supporting activities, even when their textbook section is marked
+complete. A section receives its completed styling only after its main task and
+all supporting activities are complete; until then its collapsed summary shows
+the aggregate activity progress. An optional conversation replay belongs after grammar, not in place
+of the opening first pass.
+
+Task records deliberately remain simple: completion, notes and accumulated
+Pomodoro study time. The Learning Hub does not assign mastery, confidence or
+manual review states, and it does not schedule completed lesson tasks for SRS
+review. WaniKani handles kanji review and Migaku handles sentence/vocabulary
+review. Curriculum replay, correction, wrap-up and consolidation activities
+remain part of the lesson plan.
+
+Inside a Guided Lesson, the active task keeps its instructions, task resources,
+notes, study time, Pomodoro and completion control together. Opening a task
+updates the lesson URL, so ordinary renders and browser Back/Forward retain the
+same workspace. Completing any top-level or supporting activity advances to the
+next unfinished activity in curriculum order.
+
+### Supplementary grammar practice
+
+The Hub also exposes **マルチメディア日本語基本文法ワークブック** as an
+independent optional resource. Textbook grammar occurrences connect to the
+existing canonical Grammar Library, and canonical guides connect to workbook
+units; there is no direct programme-to-workbook mapping. Practice links never
+affect task or programme progress. The four copyrighted PDFs remain private in
+Supabase Storage and open through short-lived signed URLs in a new tab.
+
+Apply `migrations/20260908_supplementary_grammar_resources.sql` separately and
+see `docs/supplementary-grammar-practice.md` for paths, mapping policy and smoke
+tests.
+
+Existing task IDs, notes and completion records are retained. Historical
+Mastery and Confidence database values are left untouched but are no longer
+shown, written, or used by the study workflow. Picture
+vocabulary and the final wrap-up are new unchecked tasks; old vocabulary
+completion is retained on the vocabulary-list task. Completion percentages and
+daily allocations can therefore change without losing earlier work. No SQL
+migration is required.
+
+The vocabulary map only supplies a combined page range (Lesson 11: pp. 16–20).
+Both vocabulary steps explicitly use that range until their exact boundary
+can be verified from the book. Other page ranges are the existing mappings,
+not a fresh page-by-page textbook audit. The app remains an organiser for the
+books rather than a replacement for the source material.
+
+### Textbook-led path changelog (2026-09-03)
+
+- Shared textbook order for Lessons and Plan; conversation comes first.
+- Separate picture-vocabulary and vocabulary-list steps.
+- Supporting videos, grammar points and workbook tasks grouped in-section.
+- Corrected textbook task lookup to use section page keys rather than falling
+  back to the entire lesson range.
+- Retained existing record IDs; no SQL or changes to consolidation weeks.
+
+Checks: run `node tests/lesson-flow.test.cjs`, `node --check app.js`, and
+`node --check curriculum.js`.
+
+Smoke-test checklist after deploying the changed files:
+
+- Open Lesson 11: goals p. 13, conversation pp. 14–15, then the two vocabulary
+  steps using the labelled combined range pp. 16–20.
+- Compare the corresponding Plan days; conversation must precede vocabulary.
+- Open a textbook section and play its audio without leaving the task.
+- Open vocabulary/grammar supporting activities and verify their video links,
+  workbook pages, existing notes and completion markers.
+- Leave a workbook task unchecked after completing its textbook section;
+  Continue should reveal that nested activity, including after a reload.
+- Confirm picture vocabulary starts unchecked and old vocabulary completion
+  remains attached to the vocabulary list.
+- Check Lesson 12, mobile width, dark mode, and consolidation weeks 11–12.
+
+Suggested commit: `fix: align lesson path and weekly plan with textbook order`

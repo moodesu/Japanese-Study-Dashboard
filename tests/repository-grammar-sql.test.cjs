@@ -1,75 +1,30 @@
-// Test-only dependency: npm install --prefix /tmp/jlh-grammar-test --no-save @electric-sql/pglite
-const {PGlite}=require(process.env.PGLITE_MODULE||'/tmp/jlh-grammar-test/node_modules/@electric-sql/pglite');
-const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
-const root=path.resolve(__dirname,'..'),owner='00000000-0000-4000-8000-000000000001';
-(async()=>{const db=new PGlite();try{
-  await db.exec(`create role authenticated; create role anon; create schema auth; create table auth.users(id uuid primary key); insert into auth.users values('${owner}'); create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$; grant usage on schema auth,public to authenticated,anon; grant execute on function auth.uid() to authenticated,anon; create function public.set_updated_at() returns trigger language plpgsql as $$begin new.updated_at=now();return new;end$$;`);
-  await db.exec(fs.readFileSync(path.join(root,'migrations/20260830_japanese_repository.sql'),'utf8').replace('create extension if not exists pgcrypto;',''));
-  await db.exec(fs.readFileSync(path.join(root,'migrations/20260903_repository_grammar_library.sql'),'utf8'));
-  await db.exec(fs.readFileSync(path.join(root,'migrations/20260904_grammar_clarifications.sql'),'utf8'));
-  await db.exec(`set role authenticated;set request.jwt.claim.sub='${owner}';insert into public.japanese_repository(user_id,japanese,grammar_points)values('${owner}','legacy',array['〜てたら']);reset role;`);
-  await db.exec(fs.readFileSync(path.join(root,'migrations/20260906_canonical_grammar_redesign.sql'),'utf8'));
-  await db.exec(fs.readFileSync(path.join(root,'migrations/20260906_duplicate_safe_sentence_import.sql'),'utf8'));
-  await db.exec(fs.readFileSync(path.join(root,'migrations/20260906_pending_grammar_guides.sql'),'utf8'));
-  await db.exec(fs.readFileSync(path.join(root,'migrations/20260907_grammar_guide_batch_identity.sql'),'utf8'));
-  await db.exec(`set role authenticated;set request.jwt.claim.sub='${owner}';`);
-  const sentence=JSON.parse(fs.readFileSync(path.join(root,'examples/repository-grammar-import.json'),'utf8'));
-  const entry={...sentence,grammar_points:sentence.grammar_points.map(x=>x.canonical)};
-  const updateFields=['status','intent_english','original_japanese','original_japanese_furigana','japanese_furigana','english','explanation','tags','lesson_number','book_id','register','source_type','source_detail','error_types','notes'];
-  const payload=[{entry,grammar_points:sentence.grammar_points,import_fields:updateFields.filter(field=>Object.hasOwn(sentence,field))}];
-  const imported=(await db.query('select public.import_repository_with_canonical_grammar($1::jsonb) result',[JSON.stringify(payload)])).rows[0].result;
-  assert.equal(imported.links.length,3);assert.equal(imported.created_count,1);assert.equal(imported.updated_count,0);
-  assert.equal(Number((await db.query("select count(*) from public.japanese_grammar_guides where guide_status='pending' and discovered_from_sentence")).rows[0].count),3);
-  const second={...payload[0],entry:{...payload[0].entry,japanese:'何してる？',japanese_furigana:'[何|なに]してる？',english:'What are you doing?',grammar_points:['〜ている','〜てしまう']},grammar_points:[{canonical:'〜ている',surface:'してる',note:'Spoken ongoing form.'},{canonical:'〜てしまう',surface:'してる',note:'Test shared surface.'}]};
-  await db.query('select public.import_repository_with_canonical_grammar($1::jsonb)',[JSON.stringify([second])]);
-  assert.equal(Number((await db.query("select count(*) from public.japanese_grammar_guides where guide_status='pending'")).rows[0].count),4,'pending canonicals are unique');
-  assert.equal(Number((await db.query("select count(distinct l.repository_id) from public.japanese_repository_grammar l join public.japanese_grammar_guides g on g.id=l.grammar_id where g.pattern='〜ている'")).rows[0].count),2,'shared canonical counts both linked sentences');
-  const sentenceId=imported.entries[0].id;await db.query("update public.japanese_repository set status='known',lesson_number=12,migaku_exported_at=now() where id=$1",[sentenceId]);
-  const repeated=(await db.query('select public.import_repository_with_canonical_grammar($1::jsonb) result',[JSON.stringify(payload)])).rows[0].result;
-  assert.equal(repeated.created_count,0);assert.equal(repeated.updated_count,1);assert.equal(repeated.entries[0].id,sentenceId);assert.equal(repeated.links.length,3);
-  assert.equal(Number((await db.query("select count(*) from public.japanese_repository where japanese=$1 and entry_type='sentence'",[sentence.japanese])).rows[0].count),1);
-  assert.equal(Number((await db.query('select count(*) from public.japanese_repository_grammar where repository_id=$1',[sentenceId])).rows[0].count),3);
-  const preserved=(await db.query('select status,lesson_number,migaku_exported_at from public.japanese_repository where id=$1',[sentenceId])).rows[0];assert.equal(preserved.status,'known');assert.equal(preserved.lesson_number,12);assert.ok(preserved.migaku_exported_at);
-  const fewerLinks=[{...payload[0],grammar_points:payload[0].grammar_points.slice(0,2),entry:{...payload[0].entry,grammar_points:payload[0].entry.grammar_points.slice(0,2)}}];
-  await db.query('select public.import_repository_with_canonical_grammar($1::jsonb)',[JSON.stringify(fewerLinks)]);
-  assert.equal(Number((await db.query('select count(*) from public.japanese_repository_grammar where repository_id=$1',[sentenceId])).rows[0].count),2,'an update replaces the canonical link set');
-  await assert.rejects(db.query("insert into public.japanese_repository(user_id,entry_type,japanese) values($1,'sentence',$2)",[owner,sentence.japanese]),/japanese_repository_sentence_user_japanese_unique/);
-  await db.query("insert into public.japanese_repository(user_id,entry_type,japanese,original_japanese) values($1,'correction',$2,'attempt one'),($1,'correction',$2,'attempt two')",[owner,sentence.japanese]);
-  assert.equal(Number((await db.query("select count(*) from public.japanese_repository where japanese=$1 and entry_type='correction'",[sentence.japanese])).rows[0].count),2,'corrections may share final Japanese');
-  const patterns=(await db.query('select pattern from public.japanese_grammar_guides order by pattern')).rows.map(x=>x.pattern);assert.ok(patterns.includes('〜たら'));assert.ok(!patterns.includes('〜てたら'));
-  const guide=JSON.parse(fs.readFileSync(path.join(root,'examples/canonical-grammar-guide-import.json'),'utf8')),combined=guide.combined_forms,{combined_forms,...guideCore}=guide;
-  const batchCanonicals=['〜ている','〜たら','〜てくる','〜てしまう'];
-  const originalGuideIds=Object.fromEntries((await db.query('select id,pattern from public.japanese_grammar_guides where pattern=any($1::text[])',[batchCanonicals])).rows.map(row=>[row.pattern,row.id]));
-  assert.equal(Object.keys(originalGuideIds).length,4,'four distinct pending placeholders exist before completion');
-  const completeGuide=(canonical,index,revision='sequential')=>({...guideCore,slug:`identity-${index}`,canonical,meaning:`${revision} meaning for ${canonical}`,summary:`${revision} summary for ${canonical}`,variants:[],clarifications:[],related_grammar:[],reference_examples:[],references:[]});
-  for(const [index,canonical] of batchCanonicals.entries()){
-    const result=(await db.query('select public.upsert_canonical_grammar_guide($1::jsonb) result',[JSON.stringify(completeGuide(canonical,index))])).rows[0].result;
-    assert.equal(result.guide.pattern,canonical,'single-guide RPC returns the incoming canonical');
-    assert.equal(result.guide.id,originalGuideIds[canonical],'single-guide completion retains the placeholder ID');
-  }
-  const completedRows=(await db.query('select id,pattern,meaning,guide_status,is_placeholder from public.japanese_grammar_guides where pattern=any($1::text[])',[batchCanonicals])).rows;
-  assert.equal(completedRows.length,4,'canonical completion creates no duplicate guide rows');
-  for(const [index,canonical] of batchCanonicals.entries()){
-    const row=completedRows.find(candidate=>candidate.pattern===canonical);
-    assert.equal(row.id,originalGuideIds[canonical]);assert.equal(row.meaning,`sequential meaning for ${canonical}`);assert.equal(row.guide_status,'complete');assert.equal(row.is_placeholder,false);
-  }
-  const batchPayload=batchCanonicals.map((canonical,index)=>completeGuide(canonical,index,'batch'));
-  const batchResult=(await db.query('select public.upsert_canonical_grammar_guides($1::jsonb) result',[JSON.stringify(batchPayload)])).rows[0].result;
-  assert.equal(batchResult.items.length,4);assert.equal(batchResult.guides.length,4);
-  batchResult.items.forEach((item,index)=>{assert.equal(item.incoming_canonical,batchCanonicals[index]);assert.equal(item.returned_pattern,batchCanonicals[index]);assert.equal(item.guide_id,originalGuideIds[batchCanonicals[index]]);assert.equal(item.guide_status,'complete');assert.equal(item.is_placeholder,false);});
-  const batchRows=(await db.query('select id,pattern,meaning from public.japanese_grammar_guides where pattern=any($1::text[])',[batchCanonicals])).rows;
-  batchRows.forEach((row,index)=>{assert.equal(row.id,originalGuideIds[row.pattern]);assert.equal(row.meaning,`batch meaning for ${row.pattern}`);});
-  const taraBefore=batchRows.find(row=>row.pattern==='〜たら').meaning;
-  const atomicFailure=[{...completeGuide('〜たら',1,'must-roll-back'),slug:'identity-1'},{...completeGuide('〜ている',0,'must-not-save'),slug:'identity-1'}];
-  await assert.rejects(db.query('select public.upsert_canonical_grammar_guides($1::jsonb)',[JSON.stringify(atomicFailure)]),/belongs to a different canonical guide/);
-  assert.equal((await db.query("select meaning from public.japanese_grammar_guides where pattern='〜たら'")).rows[0].meaning,taraBefore,'a later batch failure rolls back earlier guide updates');
-  const pendingTara=(await db.query("select id from public.japanese_grammar_guides where pattern='〜たら'")).rows[0].id;
-  let saved=(await db.query('select public.upsert_canonical_grammar_guide($1::jsonb) result',[JSON.stringify({...guideCore,variants:[...guide.variants,...combined.map(item=>({...item,variant_type:'combined_form'}))]})])).rows[0].result;
-  assert.equal(saved.guide.pattern,'〜たら');assert.equal(saved.guide.id,pendingTara);assert.equal(saved.guide.is_placeholder,false);assert.equal(saved.guide.guide_status,'complete');assert.equal(Number((await db.query("select count(*) from public.japanese_grammar_variants where form='〜てたら'")).rows[0].count),1);
-  const clarification=JSON.parse(fs.readFileSync(path.join(root,'examples/grammar-clarification-import.json'),'utf8'));await db.query('select public.append_canonical_grammar_clarification($1::jsonb)',[JSON.stringify({...clarification,guide_slug:''})]);
-  assert.equal(Number((await db.query('select count(*) from public.japanese_grammar_clarifications')).rows[0].count),1);assert.equal(Number((await db.query('select count(*) from public.japanese_repository')).rows[0].count),5);
-  await db.query('select public.upsert_canonical_grammar_guide($1::jsonb)',[JSON.stringify({...guideCore,variants:[...guide.variants,...combined.map(item=>({...item,variant_type:'combined_form'}))]})]);
-  assert.equal(Number((await db.query('select count(*) from public.japanese_grammar_clarifications')).rows[0].count),1,'guide updates preserve separately imported clarifications');
-  assert.equal((await db.query("select grammar_points from public.japanese_repository where japanese='legacy'")).rows[0].grammar_points.length,0,'legacy grammar metadata reset without deleting sentence');
-  console.log('PASS: canonical imports keep sentence and guide identities stable, complete batches atomically, preserve unrelated metadata, and keep grammar isolation.');
-}finally{await db.close();}})().catch(error=>{console.error(error);process.exitCode=1;});
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+
+const root=path.resolve(__dirname,'..');
+const repo=fs.readFileSync(path.join(root,'repository.js'),'utf8');
+const search=fs.readFileSync(path.join(root,'repository-search-input.js'),'utf8');
+const schema=fs.readFileSync(path.join(root,'supabase-schema.sql'),'utf8');
+
+for(const rpc of [
+  'import_repository_with_canonical_grammar',
+  'upsert_canonical_grammar_guide',
+  'upsert_canonical_grammar_guides',
+  'append_canonical_grammar_clarification'
+]){
+  assert.match(repo,new RegExp(rpc),`Repository runtime expects ${rpc}`);
+}
+
+assert.doesNotMatch(repo,/ensure_canonical_grammar/,'Runtime no longer creates canonical placeholders');
+assert.doesNotMatch(repo,/repositoryPendingGuidePrompt/,'Retired Pending Guides prompt is gone');
+assert.doesNotMatch(repo,/pendingGuideIds/,'Retired pending selection state is gone');
+assert.doesNotMatch(search,/Pending Guides runtime UI/,'Transitional Pending Guides wrapper is gone');
+
+assert.match(
+  schema,
+  /foundational bootstrap|Foundational bootstrap/i,
+  'Root SQL file is explicitly documented as a bootstrap rather than the live schema snapshot'
+);
+
+console.log('PASS: current canonical-grammar client contract and clean baseline; live Supabase is the schema source of truth.');

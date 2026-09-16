@@ -10,7 +10,7 @@ const dictionary=read('dictionary.js');
 const ninjal=read('ninjal.js');
 
 const stylesheets=[...html.matchAll(/<link rel="stylesheet" href="([^"]+)"/g)].map(match=>match[1]);
-assert.deepEqual(stylesheets,['styles.css','ninjal.css'],'Production loads one core UI stylesheet plus the source-scoped NINJAL stylesheet');
+assert.deepEqual(stylesheets,['styles.css'],'Production loads one authoritative application stylesheet');
 assert.doesNotMatch(html,/hub-polish\.css|site-shell\.css|site-furigana\.css/);
 assert.equal((css.match(/^:root\{/gm)||[]).length,1,'Design tokens have one authoritative root declaration');
 for(const token of ['--app-max:1216px','--readable-max:940px','--page-gutter:20px','--card-padding:16px','--card-padding-compact:12px','--radius-page:14px','--radius-card:12px','--control-height:38px','--control-touch-height:44px'])assert.ok(css.includes(token),`Missing shared token ${token}`);
@@ -28,7 +28,7 @@ assert.match(repository,/class="resource-action resource-action-secondary" href=
 assert.match(repository,/repo-detail-hero app-page-header/,'Repository entry detail uses the shared page header');
 assert.match(app,/function renderLibrary\(\)\{\s*\$\('#hero'\)\.hidden=true; \$\('#bottomArea'\)\.hidden=true/);
 assert.match(repository,/function renderRepository\(\)\{\s*\$\('#hero'\)\.hidden=true; \$\('#bottomArea'\)\.hidden=true/);
-assert.ok(fs.existsSync('ninjal.css'),'NINJAL source rendering remains deliberately scoped');
+assert.match(css,/\.grammar-source-list \.ninjal-panel/,'NINJAL rendering remains source-scoped inside styles.css');
 assert.match(css,/html\[data-furigana="off"\] rt,html\[data-furigana="off"\] rp\{display:none\}/,'Core furigana geometry is consolidated into styles.css');
 
 console.log('PASS: one core visual system, shared shell/cards/actions, readable Grammar layout and scoped NINJAL source styling.');

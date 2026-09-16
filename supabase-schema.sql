@@ -1,3 +1,8 @@
+-- CURRENT BASELINE NOTE (2026-09-16)
+-- Foundational bootstrap only; not a complete snapshot of the live database.
+-- The production schema has evolved through migrations/.
+-- Do not use this file alone to reconstruct production.
+
 -- TOBIRA Japanese Study Dashboard
 -- Run this entire script in Supabase SQL Editor.
 -- This schema is designed for a single private user, but still uses user_id
