@@ -4560,3 +4560,74 @@ html[data-theme="dark"] .guide-progress {
     grid-column:auto;
   }
 }
+
+/* Study Plan scanability ------------------------------------------------
+   Make current-day state and lesson entry points obvious without changing
+   programme scheduling or completion semantics. */
+.plan-day-status {
+  flex:none;
+  min-width:86px;
+  padding-left:14px;
+  border-left:1px solid var(--line);
+  text-align:right;
+}
+.plan-day-status strong,
+.plan-day-status span {
+  display:block;
+}
+.plan-day-status strong {
+  color:var(--ink);
+  font-size:16px;
+  line-height:1.1;
+  font-variant-numeric:tabular-nums;
+}
+.plan-day-status span {
+  margin-top:4px;
+  color:var(--muted);
+  font-size:10px;
+  font-weight:750;
+}
+.day.today .plan-day-status span {
+  color:var(--accent);
+}
+.day.day-complete:not(.today) {
+  background:color-mix(in srgb,var(--surface) 88%,var(--bg));
+}
+.day.day-complete:not(.today) .dayhead,
+.day.day-complete:not(.today) .tasklist {
+  opacity:.78;
+}
+.task .plan-lesson-action {
+  flex:none;
+  align-self:center;
+  min-height:36px;
+  white-space:nowrap;
+}
+.task.done .plan-lesson-action {
+  opacity:.72;
+}
+
+@media(max-width:760px) {
+  .dayhead {
+    gap:10px;
+  }
+
+  .plan-day-status {
+    min-width:74px;
+    padding-left:10px;
+  }
+
+  .task {
+    display:grid;
+    grid-template-columns:auto minmax(0,1fr);
+    align-items:start;
+  }
+
+  .task .plan-lesson-action {
+    grid-column:2;
+    width:100%;
+    min-height:44px;
+    margin-top:3px;
+    justify-content:center;
+  }
+}
