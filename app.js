@@ -790,7 +790,7 @@ function render(){
   $('#appShell').hidden=false; $('#loginGate').hidden=true;
   renderHeader(); renderNav();
 
-  // Study notes / Plan settings belong to the Plan route only.
+  // Plan settings belong to the Plan route only.
   if(state.view!=='plan') $('#bottomArea').hidden=true;
   if(state.view==='dashboard') renderDashboard();
   else if(state.view==='plan') renderWeek();
@@ -808,7 +808,6 @@ function render(){
   else if(state.view==='supplementary') renderSupplementaryLibrary();
   else if(state.view==='library' && state.libraryItem) renderBookMap(state.libraryItem);
   else renderLibrary();
-  $('#globalNotes').value=state.notes;
   const startDateInput=$('#startDate');if(startDateInput){const lifecycleStart=activeProgramme()?.id==='tobira-intermediate-future';startDateInput.value=programmeStartDate();startDateInput.disabled=lifecycleStart;startDateInput.title=lifecycleStart?'This programme starts on its first activation date.':'Change the plan start date.';}
   renderStatus();
   renderPomodoroSettings();
@@ -1019,7 +1018,7 @@ function renderLibrary(){
     ${completed.length?hubSectionMarkup({id:'completed-programmes',eyebrow:'Completed programmes',title:'Previous study paths',subtitle:'Progress, notes and study history remain available.',className:'programme-lifecycle-section',content:`<div class="programme-grid">${completed.map(programmeLifecycleCard).join('')}</div>`}):''}
     ${hubSectionMarkup({id:'books',title:'Book library',subtitle:'Mapped textbooks and reusable companion books.',content:`<div class="book-grid">${books.map(b=>{const p=programmes.find(x=>x.bookId===b.id);const mapped=!!(window.BOOK_MAPS||{})[b.id],cover=b.cover?String(b.cover).replace(/^\/+/, ''):'';return `<article class="book-card ${b.id===activeBook().id?'active-book':''} ${mapped?'mapped-book':''}" data-open-book="${esc(b.id)}" tabindex="0" role="button"><div class="book-card-top"><span class="book-status ${b.status}">${b.status==='active'?'In use':mapped?'Mapped':b.status==='planned'?'Planned':'Available'}</span><span class="book-level">${esc(b.level)}</span></div><div class="book-cover-visual"><div class="book-cover-fallback"><strong>${esc(b.title)}</strong><span>${esc(b.series)}</span></div>${cover?`<img src="${esc(cover)}" alt="${esc(b.title)} cover" loading="lazy">`:''}</div><div class="eyebrow">${esc(b.series)}</div><h3>${esc(b.title)}</h3><p>${esc(b.description)}</p><div class="book-meta">${p?`<span>Programme: ${esc(p.shortTitle||p.title)}</span>`:'<span>No programme mapped</span>'}${b.workbooks?.length?`<span>${b.workbooks.map(esc).join(' · ')}</span>`:''}${mapped?'<span>Open content map →</span>':''}</div></article>`}).join('')}</div>`})}
     ${hubSectionMarkup({id:'study-tools',title:'Study tools & input',subtitle:'Supporting resources stay independent from textbook programmes.',content:`<div class="resource-grid">${window.JLHSupplementary?.hubCardMarkup()||''}${resources.map(r=>`<article class="resource-card"><div class="book-card-top"><span class="resource-type">${esc(r.type)}</span><span class="book-status ${r.status}">${r.status==='active'?'Active':'Available'}</span></div><h3>${esc(r.title)}</h3><p>${esc(r.description)}</p></article>`).join('')}</div>`})}
-    <section class="library-section architecture-note"><div class="eyebrow">How this scales</div><h2>Book → map → programme → schedule</h2><p>A future textbook can first become a mapped library resource. Only when you decide to study it should it become a programme with its own workload, tasks and progress.</p><div class="hub-flow"><span>Book</span><b>→</b><span>Map</span><b>→</b><span>Programme</span><b>→</b><span>Schedule</span><b>→</b><span>Progress</span></div></section>`;
+    `;
   $('#mainContent').querySelectorAll('[data-activate-programme]').forEach(button=>button.onclick=()=>openProgrammeConfirmation(button.dataset.activateProgramme));
   $('#mainContent').querySelectorAll('[data-complete-programme]').forEach(button=>button.onclick=()=>openProgrammeConfirmation());
   $('#mainContent').querySelectorAll('[data-view-programme]').forEach(button=>button.onclick=()=>{const programme=(window.PROGRAMMES||[]).find(item=>item.id===button.dataset.viewProgramme),curriculum=programmeCurriculum(programme);if(!curriculum?.lessons?.length)return;state.browsingProgrammeId=programme.id;state.lesson=curriculum.lessons[0].n;state.view='lesson';render();scrollTo({top:0,behavior:'smooth'});});
@@ -2281,7 +2280,6 @@ function renderStatus(){
 }
 function toast(m){const e=$('#toast');e.textContent=m;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),2300);}
 
-$('#saveGlobalNotes').onclick=async()=>{state.notes=$('#globalNotes').value;saveLocal();if(db&&state.user)await db.from('app_notes').upsert({user_id:state.user.id,notes:state.notes},{onConflict:'user_id'});toast('Notes saved');};
 $('#startDate').onchange=async e=>{state.startDate=e.target.value||'2026-08-31';saveLocal();if(db&&state.user)await db.from('user_preferences').upsert({user_id:state.user.id,start_date:state.startDate},{onConflict:'user_id'});render();};
 function updatePomoSetting(key,val,min){
   const n=Math.max(min,Math.round(+val)||state.pomodoroSettings[key]);

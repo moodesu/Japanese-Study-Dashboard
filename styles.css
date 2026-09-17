@@ -4734,3 +4734,321 @@ html[data-theme="dark"] .guide-progress {
     --app-sticky-offset:68px;
   }
 }
+
+/* UI REGRESSION REPAIR V2 START */
+
+/* ---------------------------------------------------------
+   Sticky application shell
+   --------------------------------------------------------- */
+
+/*
+ * The old 8px sticky offset exposed scrolling content above
+ * the navigation bar. Stick directly to the viewport edge.
+ */
+.app-header {
+  top:0;
+  background:var(--surface);
+  z-index:100;
+  isolation:isolate;
+}
+
+/*
+ * Keep routed sticky components below the application shell.
+ */
+.repo-patterns,
+.audio-player-card {
+  top:76px;
+}
+
+@media(max-width:760px) {
+  .app-header {
+    top:0;
+  }
+
+  .repo-patterns,
+  .audio-player-card {
+    top:62px;
+  }
+}
+
+
+/* ---------------------------------------------------------
+   Grammar guide layout
+   --------------------------------------------------------- */
+
+/*
+ * The guide header and guide article should use the same
+ * readable column instead of the header spanning the entire
+ * application width.
+ */
+.repo-grammar-page {
+  width:100%;
+}
+
+.repo-grammar-page > .repo-grammar-header {
+  width:min(100%,var(--readable-max));
+  margin:14px auto 0;
+  padding:18px 20px;
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:var(--radius-page);
+  box-shadow:none;
+}
+
+.repo-grammar-header .app-page-breadcrumb {
+  margin-bottom:12px;
+}
+
+.repo-grammar-header h1 {
+  margin:5px 0 4px;
+}
+
+.repo-grammar-content {
+  width:min(100%,var(--readable-max));
+  margin:12px auto 0;
+  display:grid;
+  gap:12px;
+}
+
+.repo-grammar-content > .panel {
+  width:100%;
+  margin:0;
+  padding:18px;
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:var(--radius-card);
+  box-shadow:none;
+}
+
+.repo-sentence-context h2 {
+  margin:0 0 14px;
+}
+
+.repo-sentence-context > p {
+  line-height:1.6;
+}
+
+.repo-context-link {
+  margin:10px 0;
+  padding:12px 14px;
+  background:var(--surface-alt);
+  border:1px solid var(--line);
+  border-left:3px solid var(--accent);
+  border-radius:var(--radius-control);
+}
+
+.repo-context-note {
+  margin:6px 0 0;
+  color:var(--muted);
+  line-height:1.5;
+}
+
+.repo-grammar-context {
+  margin-bottom:0;
+}
+
+
+/* ---------------------------------------------------------
+   Hub layout
+   --------------------------------------------------------- */
+
+/*
+ * A single active programme should use the available width
+ * rather than occupying one cell of a three-column grid.
+ */
+.programme-lifecycle-section
+.programme-grid:has(> .programme-card:only-child) {
+  grid-template-columns:minmax(0,1fr);
+}
+
+.programme-lifecycle-section
+.programme-grid:has(> .programme-card:only-child)
+.programme-card {
+  width:100%;
+  max-width:none;
+}
+
+.programme-lifecycle-section
+.programme-grid:has(> .programme-card:only-child)
+.programme-card > p {
+  max-width:760px;
+}
+
+.programme-lifecycle-section
+.programme-grid:has(> .programme-card:only-child)
+.progress {
+  max-width:760px;
+}
+
+/*
+ * Collapsed Hub sections should behave like compact rows,
+ * not full-height page sections.
+ */
+.hub-collapsible-section.is-collapsed {
+  margin-top:4px;
+  margin-bottom:4px;
+  padding-top:0;
+  padding-bottom:0;
+}
+
+.hub-collapsible-section.is-collapsed .hub-section-toggle {
+  min-height:48px;
+}
+
+/*
+ * Keep expanded Hub sections comfortably separated without
+ * creating the large vertical gaps visible in the screenshot.
+ */
+.hub-collapsible-section:not(.is-collapsed) {
+  margin-top:10px;
+  margin-bottom:14px;
+}
+
+
+/* ---------------------------------------------------------
+   Scroll targets
+   --------------------------------------------------------- */
+
+.repo-page h1,
+.repo-grammar-header,
+.lesson-guide-head,
+[id^="guide-"] {
+  scroll-margin-top:84px;
+}
+
+@media(max-width:760px) {
+  .repo-grammar-page > .repo-grammar-header,
+  .repo-grammar-content {
+    width:100%;
+  }
+
+  .repo-grammar-page > .repo-grammar-header {
+    margin-top:8px;
+    padding:15px;
+  }
+
+  .repo-grammar-content > .panel {
+    padding:15px;
+  }
+
+  .repo-page h1,
+  .repo-grammar-header,
+  .lesson-guide-head,
+  [id^="guide-"] {
+    scroll-margin-top:68px;
+  }
+}
+
+/* UI REGRESSION REPAIR V2 END */
+
+/* GRAMMAR WIDTH CONSISTENCY START */
+
+/*
+ * Grammar is a normal Learning Hub route.
+ * Use the same content width as the rest of the application rather
+ * than the narrower article/readable column.
+ */
+.repo-grammar-page {
+  width:100%;
+  max-width:none;
+  margin:0;
+}
+
+.repo-grammar-page > .repo-grammar-header {
+  width:100%;
+  max-width:none;
+  margin:14px 0 0;
+}
+
+.repo-grammar-content {
+  width:100%;
+  max-width:none;
+  margin:12px 0 0;
+}
+
+/*
+ * Keep prose comfortable to read without shrinking the cards themselves.
+ */
+.repo-grammar-content > .panel > p,
+.repo-grammar-content > .panel > ul,
+.repo-grammar-content > .panel > ol,
+.repo-grammar-content > .panel > .repo-grammar-context {
+  max-width:960px;
+}
+
+/*
+ * Sentence-context mapping cards should also use the available card width.
+ */
+.repo-sentence-context,
+.repo-further-study {
+  width:100%;
+  max-width:none;
+}
+
+@media(max-width:760px) {
+  .repo-grammar-page > .repo-grammar-header,
+  .repo-grammar-content {
+    width:100%;
+    margin-left:0;
+    margin-right:0;
+  }
+}
+
+/* GRAMMAR WIDTH CONSISTENCY END */
+
+/* COMPACT APP FOOTER START */
+
+.app-footer {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  margin-top:28px;
+  padding:14px 4px 4px;
+  border-top:1px solid var(--line);
+  color:var(--muted);
+  font-size:12px;
+}
+
+.app-footer-plan {
+  display:flex;
+  align-items:center;
+  gap:9px;
+  flex:none;
+}
+
+.app-footer-label {
+  font-weight:750;
+  color:var(--muted);
+}
+
+.app-footer input[type="date"] {
+  width:auto;
+  min-height:34px;
+  padding:5px 9px;
+  border:1px solid var(--line);
+  border-radius:var(--radius-control);
+  background:var(--surface);
+  color:var(--ink);
+  font-size:12px;
+}
+
+.app-footer-copy {
+  text-align:right;
+  line-height:1.4;
+}
+
+@media(max-width:760px) {
+  .app-footer {
+    align-items:flex-start;
+    flex-direction:column;
+    gap:8px;
+    margin-top:20px;
+  }
+
+  .app-footer-copy {
+    text-align:left;
+  }
+}
+
+/* COMPACT APP FOOTER END */
