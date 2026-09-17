@@ -154,7 +154,7 @@ window.JLHRouter=(()=>{
           if(!repositoryState.entries.some(x=>x.id===r.entry))throw Error('This saved sentence is unavailable.');
           repositoryState.selectedId=r.entry;repositoryState.mode=r.type==='edit'?'form':'detail';
         }else if(r.type==='new'||r.type==='import')repositoryState.mode=r.type==='new'?'form':'import';
-        else if(r.type==='grammar-library'){repositoryState.mode='grammar-library';repositoryState.grammarQuery=r.q.get('q')||'';repositoryState.grammarFilter=['complete','pending','encountered'].includes(r.q.get('filter'))?r.q.get('filter'):'all';}
+        else if(r.type==='grammar-library'){repositoryState.mode='grammar-library';repositoryState.grammarQuery=r.q.get('q')||'';repositoryState.grammarFilter=r.q.get('filter')==='encountered'?'encountered':'all';}
         else {
           const entry=grammarContext(r);repositoryState.mode=r.type==='grammar'?'grammar':'dictionary';
           if(r.type==='dictionary')await window.JLHDictionary.open(entry,{id:r.id,setup:r.setup,query:r.q.get('q'),fromRoute:true});
