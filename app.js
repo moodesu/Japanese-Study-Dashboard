@@ -789,6 +789,9 @@ function render(){
   if(!state.ready || !state.user){ renderGate(); return; }
   $('#appShell').hidden=false; $('#loginGate').hidden=true;
   renderHeader(); renderNav();
+
+  // Study notes / Plan settings belong to the Plan route only.
+  if(state.view!=='plan') $('#bottomArea').hidden=true;
   if(state.view==='dashboard') renderDashboard();
   else if(state.view==='plan') renderWeek();
   else if(state.view==='lesson') renderLesson(state.lesson);

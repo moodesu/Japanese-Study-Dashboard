@@ -4693,3 +4693,44 @@ html[data-theme="dark"] .guide-progress {
     justify-self:start;
   }
 }
+
+
+/* UI regression repair 2026-09-17 */
+:root {
+  --app-sticky-offset:86px;
+}
+
+/*
+ * Books without real cover art should not reserve the old cover area.
+ * If an image fails, app.js removes it and this rule collapses the
+ * container automatically.
+ */
+.book-cover-visual:not(:has(img)) {
+  display:none;
+}
+
+/* The sticky shell must fully obscure content scrolling underneath it. */
+.app-header {
+  background:var(--surface);
+  isolation:isolate;
+  box-shadow:0 5px 20px rgba(24,40,59,.12);
+}
+
+/* Sticky content inside pages must clear the application shell. */
+.repo-patterns,
+.audio-player-card {
+  top:var(--app-sticky-offset);
+}
+
+/* Anchored/focused routed content should not land underneath the shell. */
+.repo-page h1,
+.lesson-guide-head,
+[id^="guide-"] {
+  scroll-margin-top:calc(var(--app-sticky-offset) + 12px);
+}
+
+@media(max-width:760px) {
+  :root {
+    --app-sticky-offset:68px;
+  }
+}

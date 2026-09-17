@@ -112,6 +112,7 @@ try {
 
   function saveExpanded(element){
     if(restoring||!(element instanceof Element)||!element.hasAttribute('aria-expanded'))return;
+    if(element.matches?.('[data-hub-section-toggle]'))return;
     const id=expandedIdentity(element);
     if(!id)return;
     const record=routeState(true);
@@ -127,7 +128,7 @@ try {
       const id=detailsIdentity(element);
       if(id)record.state.details[id]=Boolean(element.open);
     });
-    document.querySelectorAll('[aria-expanded]').forEach(element=>{
+    document.querySelectorAll('[aria-expanded]:not([data-hub-section-toggle])').forEach(element=>{
       const id=expandedIdentity(element);
       if(id)record.state.expanded[id]=element.getAttribute('aria-expanded')==='true';
     });
@@ -148,7 +149,7 @@ try {
         element.open=Boolean(record.state.details[id]);
       });
 
-      document.querySelectorAll('[aria-expanded]').forEach(element=>{
+      document.querySelectorAll('[aria-expanded]:not([data-hub-section-toggle])').forEach(element=>{
         const id=expandedIdentity(element);
         if(!id||!Object.prototype.hasOwnProperty.call(record.state.expanded||{},id))return;
         const open=Boolean(record.state.expanded[id]);
