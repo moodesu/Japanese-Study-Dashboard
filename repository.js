@@ -31,7 +31,7 @@ const REPOSITORY_REGISTERS = ['neutral','casual','polite','formal','written'];
 const REPOSITORY_IMPORT_UPDATE_FIELDS = [
   'status','intent_english','original_japanese','original_japanese_furigana',
   'japanese_furigana','english','explanation','tags','lesson_number','book_id',
-  'register','source_type','source_detail','error_types','notes'
+  'register','error_types','notes'
 ];
 const REPOSITORY_ERROR_TYPES = [
   'Particles','Verb form','Word choice','Word order','Register','Omission',
@@ -83,7 +83,7 @@ function repositoryEntrySearchText(entry){
     return [guide?.pattern,link.surface,link.note];
   });
   return [entry.japanese,entry.japanese_furigana,entry.english,entry.intent_english,entry.original_japanese,entry.original_japanese_furigana,
-    entry.explanation,entry.source_detail,entry.notes,...(entry.grammar_points||[]),...linkedGrammar,
+    entry.explanation,entry.notes,...(entry.grammar_points||[]),...linkedGrammar,
     ...(entry.tags||[]),...(entry.error_types||[])].filter(Boolean).join(' ').toLowerCase();
 }
 
@@ -449,7 +449,7 @@ function repositoryDetailMarkup(entry){
     <div class="repo-detail-toolbar"><button class="smallbtn" id="repoBack">← Repository</button><div><button class="smallbtn migaku-btn" id="repoOpenMigaku">Migaku handoff</button><button class="smallbtn" id="repoEdit">Edit</button><button class="smallbtn danger" id="repoDelete">Delete</button></div></div>
     <section class="repo-detail-hero app-page-header"><div class="repo-entry-top"><span class="repo-kind">${entry.entry_type==='correction'?'Personal correction':'Captured sentence'}</span><span class="repo-status ${entry.status}">${repositoryStatusLabel(entry.status)}</span></div><h1 lang="ja">${entry.japanese?repositoryJapanese(entry):renderRepositoryFurigana(entry.original_japanese_furigana,entry.original_japanese||'Untitled')}</h1>${entry.english?`<p>${esc(entry.english)}</p>`:''}<small>Updated ${repositoryDate(entry.updated_at)}</small></section>
     ${entry.entry_type==='correction'?`<section class="repo-correction-flow"><article><span>1 · Intended meaning</span><p>${esc(entry.intent_english||'—')}</p></article><article><span>2 · My Japanese</span><p lang="ja">${entry.original_japanese?repositoryJapanese(entry,true):'—'}</p></article><article class="corrected"><span>3 · Corrected Japanese</span><p lang="ja">${entry.japanese?repositoryJapanese(entry):'—'}</p></article><article><span>4 · Why</span><p>${esc(entry.explanation||'—')}</p></article></section>`:''}
-    <section class="repo-detail-grid"><article class="panel"><div class="eyebrow">Connections</div><h2>Grammar and lessons</h2><div class="repo-chip-row">${repositoryGrammarLinks(entry)||'<span class="subtitle">No grammar linked yet.</span>'}</div>${repositoryLessonButton(entry)}${entry.book_id?`<div class="repo-source-row"><span>Book</span><strong>${esc(entry.book_id)}</strong></div>`:''}</article><article class="panel"><div class="eyebrow">Context</div><h2>How this sentence is used</h2><dl class="repo-facts"><div><dt>Register</dt><dd>${esc(entry.register||'neutral')}</dd></div><div><dt>Source</dt><dd>${esc(entry.source_type||'personal')}${entry.source_detail?` · ${esc(entry.source_detail)}`:''}</dd></div></dl><div class="repo-chip-row">${(entry.tags||[]).map(tag=>`<span class="repo-chip">${esc(tag)}</span>`).join('')}</div>${entry.notes?`<p class="repo-notes">${esc(entry.notes)}</p>`:''}</article></section>
+    <section class="repo-detail-grid"><article class="panel"><div class="eyebrow">Connections</div><h2>Grammar and lessons</h2><div class="repo-chip-row">${repositoryGrammarLinks(entry)||'<span class="subtitle">No grammar linked yet.</span>'}</div>${repositoryLessonButton(entry)}${entry.book_id?`<div class="repo-source-row"><span>Book</span><strong>${esc(entry.book_id)}</strong></div>`:''}</article><article class="panel"><div class="eyebrow">Context</div><h2>How this sentence is used</h2><dl class="repo-facts"><div><dt>Register</dt><dd>${esc(entry.register||'neutral')}</dd></div></dl><div class="repo-chip-row">${(entry.tags||[]).map(tag=>`<span class="repo-chip">${esc(tag)}</span>`).join('')}</div>${entry.notes?`<p class="repo-notes">${esc(entry.notes)}</p>`:''}</article></section>
     ${entry.error_types?.length?`<section class="panel repo-errors"><div class="eyebrow">Correction labels</div><div class="repo-chip-row">${entry.error_types.map(x=>`<span class="repo-chip error">${esc(x)}</span>`).join('')}</div></section>`:''}
     ${repositoryMigakuMarkup(entry)}
     <details class="panel repo-history"><summary>Correction history (${revisions.length})</summary>${revisions.length?revisions.map(row=>`<article><strong>${repositoryDate(row.created_at)}</strong><span lang="ja">${row.japanese?repositoryJapanese(row):repositoryJapanese(row,true)}</span><small>${esc(row.change_note||'Previous saved version')}</small></article>`).join(''):'<div class="empty">No earlier versions yet. A snapshot is added whenever this entry is edited.</div>'}</details>
@@ -464,7 +464,7 @@ function repositoryMigakuMarkup(entry){
       <p class="subtitle">Use the Migaku browser extension on the clean Japanese below, copy the fields manually, or download a portable TSV row. Mark it as added only after the card exists in Migaku.</p>
       <div class="repo-migaku-sentence" lang="ja">${esc(entry.japanese||entry.original_japanese||'')}</div>
       <div class="repo-migaku-actions"><button type="button" class="smallbtn" id="repoCopyJapanese">Copy Japanese</button><button type="button" class="smallbtn" id="repoCopyMigaku">Copy all fields</button><button type="button" class="smallbtn migaku-btn" id="repoDownloadAnki">Download Anki deck</button><button type="button" class="smallbtn" id="repoDownloadMigaku">Download TSV</button><button type="button" class="smallbtn ${added?'':'primary'}" id="repoMarkMigaku">${added?'Remove Migaku marker':'Mark added to Migaku'}</button></div>
-      <div class="repo-migaku-fields"><div><span>Meaning</span><p>${esc(entry.english||entry.intent_english||'—')}</p></div><div><span>Source</span><p>${esc([entry.source_type,entry.source_detail].filter(Boolean).join(' · ')||'Personal repository')}</p></div><div><span>Grammar</span><p>${esc((entry.grammar_points||[]).join(', ')||'—')}</p></div><div><span>Tags</span><p>${esc((entry.tags||[]).join(', ')||'—')}</p></div></div>
+      <div class="repo-migaku-fields"><div><span>Meaning</span><p>${esc(entry.english||entry.intent_english||'—')}</p></div><div><span>Grammar</span><p>${esc((entry.grammar_points||[]).join(', ')||'—')}</p></div><div><span>Tags</span><p>${esc((entry.tags||[]).join(', ')||'—')}</p></div></div>
     </div>
   </details>`;
 }
@@ -490,8 +490,6 @@ function repositoryFormMarkup(entry={}){
     ${repositoryField('Lesson',`<select name="lesson_number"><option value="">Not linked</option>${(window.CURRICULUM?.lessons||[]).map(x=>`<option value="${x.n}" ${Number(entry.lesson_number)===Number(x.n)?'selected':''}>Lesson ${x.n} · ${esc(x.title)}</option>`).join('')}</select>`)}
     ${repositoryField('Book / resource',`<select name="book_id"><option value="">Not linked</option>${(window.BOOKS||[]).map(x=>`<option value="${esc(x.id)}" ${entry.book_id===x.id?'selected':''}>${esc(x.title)}</option>`).join('')}</select>`)}
     ${repositoryField('Register',`<select name="register">${REPOSITORY_REGISTERS.map(x=>`<option value="${x}" ${(entry.register||'neutral')===x?'selected':''}>${x[0].toUpperCase()+x.slice(1)}</option>`).join('')}</select>`)}
-    ${repositoryField('Source type',`<select name="source_type"><option value="personal">Personal / ChatGPT</option><option value="book" ${entry.source_type==='book'?'selected':''}>Book</option><option value="conversation" ${entry.source_type==='conversation'?'selected':''}>Conversation</option><option value="media" ${entry.source_type==='media'?'selected':''}>Media</option><option value="other" ${entry.source_type==='other'?'selected':''}>Other</option></select>`)}
-    ${repositoryField('Source detail',`<input name="source_detail" value="${esc(entry.source_detail||'')}" placeholder="Chat, page, episode, situation…">`,true)}
     ${repositoryField('Tags',`<input name="tags" value="${esc((entry.tags||[]).join(', '))}" placeholder="travel, daily life, work…">`,true)}
     <fieldset class="repo-error-fields wide" id="repoErrorFields"><legend>What was corrected?</legend><div>${REPOSITORY_ERROR_TYPES.map(x=>`<label><input type="checkbox" name="error_types" value="${esc(x)}" ${(entry.error_types||[]).includes(x)?'checked':''}> ${esc(x)}</label>`).join('')}</div></fieldset>
     ${repositoryField('Private notes',`<textarea name="notes" placeholder="Nuance, alternatives, reminders…">${esc(entry.notes||'')}</textarea>`,true)}
@@ -525,11 +523,10 @@ function cleanMigakuField(value){
 }
 
 function repositoryMigakuTsv(entries){
-  const headers=['Japanese','Furigana notation','English','Explanation','Grammar','Tags','Source','Repository ID'];
+  const headers=['Japanese','Furigana notation','English','Explanation','Grammar','Tags','Repository ID'];
   const rows=entries.map(entry=>[
     entry.japanese||entry.original_japanese||'',entry.japanese_furigana||entry.original_japanese_furigana||'',
-    entry.english||entry.intent_english||'',entry.explanation||'',(entry.grammar_points||[]).join('; '),(entry.tags||[]).join('; '),
-    [entry.source_type,entry.source_detail].filter(Boolean).join(' · '),entry.id||''
+    entry.english||entry.intent_english||'',entry.explanation||'',(entry.grammar_points||[]).join('; '),(entry.tags||[]).join('; '),entry.id||''
   ].map(cleanMigakuField));
   return '\ufeff'+[headers,...rows].map(row=>row.join('\t')).join('\n');
 }
@@ -560,7 +557,6 @@ function repositoryAnkiEntries(entries){
     }
     if(entry.error_types?.length) notes.push(`<b>Correction labels:</b> ${esc(entry.error_types.join(', '))}`);
     if(entry.grammar_points?.length) notes.push(`<b>Grammar:</b> ${esc(entry.grammar_points.join(', '))}`);
-    const source=[entry.source_type,entry.source_detail].filter(Boolean).join(' · ');
     return {
       id:String(entry.id||''),
       targetWord:'',
@@ -570,7 +566,7 @@ function repositoryAnkiEntries(entries){
       notes:notes.join('<br>'),
       sentenceAudio:'',
       image:'',
-      source:esc([source,entry.id?`Repository ${entry.id}`:''].filter(Boolean).join(' · ')),
+      source:'',
       tags:['learning-hub',`repository::${entry.id}`,...(entry.tags||[]).map(repositoryAnkiTag),...(entry.grammar_points||[]).map(x=>`grammar::${repositoryAnkiTag(x)}`)].filter(Boolean)
     };
   });
@@ -599,8 +595,7 @@ function repositoryMigakuCopyText(entry){
     `English\n${entry.english||entry.intent_english||''}`,
     entry.explanation?`Explanation\n${entry.explanation}`:'',
     entry.grammar_points?.length?`Grammar\n${entry.grammar_points.join(', ')}`:'',
-    entry.tags?.length?`Tags\n${entry.tags.join(', ')}`:'',
-    entry.source_type||entry.source_detail?`Source\n${[entry.source_type,entry.source_detail].filter(Boolean).join(' · ')}`:''
+    entry.tags?.length?`Tags\n${entry.tags.join(', ')}`:''
   ].filter(Boolean).join('\n\n');
 }
 
@@ -709,7 +704,7 @@ function repositoryPayload(form){
     japanese:String(data.get('japanese')||'').trim(), japanese_furigana:String(data.get('japanese_furigana')||'').trim(), english:String(data.get('english')||'').trim(), explanation:String(data.get('explanation')||'').trim(),
     grammar_points:repositoryArray(data.get('grammar_points')), tags:repositoryArray(data.get('tags')),
     lesson_number:lesson?Number(lesson):null, book_id:String(data.get('book_id')||'')||null,
-    register:data.get('register')||'neutral', source_type:data.get('source_type')||'personal', source_detail:String(data.get('source_detail')||'').trim(),
+    register:data.get('register')||'neutral',
     error_types:data.getAll('error_types'), notes:String(data.get('notes')||'').trim()
   };
 }
@@ -760,8 +755,8 @@ function normaliseRepositoryImport(raw){
     intent_english:String(row.intent_english||''), original_japanese:String(row.original_japanese||''), original_japanese_furigana:String(row.original_japanese_furigana||''), japanese:String(row.japanese||''), japanese_furigana:String(row.japanese_furigana||''),
     english:String(row.english||''), explanation:String(row.explanation||''), grammar_points:Array.isArray(row.grammar_points)?row.grammar_points.map(item=>typeof item==='object'?String(item?.canonical||''):String(item)).filter(Boolean):[], tags:repositoryArray(row.tags),
     lesson_number:(Number(row.lesson_number)>=11&&Number(row.lesson_number)<=20)?Number(row.lesson_number):null,
-    book_id:row.book_id||null, register:REPOSITORY_REGISTERS.includes(row.register)?row.register:'neutral', source_type:row.source_type||'personal',
-    source_detail:String(row.source_detail||'ChatGPT import'), error_types:repositoryArray(row.error_types).filter(x=>REPOSITORY_ERROR_TYPES.includes(x)), notes:String(row.notes||'')
+    book_id:row.book_id||null, register:REPOSITORY_REGISTERS.includes(row.register)?row.register:'neutral',
+    error_types:repositoryArray(row.error_types).filter(x=>REPOSITORY_ERROR_TYPES.includes(x)), notes:String(row.notes||'')
   })).filter(row=>row.japanese);
 }
 

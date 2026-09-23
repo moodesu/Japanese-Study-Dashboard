@@ -235,7 +235,6 @@ A sentence can include:
 - grammar annotations
 - register
 - tags
-- source information
 - notes
 
 Grammar annotations should link to existing canonical grammar concepts.

@@ -50,7 +50,7 @@ The JSON shown to the user should already be canonical-library compatible. The i
 
 Use these keys in order:
 
-`entry_type`, `japanese`, `japanese_furigana`, `english`, `explanation`, `grammar_points`, `register`, `tags`, `source_type`, `source_detail`, `notes`.
+`entry_type`, `japanese`, `japanese_furigana`, `english`, `explanation`, `grammar_points`, `register`, `tags`, `notes`.
 
 - `entry_type`: `sentence`, or `correction` for my corrected attempt.
 - `japanese`: final plain Japanese without readings or HTML.
@@ -60,8 +60,6 @@ Use these keys in order:
 - `grammar_points`: canonical annotations described below.
 - `register`: `neutral`, `casual`, `polite`, `formal`, or `written`.
 - `tags`: short English topic tags.
-- `source_type`: normally `personal`.
-- `source_detail`: normally `ChatGPT`.
 - `notes`: empty string when unnecessary.
 
 Corrections additionally use `intent_english`, `original_japanese`, `original_japanese_furigana`, and `error_types` as in the established correction workflow.
